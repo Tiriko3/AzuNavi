@@ -1,0 +1,60 @@
+# Baut bei jeder neuen Version (Tag wie v1.0.0) automatisch auf einem Windows-Rechner von GitHub:
+#   - AzuNavi_<version>-setup.exe  (Installer)
+#   - AzuNavi_<version>.exe        (portable, ohne Installation)
+# und hängt beides an das Release. Auslösen: git tag v1.0.0 && git push --tags
+name: Release bauen
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v7
+
+      - name: Node einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust einrichten
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust-Zwischenstand wiederverwenden (schnellere Builds)
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Pakete installieren
+        run: npm ci
+
+      - name: App bauen und Release erstellen
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "AzuNavi ${{ github.ref_name }}"
+          releaseDraft: false
+          prerelease: false
+          uploadPlainBinary: true
+          releaseAssetNamePattern: "[name]_[version][setup][ext]"
+          releaseBody: |
+            ## Welche Datei soll ich nehmen?
+
+            | Datei | Für wen |
+            |---|---|
+            | **AzuNavi_…-setup.exe** | **Installer** – installiert AzuNavi nur für dich (keine Adminrechte), mit Startmenü- und Desktop-Verknüpfung. Für die meisten die beste Wahl. |
+            | **AzuNavi_….exe** (ohne „setup“) | **Portable** – keine Installation, einfach starten, auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+
+            Windows zeigt beim ersten Start evtl. **„Der Computer wurde durch Windows geschützt“** (SmartScreen), weil die App nicht kostenpflichtig signiert ist:
+            **„Weitere Informationen“ → „Trotzdem ausführen“.**
+
+            Ausführliche Anleitung: siehe README im Repository.

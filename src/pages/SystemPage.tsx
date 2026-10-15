@@ -1,0 +1,157 @@
+import { useEffect, useState } from "react";
+import type { MutableRefObject } from "react";
+import { usePrefs } from "../prefs";
+import type { DbStatus } from "../db/db";
+import { inTauri } from "../db/db";
+import { fsapi } from "../fsapi";
+import { createBackup, resetApp, restoreBackup } from "../backup";
+import { ImportDialog } from "../import/ImportDialog";
+import { loadProfile, type Profile } from "../tutorial/profile";
+import { loadActiveTemplate } from "../report/templates";
+import { todayStr } from "../util";
+import { getSetting, setSetting } from "../db/db";
+import { ensureLt } from "../spell/spell";
+import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
+import { CHARACTERS } from "../chars";
+
+export const APP_VERSION = "1.0.0";
+
+export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
+  const { prefs, setPrefs, openTutorial } = usePrefs();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [tplInfo, setTplInfo] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [resetText, setResetText] = useState("");
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [display, setDisplay] = useState<DisplayMode>("fenster");
+  const [charId, setCharId] = useState("eigene");
+  useEffect(() => { getDisplayMode().then(setDisplay); getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
+  const pickDisplay = (m: DisplayMode) => act(async () => { await applyDisplay(m); setDisplay(m); });
+  const pickChar = async (id: string) => { await setSetting("pref_char", id); setCharId(id); setMsg("Figur gewechselt – sie erscheint, wenn du zum Menü zurückgehst."); };
+  const [lt, setLt] = useState<{ on: boolean; dir: string; status: string }>({ on: false, dir: "", status: "" });
+  useEffect(() => { (async () => setLt({ on: (await getSetting("lt_on")) === "1", dir: (await getSetting("lt_dir")) ?? "", status: "" }))(); }, []);
+  const ltTest = () => act(async () => {
+    setLt((x) => ({ ...x, status: "startet … (beim ersten Mal bis zu 30 Sekunden)" }));
+    try { const ok = await ensureLt(true); setLt((x) => ({ ...x, status: ok ? "läuft ✓" : "aus" })); }
+    catch (e) { setLt((x) => ({ ...x, status: String(e).replace(/^Error:\s*/, "") })); }
+  });
+  const ltToggle = async () => { const on = !lt.on; await setSetting("lt_on", on ? "1" : "0"); setLt({ ...lt, on, status: "" }); if (on && lt.dir) ltTest(); };
+  const ltPick = () => act(async () => {
+    const d = await (await fsapi()).pickFolder("LanguageTool-Ordner wählen (darin liegt languagetool-server.jar)");
+    if (!d) return;
+    await setSetting("lt_dir", d); await setSetting("lt_on", "1");
+    setLt({ on: true, dir: d, status: "" }); ltTest();
+  });
+  useEffect(() => {
+    loadProfile().then(setProfile);
+    loadActiveTemplate().then((t) => setTplInfo(t.custom ? `Eigene Vorlage (${t.info.kind === "karten" ? "Tageskarten" : t.info.kind === "platzhalter" ? "mit Platzhaltern" : "Standard-Layout"})` : "Eingebautes IHK-Layout mit Tageskarten")).catch(() => {});
+  }, []);
+  useEffect(() => {
+    escRef.current = () => { if (importOpen) { setImportOpen(false); return true; } return false; };
+    return () => { escRef.current = null; };
+  }, [escRef, importOpen]);
+  const act = async (f: () => Promise<void>) => { setErr(""); setMsg(""); setBusy(true); try { await f(); } catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); } finally { setBusy(false); } };
+
+  const backup = () => act(async () => {
+    const { bytes, rows, files } = await createBackup(APP_VERSION);
+    const path = await (await fsapi()).saveFile(`AzuNavi-Sicherung_${todayStr()}.zip`, bytes, "Sicherung", "zip");
+    if (path) setMsg(`Sicherung gespeichert: ${rows} Einträge und ${files} Dateien. Nimm die Datei zusammen mit der App auf den anderen Laptop.`);
+  });
+  const restore = () => act(async () => {
+    const fs = await fsapi();
+    const path = await fs.pickFile();
+    if (!path) return;
+    const u = await fs.read(path, 500 * 1024 * 1024);
+    const r = await restoreBackup(u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer);
+    setMsg(`Sicherung eingespielt: ${r.rows} Einträge und ${r.files} Dateien. Die App startet neu …`);
+    setTimeout(() => location.reload(), 1600);
+  });
+  const shortcut = () => act(async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const r = await invoke<string>("ensure_desktop_shortcut");
+    setMsg(r === "dev" ? "Im Entwicklungsmodus wird keine Verknüpfung angelegt (nur in der fertigen .exe)." : "Die Verknüpfung „AzuNavi“ liegt auf dem Desktop.");
+  });
+  const reset = () => act(async () => {
+    if (resetText.trim().toUpperCase() !== "ZURÜCKSETZEN") return;
+    await resetApp();
+    setMsg("Alles gelöscht. Die App startet neu …");
+    setTimeout(() => location.reload(), 1200);
+  });
+
+  return (
+    <div className="work sys">
+      <div className="syscols">
+        <section className="paperbox syscard">
+          <h3>Darstellung</h3>
+          <div className="sysrow"><span>Schriftgröße</span>
+            <div className="seg">{[[1, "Normal"], [1.15, "Groß"], [1.3, "Sehr groß"]].map(([v, l]) => (
+              <button key={String(v)} className={"segb" + (prefs.font === v ? " on schule" : "")} onClick={() => setPrefs({ font: v as number })}><span>{l}</span></button>))}</div>
+          </div>
+          <div className="sysrow"><span>Anzeige</span>
+            <div className="seg">{([["fenster", "Fenster"], ["randlos", "Randlos"], ["vollbild", "Vollbild"]] as [DisplayMode, string][]).map(([v, l]) => (
+              <button key={v} className={"segb" + (display === v ? " on schule" : "")} onClick={() => pickDisplay(v)}><span>{l}</span></button>))}</div>
+          </div>
+          <div className="sysrow"><span>Fenstergröße</span>
+            <span className="inl">{[[1280, 720], [1600, 900], [1920, 1080]].map(([w, h]) => (
+              <button key={w} className="mini" onClick={() => act(async () => { await setWindowSize(w, h); setDisplay("fenster"); })}>{w}×{h}</button>))}</span>
+          </div>
+          <p className="small">Im Fenstermodus kannst du das Fenster auch frei ziehen, der Inhalt skaliert mit. F11 schaltet jederzeit Vollbild ein und aus.</p>
+          <div className="sysrow"><span>Figur</span>
+            <select className="field mini-select" value={charId} onChange={(e) => pickChar(e.target.value)}>
+              {CHARACTERS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="sysrow"><span>Animationen</span>
+            <button className={"toggle" + (prefs.anim ? " on" : "")} onClick={() => setPrefs({ anim: !prefs.anim })}><i />{prefs.anim ? "an" : "aus"}</button></div>
+          <div className="sysrow"><span>Maskottchen (Nami, Katze)</span>
+            <button className={"toggle" + (prefs.mascot ? " on" : "")} onClick={() => setPrefs({ mascot: !prefs.mascot })}><i />{prefs.mascot ? "an" : "aus"}</button></div>
+          <div className="sysrow"><span>Ton</span>
+            <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>
+          <div className="sysrow"><span>Tutorial</span><button className="mini hot" onClick={openTutorial}>Tutorial wiederholen</button></div>
+          <h3 className="sysh">Grammatik (LanguageTool)</h3>
+          <div className="sysrow"><span>LanguageTool nutzen</span>
+            <button className={"toggle" + (lt.on ? " on" : "")} onClick={ltToggle}><i />{lt.on ? "an" : "aus"}</button></div>
+          <div className="sysrow"><span className="ltdir" title={lt.dir}>{lt.dir || "kein Ordner gewählt"}</span>
+            <span className="inl"><button className="mini" onClick={ltPick}>Ordner wählen</button>{lt.dir && <button className="mini" onClick={ltTest}>Testen</button>}</span></div>
+          {lt.status && <p className="small ltstat">Status: {lt.status}</p>}
+          <p className="small">Einmalig: Java 17+ installieren (<code>winget install EclipseAdoptium.Temurin.21.JRE</code>) und „LanguageTool Desktop“ von languagetool.org herunterladen und entpacken. Dann hier den Ordner wählen. Ohne LanguageTool prüft die App mit Hunspell (nur Rechtschreibung und einfache Regeln).</p>
+        </section>
+
+        <section className="paperbox syscard">
+          <h3>Daten</h3>
+          <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
+          <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
+          <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
+          {inTauri && <div className="sysrow"><span>Desktop-Verknüpfung</span><button className="mini" disabled={busy} onClick={shortcut}>Anlegen</button></div>}
+          <p className="small">Die Sicherung enthält Notizen, Kontakte, Projekte, Berichtshefte, Einstellungen, Anhänge, Porträts und deine Vorlage. Deine Ordner Arbeit/Schule kopierst du wie gewohnt selbst, auf dem neuen Laptop wählst du sie unter Dateien neu.</p>
+          {msg && <div className="flash">{msg}</div>}
+          {err && <div className="errbox">{err}</div>}
+        </section>
+
+        <section className="paperbox syscard">
+          <h3>Profil &amp; Info</h3>
+          {profile && <dl className="rows">
+            <dt>Name</dt><dd>{[profile.vorname, profile.nachname].filter(Boolean).join(" ") || "–"}</dd>
+            <dt>Beruf</dt><dd>{[profile.beruf, profile.fachrichtung].filter(Boolean).join(" ") || "–"}</dd>
+            <dt>Kammer</dt><dd>{[profile.kammer, profile.kammerOrt].filter(Boolean).join(" ")}</dd>
+            <dt>Betrieb</dt><dd>{profile.betrieb || "–"}</dd>
+            <dt>Vorlage</dt><dd>{tplInfo}</dd>
+            <dt>Datenbank</dt><dd>{db?.ok ? <span className="ok">{db.mode === "sqlite" ? `SQLite, Schema ${db.schemaVersion}` : "Browser-Testmodus"}</span> : <span className="bad">{db?.error}</span>}</dd>
+            <dt>Version</dt><dd>{APP_VERSION}</dd>
+          </dl>}
+          <div className="danger">
+            <b>App zurücksetzen</b>
+            <p className="small">Löscht alle Daten in der App. Deine Ordner und Dateien auf der Festplatte bleiben. Tippe <b>ZURÜCKSETZEN</b> ein:</p>
+            <div className="inl">
+              <input className="field grow" value={resetText} onChange={(e) => setResetText(e.target.value)} />
+              <button className={"btn danger" + (resetText.trim().toUpperCase() === "ZURÜCKSETZEN" ? " arm" : "")} disabled={resetText.trim().toUpperCase() !== "ZURÜCKSETZEN" || busy} onClick={reset}><span>Zurücksetzen</span></button>
+            </div>
+          </div>
+        </section>
+      </div>
+      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+    </div>
+  );
+}
