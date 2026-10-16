@@ -24,27 +24,77 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [msg, setMsg] = useState("");
   const [charId, setCharId] = useState("eigene");
   const [spot, setSpot] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [place, setPlace] = useState<"ru" | "lu" | "ro" | "lo">("ru"); // wo Karte und Figur stehen
+  const [done, setDone] = useState(false);   // Aufgabe erledigt?
   useEffect(() => { getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
   useEffect(() => { loadProfile().then(setP); listQualifications().then((q) => setQualCount(q.length)); }, []);
 
   useEffect(() => {
-    if (step !== "tour") { onShowPage?.(undefined as never); setSpot(null); return; }
+    if (step !== "tour") { onShowPage?.(undefined as never); setSpot(null); setDone(false); return; }
     const t = TOUR[tourI];
     onShowPage?.(t.page ?? null);
-    setSpot(null);
+    setSpot(null); setDone(!t.doneWhen && !t.doneOnClick);
+    document.documentElement.removeAttribute("data-turned");
+    let stop = false;
     const find = (tries = 0) => {
-      if (!t.target) return;
+      if (stop || !t.target) return;
       const el = document.querySelector(t.target) as HTMLElement | null;
       const st = document.getElementById("stage");
-      if (!el || !st) { if (tries < 12) setTimeout(() => find(tries + 1), 200); return; }
+      if (!el || !st) { if (tries < 14) setTimeout(() => find(tries + 1), 200); return; }
       const r = el.getBoundingClientRect(), s2 = st.getBoundingClientRect();
       const k = s2.width / 1600;
-      setSpot({ x: (r.left - s2.left) / k, y: (r.top - s2.top) / k, w: r.width / k, h: r.height / k });
+      const box = { x: (r.left - s2.left) / k, y: (r.top - s2.top) / k, w: r.width / k, h: r.height / k };
+      setSpot(box);
+      // Karte dorthin stellen, wo sie den markierten Bereich NICHT verdeckt
+      const CW = 640, CH = 460, FW = 300;            // Karte und Figur daneben
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      const opts: ("ru" | "lu" | "ro" | "lo")[] = ["ru", "lu", "ro", "lo"];
+      const rect = (p: string) => ({
+        x: p.startsWith("l") ? 20 : 1600 - CW - FW - 20, y: p.endsWith("u") ? 900 - CH - 20 : 20,
+        w: CW + FW, h: CH,
+      });
+      const overlap = (p: string) => {
+        const a = rect(p);
+        const ox = Math.max(0, Math.min(a.x + a.w, box.x + box.w) - Math.max(a.x, box.x));
+        const oy = Math.max(0, Math.min(a.y + a.h, box.y + box.h) - Math.max(a.y, box.y));
+        return ox * oy + (p.startsWith("l") === cx < 800 ? 1 : 0) * 0 + (p.endsWith("u") === cy < 450 ? 600 : 0);
+      };
+      setPlace(opts.reduce((best, p) => (overlap(p) < overlap(best) ? p : best), "ru"));
     };
-    const id = setTimeout(() => find(), 520);
-    return () => clearTimeout(id);
+    const id = setTimeout(() => find(), 480);
+    const reposition = window.setInterval(() => find(), 1200);
+    return () => { stop = true; clearTimeout(id); window.clearInterval(reposition); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, tourI]);
+
+  /* ---------- Aufgabe erledigt? Dann von selbst weiter ---------- */
+  useEffect(() => {
+    if (step !== "tour" || done) return;
+    const t = TOUR[tourI];
+    if (t.doneWhen) {
+      const iv = window.setInterval(() => { if (document.querySelector(t.doneWhen!)) { setDone(true); window.clearInterval(iv); } }, 350);
+      return () => window.clearInterval(iv);
+    }
+    if (t.doneOnClick) {
+      const onClick = (e: MouseEvent) => {
+        if ((e.target as Element)?.closest?.(".tutcard")) return; // Klicks auf die Karte zählen nicht
+        setDone(true);
+      };
+      document.addEventListener("click", onClick, true);
+      return () => document.removeEventListener("click", onClick, true);
+    }
+    return;
+  }, [step, tourI, done]);
+
+  // kurz warten, damit man die eigene Aktion noch sieht, dann weiter
+  useEffect(() => {
+    if (step !== "tour" || !done) return;
+    const t = TOUR[tourI];
+    if (!t.doneWhen && !t.doneOnClick) return;
+    const id = setTimeout(() => { if (tourI < TOUR.length - 1) setTourI((i) => i + 1); else go(1); }, 1100);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, step, tourI]);
 
   const go = (d: number) => { setMsg(""); setStep(ORDER[Math.max(0, Math.min(ORDER.length - 1, ORDER.indexOf(step) + d))]); };
   const next = async () => {
@@ -59,9 +109,14 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     }
     if (step === "quali" && qualText.trim()) setQualCount(await replaceQualifications(qualText.split("\n")));
     if (step === "tour" && tourI < TOUR.length - 1) { setTourI(tourI + 1); return; }
+    if (step === "import") setTourI(0);
     go(1);
   };
-  const back = () => { if (step === "tour" && tourI > 0) { setTourI(tourI - 1); return; } go(-1); };
+  const back = () => {
+    if (step === "tour" && tourI > 0) { setTourI(tourI - 1); return; }   // ein Rundgang-Schritt zurück
+    if (step === "tour") { setTourI(0); go(-1); return; }                // aus dem Rundgang zurück in die Einrichtung
+    go(-1);
+  };
 
   const pickTemplate = async () => {
     const fs = await fsapi();
@@ -86,7 +141,7 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const idx = ORDER.indexOf(step);
 
   return (
-    <div className={"tut" + (step === "tour" ? " showpage" : "")} role="dialog" aria-label="Tutorial">
+    <div className={"tut" + (step === "tour" ? " showpage pl-" + place : "")} role="dialog" aria-label="Tutorial">
       {spot && step === "tour" && (
         <>
           <div className="tutspot" style={{ left: spot.x - 10, top: spot.y - 10, width: spot.w + 20, height: spot.h + 20, ["--gc" as string]: guide.accent }} />
@@ -165,7 +220,12 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           </>}
           {step === "tour" && <>
             <h2>{TOUR[tourI].title} <small>{tourI + 1} / {TOUR.length}</small></h2>
-            <p>{TOUR[tourI].text}</p>
+            <p dangerouslySetInnerHTML={{ __html: TOUR[tourI].text }} />
+            {TOUR[tourI].todo && (
+              <p className={"tuttodo" + (done ? " ok" : "")}>
+                <b>{done ? "✓ Super!" : "Du bist dran:"}</b> {done ? "Weiter geht's …" : TOUR[tourI].todo}
+              </p>
+            )}
             <ul className="tuttips">{TOUR[tourI].tips.map((t) => <li key={t}>{t}</li>)}</ul>
           </>}
           {step === "fertig" && <>
@@ -179,7 +239,9 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           {idx > 0 && step !== "fertig" && <button className="btn ghost" onClick={back}><span>Zurück</span></button>}
           {step === "fertig"
             ? <button className="btn" onClick={onDone}><span>Los geht's</span></button>
-            : <button className="btn" onClick={next}><span>{step === "start" ? "Starten" : (step === "import" || step === "vorlage") && !tpl?.info ? "Weiter / überspringen" : "Weiter"}</span></button>}
+            : <button className="btn" onClick={next}><span>{step === "start" ? "Starten"
+                : step === "tour" && TOUR[tourI].todo && !done ? "Überspringen"
+                : (step === "import" || step === "vorlage") && !tpl?.info ? "Weiter / überspringen" : "Weiter"}</span></button>}
         </div>
       </div>
     </div>

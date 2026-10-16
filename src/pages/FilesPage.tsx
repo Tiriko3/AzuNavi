@@ -396,7 +396,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
           <p>Die App zeigt deine <b>echten Ordner</b>. Alles, was du in „Arbeit“ und „Schule“ ablegst, im Explorer oder hier, erscheint automatisch. Du musst nichts nachbauen.</p>
           <p className="small">Aktuell: Arbeit = {roots?.arbeit ?? "nicht gesetzt"} · Schule = {roots?.schule ?? "nicht gesetzt"}</p>
           <div className="actions static">
-            <button className="btn" onClick={chooseMainFolder}><span>Hauptordner wählen</span></button>
+            <button className="btn fpickmain" onClick={chooseMainFolder}><span>Hauptordner wählen</span></button>
             <button className="mini" onClick={() => chooseSingle("arbeit")}>Arbeit-Ordner einzeln wählen</button>
             <button className="mini" onClick={() => chooseSingle("schule")}>Schule-Ordner einzeln wählen</button>
             {roots?.arbeit && roots?.schule && <button className="mini" onClick={() => setModal(null)}>Schließen</button>}
@@ -454,7 +454,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
 
       {/* ---------- Assistent und Rückfragen ---------- */}
       {undoAsk && roots && (
-        <DialogBox name="Eva" pose="denkt" onClose={() => setUndoAsk(null)}
+        <DialogBox name="Eda" pose="denkt" onClose={() => setUndoAsk(null)}
           text={`Am alten Ort liegt inzwischen schon etwas mit dem Namen „${baseName(undoAsk.m.from_path)}“. Ich überschreibe nie etwas. Soll ich „${undoAsk.m.name}“ als „${undoAsk.freeName}“ zurücklegen?`}
           options={[
             { label: `Als „${undoAsk.freeName}“ zurücklegen`, primary: true, onPick: () => doUndo(undoAsk.m, undoAsk.freeName) },
@@ -462,7 +462,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
           ]} />
       )}
       {drop && roots && !assistant && (
-        <DialogBox name="Eva" pose="gruss" onClose={() => setDrop(null)}
+        <DialogBox name="Eda" pose="gruss" onClose={() => setDrop(null)}
           text={`Du hast mir ${drop.length === 1 ? `„${baseName(drop[0])}“` : `${drop.length} Elemente`} gegeben. Was soll ich damit machen?`}
           options={[
             ...(current ? [{ label: `Hierher nach ${prettyFolder(current, roots)}`, primary: true, onPick: () => { setAssistant({ items: drop, fixedDest: current }); setDrop(null); } }] : []),

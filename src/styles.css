@@ -808,16 +808,36 @@ select.field{padding-right:6px}
 .pjnode.from b{outline:3px dashed #19e3b1;outline-offset:4px}
 
 /* Tutorial: Seite im Hintergrund zeigen und auf Stellen zeigen */
-.tut.showpage{background:none;align-items:flex-end;padding:0 40px 30px 0;pointer-events:none}
+.tut.showpage{background:none;padding:0;display:block;pointer-events:none}
 .tut.showpage > *{pointer-events:auto}
 .tut.showpage > .tutspot,.tut.showpage > .tutarrow{pointer-events:none}
-.tut.showpage .tutcard{width:620px;max-height:430px}
-.tut.showpage .tutnami{height:330px;left:auto;right:650px;bottom:16px}
+/* Karte und Figur stehen in einer der vier Ecken – dort, wo sie nichts verdecken */
+.tut.showpage .tutcard{position:absolute;width:600px;max-height:400px;z-index:86}
+.tut.showpage .tuttips{display:none}            /* im Rundgang: nur Text und Aufgabe, Tipps gibt es über F1 */
+.tut.showpage .tutbody h2{font-size:28px;margin-bottom:8px}
+.tut.showpage .tutbody p{font-size:calc(15.5px * var(--fs));margin-bottom:9px}
+.tut.showpage .tutnami{position:absolute;height:290px;z-index:85;left:auto;right:auto;bottom:auto;
+  filter:drop-shadow(0 0 26px rgba(61,184,255,.95)) drop-shadow(0 0 12px rgba(255,255,255,.5)) brightness(1.12)}
+.tut.showpage.pl-ru .tutcard{right:28px;bottom:24px}
+.tut.showpage.pl-ru .tutnami{right:620px;bottom:10px}
+.tut.showpage.pl-lu .tutcard{left:28px;bottom:24px}
+.tut.showpage.pl-lu .tutnami{left:620px;bottom:10px}
+.tut.showpage.pl-ro .tutcard{right:28px;top:24px}
+.tut.showpage.pl-ro .tutnami{right:620px;top:70px}
+.tut.showpage.pl-lo .tutcard{left:28px;top:24px}
+.tut.showpage.pl-lo .tutnami{left:620px;top:70px}
 .tutnami.g-caramella{height:300px}
-.tutnami.g-eva{height:440px}
-.tut.showpage .tutnami.g-caramella{height:250px;right:640px}
-.tut.showpage .tutnami.g-eva{height:420px;right:620px}
-.tutspot{position:absolute;z-index:82;border:4px solid var(--gc);border-radius:6px;box-shadow:0 0 0 9999px rgba(3,11,62,.62),0 0 22px var(--gc);pointer-events:none;animation:spotIn .35s cubic-bezier(.2,1.4,.4,1)}
+.tutnami.g-eda{height:440px}
+.tut.showpage .tutnami.g-caramella{height:230px;filter:drop-shadow(0 0 26px rgba(108,92,255,.95)) drop-shadow(0 0 12px rgba(255,255,255,.5)) brightness(1.12)}
+.tut.showpage .tutnami.g-eda{height:330px;filter:drop-shadow(0 0 26px rgba(25,227,177,.95)) drop-shadow(0 0 12px rgba(255,255,255,.5)) brightness(1.12)}
+/* markierte Stelle: Rest der Seite abdunkeln, Stelle hell lassen */
+.tutspot{position:absolute;z-index:82;border:4px solid var(--gc);border-radius:6px;box-shadow:0 0 0 9999px rgba(3,11,62,.6),0 0 22px var(--gc);pointer-events:none;animation:spotIn .35s cubic-bezier(.2,1.4,.4,1)}
 @keyframes spotIn{from{transform:scale(1.15);opacity:0}to{transform:none;opacity:1}}
 .tutarrow{position:absolute;z-index:83;width:0;height:0;margin-left:-14px;border:14px solid transparent;border-bottom-color:var(--gc);filter:drop-shadow(0 0 8px var(--gc));animation:arrowBob .9s ease-in-out infinite alternate;pointer-events:none}
 @keyframes arrowBob{from{transform:translateY(0)}to{transform:translateY(9px)}}
+/* Aufgabe in der Karte */
+.tuttodo{background:#eef3ff;border-left:5px solid var(--hot);padding:9px 14px;margin:0 0 10px !important;transition:background .3s}
+.tuttodo b{color:var(--hot)}
+.tuttodo.ok{background:#effaf3;border-left-color:#0a8a3a;animation:todoOk .4s cubic-bezier(.2,1.5,.4,1)}
+.tuttodo.ok b{color:#0a8a3a}
+@keyframes todoOk{0%{transform:scale(1)}45%{transform:scale(1.035)}100%{transform:scale(1)}}

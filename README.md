@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.1.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.1.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.2.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.2.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -67,7 +67,7 @@ Beim ersten Start begrüßt dich **Nami**, ein kleiner Wassergeist, und führt d
 3. **Dein Berichtsheft** – lade eine Kopie deines Berichtshefts als Word-Datei hoch, dann erzeugt AzuNavi deine Wochenberichte im selben Format (oder nutze das eingebaute IHK-Layout)
 4. **Deine Qualifikationen** – für Fachinformatiker/innen ist die IHK-Liste schon drin, für andere Berufe kannst du deine eigene Liste einfügen
 5. **Alte Berichtshefte mitnehmen** – bisherige Berichtshefte (Word oder PDF) werden zu Notizen
-6. **Rundgang** durch alle Bereiche – die App zeigt dir dabei direkt, wo was liegt. Nami führt durch die App, Eva erklärt die Dateien und Caramella das Berichtsheft.
+6. **Rundgang** durch alle Bereiche – die App zeigt dir, wo was liegt, und du probierst es gleich selbst aus: Sobald du die kleine Aufgabe erledigt hast, geht es von selbst weiter. Nami führt durch die App, Eda erklärt die Dateien und Caramella das Berichtsheft.
 
 Alles lässt sich überspringen und später unter **System → Tutorial wiederholen** nachholen.
 

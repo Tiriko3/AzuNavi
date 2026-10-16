@@ -106,6 +106,7 @@ export default function App() {
 
   /* ---------- Aktionen ---------- */
   const move = useCallback((next: number) => {
+    document.documentElement.setAttribute("data-turned", "1"); // fürs Tutorial: das Rad wurde gedreht
     setSel((cur) => {
       prevSel.current = cur;
       const n = ITEMS.length;
@@ -167,7 +168,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "F11") { e.preventDefault(); toggleFullscreen().catch(() => {}); return; }
       if (e.key === "F1") { e.preventDefault(); setHelp((h) => !h); return; }
-      if (document.querySelector(".tut")) return; // Tutorial hat die Tastatur
+      if (document.querySelector(".tut:not(.showpage)")) return; // nur die Einrichtung blockiert die Tastatur
       if (document.querySelector(".helppanel") && e.key === "Escape") { setHelp(false); return; }
       const { sel, scope, page } = st.current;
       // In Eingabefeldern gehören Tasten dem Feld (Tippen, Tab zwischen Feldern, ...)
@@ -202,7 +203,7 @@ export default function App() {
       }
     };
     const onWheel = (e: WheelEvent) => {
-      if (document.querySelector(".tut")) return;
+      if (document.querySelector(".tut:not(.showpage)")) return;
       const { sel, page } = st.current;
       if (page) return;
       // Mausrad nur, wenn der Zeiger wirklich über den Menüpunkten ist
