@@ -170,7 +170,7 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
-    if (t.closest(".ptools") || t.closest(".pedit") || t.closest(".pact")) return;
+    if (t.closest(".ptools") || t.closest(".pedit") || t.closest(".pact") || t.closest(".pempty")) return;
     const card = t.closest(".pcard") as HTMLElement | null;
     if (card) {
       const id = Number(card.dataset.id);
