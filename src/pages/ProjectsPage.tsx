@@ -10,6 +10,7 @@ import { Avatar } from "../Avatar";
 import { torn } from "../util";
 import type { ScopeId } from "../items";
 import { ProjectView } from "./ProjectView";
+import { ProjectNet } from "./ProjectNet";
 
 const CW = 300, CH = 214;              // Größe eines Zettels (Pinnwand-Koordinaten)
 const ZMIN = 0.3, ZMAX = 1.6;
@@ -47,6 +48,8 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const [connectFrom, setConnectFrom] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);   // Projektansicht (Etappe 6)
+  const [mode, setMode] = useState<"pinnwand" | "netz">("netz"); // Übersicht: Pinnwand oder Netzplan (Etappe 10)
+  const [zooming, setZooming] = useState(false);                 // kurzer Hineinzoom-Effekt
   const [version, setVersion] = useState(0);
   const viewEsc = useRef<(() => boolean) | null>(null);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -92,7 +95,7 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   useEffect(() => {
     escRef.current = () => {
       if (draft) { setDraft(null); setConfirmDel(false); return true; }
-      if (openId !== null) { if (viewEsc.current && viewEsc.current()) return true; setOpenId(null); return true; }
+      if (openId !== null) { if (viewEsc.current && viewEsc.current()) return true; setOpenId(null); setZooming(false); return true; }
       if (connectMode) { setConnectMode(false); setConnectFrom(null); return true; }
       if (selected !== null) { setSelected(null); return true; }
       return false;
@@ -275,6 +278,13 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const sel = selected !== null ? byId.get(selected) : undefined;
 
   /* ---------- Darstellung ---------- */
+  /** Aus der Übersicht in ein Projekt hineinzoomen */
+  const zoomInto = (id: number) => {
+    setZooming(true);
+    setTimeout(() => { setOpenId(id); setZooming(false); }, 260);
+  };
+  const switchMode = (m: "pinnwand" | "netz") => { setMode(m); setSetting("board_mode", m); };
+
   return (
     <div className="work board">
       {openId !== null && byId.get(openId) && (
@@ -282,7 +292,39 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
           escRef={viewEsc} onBack={() => setOpenId(null)} onEdit={openEdit} onOpen={(id) => setOpenId(id)}
           onChanged={async () => { await reload(); }} />
       )}
-      <div ref={vpRef} className={"bvp" + (connectMode ? " connecting" : "")} style={openId !== null ? { display: "none" } : undefined}
+      {openId === null && (
+        <div className="bmode">
+          {mode === "netz" && <>
+            <button className="btn" onClick={openNew}><span>+ Projekt</span></button>
+            <button className={"mini" + (connectMode ? " hot" : "")} onClick={() => { setConnectMode(!connectMode); setConnectFrom(null); }}>
+              {connectMode ? "Fäden: an" : "Faden spannen"}</button>
+          </>}
+          <span className="pvtabs">
+            <button className={"pvtab" + (mode === "netz" ? " on" : "")} onClick={() => switchMode("netz")}><span>Netzplan</span></button>
+            <button className={"pvtab" + (mode === "pinnwand" ? " on" : "")} onClick={() => switchMode("pinnwand")}><span>Pinnwand</span></button>
+          </span>
+        </div>
+      )}
+      {openId === null && mode === "netz" && (
+        <div className={"pjnetwrap" + (zooming ? " zoomin" : "")}>
+          <ProjectNet projects={shown} threads={shownThreads} persons={persons} scope={scope}
+            onOpen={zoomInto} onEdit={openEdit} flash={flash}
+            connectMode={connectMode} connectFrom={connectFrom}
+            onConnect={async (id) => {
+              if (connectFrom === null) { setConnectFrom(id); return; }
+              if (connectFrom !== id) {
+                const exists = threads.some(([a, b]) => a === Math.min(id, connectFrom) && b === Math.max(id, connectFrom));
+                try {
+                  if (exists) { await disconnect(connectFrom, id); flash("Faden gelöst"); }
+                  else { await connect(connectFrom, id); flash("Faden gespannt"); }
+                  setThreads(await listThreads());
+                } catch (e) { setErr(String(e)); }
+              }
+              setConnectFrom(null);
+            }} />
+        </div>
+      )}
+      <div ref={vpRef} className={"bvp" + (connectMode ? " connecting" : "")} style={openId !== null || mode === "netz" ? { display: "none" } : undefined}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }}>
         <div className={"bworld" + (anim ? " anim" : "")} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
           <svg className="threads" width="1" height="1">

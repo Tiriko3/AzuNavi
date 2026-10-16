@@ -5,14 +5,14 @@ import { listQualifications, replaceQualifications } from "../db/repo";
 import { baseName, fsapi } from "../fsapi";
 import { ImportDialog } from "../import/ImportDialog";
 import { usePrefs } from "../prefs";
-import { NAMI, TOUR, type Pose } from "./tour";
+import { GUIDES, NAMI, TOUR, type GuideId, type Pose } from "./tour";
 import { CHARACTERS } from "../chars";
 import { getSetting, setSetting } from "../db/db";
 
 type Step = "start" | "profil" | "figur" | "vorlage" | "quali" | "import" | "tour" | "fertig";
 const ORDER: Step[] = ["start", "profil", "figur", "vorlage", "quali", "import", "tour", "fertig"];
 
-export function Tutorial({ onDone }: { onDone: () => void }) {
+export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPage?: (page: string | null) => void }) {
   const { prefs } = usePrefs();
   const [step, setStep] = useState<Step>("start");
   const [tourI, setTourI] = useState(0);
@@ -23,8 +23,28 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   const [qualCount, setQualCount] = useState(0);
   const [msg, setMsg] = useState("");
   const [charId, setCharId] = useState("eigene");
+  const [spot, setSpot] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   useEffect(() => { getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
   useEffect(() => { loadProfile().then(setP); listQualifications().then((q) => setQualCount(q.length)); }, []);
+
+  useEffect(() => {
+    if (step !== "tour") { onShowPage?.(undefined as never); setSpot(null); return; }
+    const t = TOUR[tourI];
+    onShowPage?.(t.page ?? null);
+    setSpot(null);
+    const find = (tries = 0) => {
+      if (!t.target) return;
+      const el = document.querySelector(t.target) as HTMLElement | null;
+      const st = document.getElementById("stage");
+      if (!el || !st) { if (tries < 12) setTimeout(() => find(tries + 1), 200); return; }
+      const r = el.getBoundingClientRect(), s2 = st.getBoundingClientRect();
+      const k = s2.width / 1600;
+      setSpot({ x: (r.left - s2.left) / k, y: (r.top - s2.top) / k, w: r.width / k, h: r.height / k });
+    };
+    const id = setTimeout(() => find(), 520);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, tourI]);
 
   const go = (d: number) => { setMsg(""); setStep(ORDER[Math.max(0, Math.min(ORDER.length - 1, ORDER.indexOf(step) + d))]); };
   const next = async () => {
@@ -57,6 +77,8 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     } catch (e) { setTpl({ name, err: String(e).replace(/^Error:\s*/, "") }); }
   };
 
+  const guideId: GuideId = step === "tour" ? (TOUR[tourI].guide ?? "nami") : "nami";
+  const guide = GUIDES[guideId];
   const pose: Pose = step === "start" ? "gruss" : step === "profil" ? "erklaert" : step === "figur" ? "jubelt" : step === "vorlage" ? "denkt" : step === "quali" ? "schreibt" : step === "import" ? "pinnt" : step === "tour" ? TOUR[tourI].pose : "jubelt";
   const field = (k: keyof Profile, label: string, ph = "", list?: string) => (
     <label className="lab">{label}<input className="field" value={p[k]} placeholder={ph} list={list} onChange={(e) => setP({ ...p, [k]: e.target.value })} /></label>
@@ -64,11 +86,17 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   const idx = ORDER.indexOf(step);
 
   return (
-    <div className="tut" role="dialog" aria-label="Tutorial">
-      {prefs.mascot && <img key={pose + step + tourI} className="tutnami" src={NAMI[pose]} alt="" draggable={false} />}
+    <div className={"tut" + (step === "tour" ? " showpage" : "")} role="dialog" aria-label="Tutorial">
+      {spot && step === "tour" && (
+        <>
+          <div className="tutspot" style={{ left: spot.x - 10, top: spot.y - 10, width: spot.w + 20, height: spot.h + 20, ["--gc" as string]: guide.accent }} />
+          <div className="tutarrow" style={{ left: spot.x + spot.w / 2, top: spot.y + spot.h + 14, ["--gc" as string]: guide.accent }} />
+        </>
+      )}
+      {prefs.mascot && <img key={guideId + pose + step + tourI} className={"tutnami g-" + guideId} src={guide.poses[pose] ?? NAMI[pose]} alt="" draggable={false} />}
       <div className="tutcard paperbox">
         <div className="tuthead">
-          <span className="tutname">Nami</span>
+          <span className="tutname" style={{ background: guide.accent }}>{guide.name}</span>
           <div className="tutdots">{ORDER.map((s, i) => <i key={s} className={i < idx ? "done" : i === idx ? "on" : ""} />)}</div>
           <button className="mini" onClick={onDone}>Tutorial überspringen</button>
         </div>

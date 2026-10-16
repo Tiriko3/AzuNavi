@@ -80,7 +80,7 @@ export async function updateProject(id: number, p: ProjectInput) {
 /** Projekt entfernen: Notizen, Dateien und Ordner bleiben, nur die Verknüpfungen fallen weg */
 export async function deleteProject(id: number) {
   await execute("DELETE FROM project_tasks WHERE project_id = $1", [id]);
-  for (const t of ["mindmap_nodes", "mindmap_edges", "mindmap_pos"]) await execute(`DELETE FROM ${t} WHERE project_id = $1`, [id]);
+  for (const t of ["mindmap_nodes", "mindmap_edges", "mindmap_pos", "board_pos"]) await execute(`DELETE FROM ${t} WHERE project_id = $1`, [id]);
   await execute("DELETE FROM links WHERE (a_type = 'project' AND a_id = $1) OR (b_type = 'project' AND b_id = $1)", [id]);
   await execute("DELETE FROM projects WHERE id = $1", [id]);
 }
@@ -126,3 +126,17 @@ export async function moveTask(projectId: number, id: number, dir: -1 | 1) {
   [open[i], open[j]] = [open[j], open[i]];
   for (let k = 0; k < open.length; k++) await execute("UPDATE project_tasks SET sort = $1 WHERE id = $2", [k + 1, open[k].id]);
 }
+
+/* ---------- Plätze in der großen Projekt-Übersicht (Netzplan) ---------- */
+export async function listBoardPos(): Promise<Map<number, { x: number; y: number }>> {
+  const r = await select<{ project_id: number; x: number; y: number }>("SELECT project_id, x, y FROM board_pos");
+  return new Map(r.map((p) => [p.project_id, { x: Number(p.x), y: Number(p.y) }]));
+}
+export async function saveBoardPos(list: { id: number; x: number; y: number }[]) {
+  for (const p of list)
+    await execute(
+      `INSERT INTO board_pos (project_id, x, y) VALUES ($1, $2, $3)
+       ON CONFLICT(project_id) DO UPDATE SET x = excluded.x, y = excluded.y`,
+      [p.id, Math.round(p.x), Math.round(p.y)]);
+}
+export const clearBoardPos = () => execute("DELETE FROM board_pos");

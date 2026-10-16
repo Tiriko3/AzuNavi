@@ -13,7 +13,7 @@ export type Pose = "gruss" | "denkt" | "fertig";
 const POSE_IMG: Record<Pose, string> = { gruss: profGruss, denkt: profDenkt, fertig: profFertig };
 
 const SCOPE_LABEL: Record<Scope, string> = { arbeit: "Arbeit", schule: "Schule" };
-export const ACCENT = "#19e3b1"; // Akzentfarbe des Ordner-Assistenten
+export const ACCENT = "#19e3b1"; // Akzentfarbe des Evaen
 
 export interface Opt { label: string; onPick: () => void; primary?: boolean; hint?: string }
 
@@ -80,7 +80,7 @@ const tok = (s: string) => s.toLowerCase().replace(/\.[^.]+$/, "").split(/[^a-z0
 type Step = "start" | "scope" | "folder" | "project" | "confirm" | "conflict" | "error" | "done";
 interface Result { name: string; to?: string; mode?: string; skipped?: boolean }
 
-/* ---------- Ordner-Assistent ---------- */
+/* ---------- Eva ---------- */
 export function Assistant({ items, roots, trees, projects, folderLinks, defaultScope, fixedDest, onClose }: {
   items: string[]; roots: Roots; trees: Partial<Record<Scope, DirNode>>; projects: Project[];
   folderLinks: { path: string; projectId: number }[]; defaultScope: Scope; fixedDest?: string | null;
@@ -170,12 +170,12 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
   const what = isDir ? "den Ordner" : "die Datei";
   const pre = note ? note + " " : "";
 
-  if (step === "start") return <DialogBox name="Ordner-Assistent" pose={note ? "fertig" : "gruss"} text={`${pre}Moment, ich schaue mir „${name}“ an …`} options={[]} onClose={close} />;
+  if (step === "start") return <DialogBox name="Eva" pose={note ? "fertig" : "gruss"} text={`${pre}Moment, ich schaue mir „${name}“ an …`} options={[]} onClose={close} />;
 
   if (step === "scope") {
     const rootMissing = (s: Scope) => !roots[s];
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose={note ? "fertig" : "gruss"}
+      <DialogBox name="Eva" onClose={close} pose={note ? "fertig" : "gruss"}
         text={`${pre}Ich habe ${what} „${name}“${count}. Gehört das zu Arbeit oder Schule?`}
         options={[
           ...(["arbeit", "schule"] as Scope[]).filter((s) => !rootMissing(s)).map((s) => ({
@@ -192,7 +192,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
     const shown = allFolders.filter((f) => !filter.trim() || f.name.toLowerCase().includes(filter.trim().toLowerCase()));
     const pick = (p: string) => { setFolder(p); setStep("project"); };
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose="denkt"
+      <DialogBox name="Eva" onClose={close} pose="denkt"
         text={folderSuggestions.length ? `Wohin damit in ${SCOPE_LABEL[scope]}? Das hier passt vermutlich:` : `Wohin damit in ${SCOPE_LABEL[scope]}? Such dir unten einen Ordner aus.`}
         options={[
           ...folderSuggestions.map((p, i) => ({ label: prettyFolder(p, roots), primary: i === 0, hint: i === 0 ? "Vorschlag" : undefined, onPick: () => pick(p) })),
@@ -218,7 +218,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
     const others = projects.filter((p) => p.id !== projectSuggestion?.id);
     const choose = (pid: number | null) => { setProjectId(pid); setStep("confirm"); };
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose="denkt"
+      <DialogBox name="Eva" onClose={close} pose="denkt"
         text={isDir ? `Soll der ganze Ordner zu einem Projekt gehören?` : `Gehört „${name}“ zu einem Projekt?`}
         options={[
           ...(projectSuggestion ? [{ label: projectSuggestion.name, primary: true, hint: "Vorschlag", onPick: () => choose(projectSuggestion.id) }] : []),
@@ -240,7 +240,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
   if (step === "confirm") {
     const proj = projects.find((p) => p.id === projectId);
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose="denkt"
+      <DialogBox name="Eva" onClose={close} pose="denkt"
         text={`Ich verschiebe ${what} „${name}“ nach ${prettyFolder(folder!, roots)}${proj ? ` und verknüpfe es mit „${proj.name}“` : ""}. Passt das?`}
         options={[
           { label: "Verschieben", primary: true, onPick: () => run(folder!, projectId) },
@@ -252,7 +252,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
 
   if (step === "conflict") {
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose="denkt"
+      <DialogBox name="Eva" onClose={close} pose="denkt"
         text={`In ${prettyFolder(folder!, roots)} gibt es schon etwas mit dem Namen „${name}“. Ich überschreibe nie etwas. Soll ich es als „${freeName}“ ablegen?`}
         options={[
           { label: `Als „${freeName}“ ablegen`, primary: true, onPick: () => run(folder!, fixedDest ? undefined : projectId, freeName) },
@@ -264,7 +264,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
 
   if (step === "error") {
     return (
-      <DialogBox name="Ordner-Assistent" onClose={close} pose="denkt"
+      <DialogBox name="Eva" onClose={close} pose="denkt"
         text={`Das hat nicht geklappt: ${error}`}
         options={[
           { label: "Überspringen", primary: true, onPick: () => nextItem({ name, skipped: true }) },
@@ -278,7 +278,7 @@ export function Assistant({ items, roots, trees, projects, folderLinks, defaultS
   const skipped = results.length - moved;
   const copied = results.filter((r) => r.mode === "copied").length;
   return (
-    <DialogBox name="Ordner-Assistent" onClose={close} pose="fertig"
+    <DialogBox name="Eva" onClose={close} pose="fertig"
       text={`${pre}Fertig! ${moved} ${moved === 1 ? "Element" : "Elemente"} einsortiert${skipped ? `, ${skipped} übersprungen` : ""}${copied ? `, ${copied} davon nur kopiert (anderes Laufwerk)` : ""}. Alles steht im Verlauf und lässt sich rückgängig machen.`}
       options={[
         ...(lastFolder ? [{ label: "Zum Ordner springen", primary: true, onPick: close }] : []),

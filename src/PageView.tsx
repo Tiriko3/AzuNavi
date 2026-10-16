@@ -20,12 +20,13 @@ interface Props {
   onToggleMute: () => void;
   onBack: () => void;
   onScopeChange: (s: ScopeId) => void;
+  onHelp: () => void;
   escRef: MutableRefObject<(() => boolean) | null>;
 }
 
 // Innenansicht eines Menüpunkts. In Etappe 1 sind alle Seiten noch leer,
 // nur "System" zeigt schon Ton und Datenbank-Status.
-export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onScopeChange, escRef }: Props) {
+export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onScopeChange, onHelp, escRef }: Props) {
   const item = ITEMS.find((i) => i.id === pageId)!;
   const scopeLabel = SCOPES.find((s) => s.id === scope)!.label;
   const sky = useMemo(() => ({ top: skylinePath(3), bottom: skylinePath(9) }), []);
@@ -53,6 +54,7 @@ export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onSco
               <span>{sc.label}</span>
             </button>
           ))}
+          <button className="helpbtn" aria-label="Hilfe (F1)" title="Hilfe (F1)" onClick={onHelp}>?</button>
         </div>
       )}
       {isWork ? (

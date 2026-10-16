@@ -54,7 +54,7 @@ export default function App() {
       const p = await loadPrefs();
       setPrefsState(p); applyPrefs(p);
       setCharId((await getSet("pref_char")) ?? "eigene");
-      getDisplayMode().then((m) => { if (m !== "fenster") applyDisplay(m).catch(() => {}); });
+      getDisplayMode().then((m) => applyDisplay(m).catch(() => {}));
       if (status.ok && !p.tutorialDone) setTutorial(true);   // erster Start: Tutorial mit Registrierung
       setReady(true);
       // Portable App: Verknüpfung auf dem Desktop anlegen bzw. nach einem Umzug aktualisieren
@@ -261,7 +261,7 @@ export default function App() {
         </g>
         <path d={`M ${WHEEL.cx + WHEEL.r - 30} ${WHEEL.cy} l 22 -12 v 24 z`} className="wpointer" />
       </svg>
-      <div id="hero" key={"pose-" + item.id}><img id="avatarimg" alt="" src={POSES[item.id]} draggable={false} /></div>
+      <div id="hero" className={charId === "eigene" ? "orig" : ""} key={"pose-" + item.id}><img id="avatarimg" alt="" src={POSES[item.id]} draggable={false} /></div>
 
       <ul id="menu" role="menu" aria-label="Hauptmenü">
         {ITEMS.map((it, i) => {
@@ -303,6 +303,7 @@ export default function App() {
             <span>{s.label}</span>
           </button>
         ))}
+        <button className="helpbtn" aria-label="Hilfe (F1)" title="Hilfe (F1)" onClick={() => setHelp((h) => !h)}>?</button>
       </div>
       <div id="foot">
         <div id="desc">{item.desc}</div>
@@ -318,16 +319,17 @@ export default function App() {
 
       {page && (
         <PageView pageId={page} scope={scope} muted={muted} db={db}
-          onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} escRef={escRef} />
+          onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} onHelp={() => setHelp((h) => !h)} escRef={escRef} />
       )}
 
       <div id="wipe">
         {[0, 1, 2].map((i) => <i key={i} ref={(el) => { wipeRefs.current[i] = el; }} />)}
       </div>
-      <button className="helpbtn" aria-label="Hilfe (F1)" title="Hilfe (F1)" onClick={() => setHelp((h) => !h)}>?</button>
       {help && !tutorial && <HelpPanel pageId={page} onClose={() => setHelp(false)} onTutorial={openTutorial} />}
       {tutorial && (
-        <Suspense fallback={null}><Tutorial onDone={async () => { setTutorial(false); setPrefs({ tutorialDone: true }); setCharId((await getSet("pref_char")) ?? "eigene"); }} /></Suspense>
+        <Suspense fallback={null}><Tutorial
+          onShowPage={(p) => { if (p === undefined) return; setPage(p as ItemId | null); }}
+          onDone={async () => { setTutorial(false); setPage(null); setPrefs({ tutorialDone: true }); setCharId((await getSet("pref_char")) ?? "eigene"); }} /></Suspense>
       )}
     </div>
     </PrefsContext.Provider>

@@ -125,7 +125,46 @@ export const listPersons = () =>
 export interface PersonInput {
   id?: number; name: string; role: string; scope: Scope; parent_id: number | null;
   phone: string; email: string; info: string; portrait_path: string | null;
+  /** mehrere Übergeordnete und Untergeordnete (Netzplan) */
+  parentIds?: number[]; childIds?: number[];
 }
+
+/* ---------- Beziehungen zwischen Personen (mehrfach möglich) ---------- */
+export interface PersonLink { id: number; a_id: number; b_id: number; label: string | null }
+export const listPersonLinks = () =>
+  select<PersonLink>("SELECT id, a_id, b_id, label FROM person_links ORDER BY id");
+
+export async function setPersonLinks(personId: number, parentIds: number[], childIds: number[]) {
+  await execute("DELETE FROM person_links WHERE b_id = $1", [personId]);
+  await execute("DELETE FROM person_links WHERE a_id = $1", [personId]);
+  for (const a of new Set(parentIds.filter((x) => x && x !== personId)))
+    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [a, personId]);
+  for (const b of new Set(childIds.filter((x) => x && x !== personId)))
+    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [personId, b]);
+}
+/** Eine einzelne Verbindung setzen oder lösen (Netzplan: „Linie ziehen“) */
+export async function togglePersonLink(aId: number, bId: number): Promise<boolean> {
+  if (aId === bId) return false;
+  const ex = await select<{ id: number }>(
+    "SELECT id FROM person_links WHERE (a_id = $1 AND b_id = $2) OR (a_id = $2 AND b_id = $1)", [aId, bId]);
+  if (ex[0]) { await execute("DELETE FROM person_links WHERE id = $1", [ex[0].id]); return false; }
+  await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [aId, bId]);
+  return true;
+}
+
+/* ---------- Plätze im Netzplan ---------- */
+export async function listPersonPos(): Promise<Map<number, { x: number; y: number }>> {
+  const r = await select<{ person_id: number; x: number; y: number }>("SELECT person_id, x, y FROM person_pos");
+  return new Map(r.map((p) => [p.person_id, { x: Number(p.x), y: Number(p.y) }]));
+}
+export async function savePersonPos(list: { id: number; x: number; y: number }[]) {
+  for (const p of list)
+    await execute(
+      `INSERT INTO person_pos (person_id, x, y) VALUES ($1, $2, $3)
+       ON CONFLICT(person_id) DO UPDATE SET x = excluded.x, y = excluded.y`,
+      [p.id, Math.round(p.x), Math.round(p.y)]);
+}
+export const clearPersonPos = () => execute("DELETE FROM person_pos");
 
 export async function savePerson(p: PersonInput): Promise<number> {
   const vals = [p.name.trim(), p.role.trim() || null, p.scope, p.parent_id, p.phone.trim() || null,
@@ -136,6 +175,7 @@ export async function savePerson(p: PersonInput): Promise<number> {
          email = $6, info = $7, portrait_path = $8 WHERE id = $9`,
       [...vals, p.id]
     );
+    if (p.parentIds || p.childIds) await setPersonLinks(p.id, p.parentIds ?? [], p.childIds ?? []);
     return p.id;
   }
   const r = await execute(
@@ -143,11 +183,14 @@ export async function savePerson(p: PersonInput): Promise<number> {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     vals
   );
+  if (p.parentIds || p.childIds) await setPersonLinks(r.lastInsertId, p.parentIds ?? [], p.childIds ?? []);
   return r.lastInsertId;
 }
 
 export async function deletePerson(id: number): Promise<void> {
   await execute("UPDATE persons SET parent_id = NULL WHERE parent_id = $1", [id]);
+  await execute("DELETE FROM person_links WHERE a_id = $1 OR b_id = $1", [id]);
+  await execute("DELETE FROM person_pos WHERE person_id = $1", [id]);
   await execute("DELETE FROM links WHERE (a_type = 'person' AND a_id = $1) OR (b_type = 'person' AND b_id = $1)", [id]);
   await execute("DELETE FROM persons WHERE id = $1", [id]);
 }

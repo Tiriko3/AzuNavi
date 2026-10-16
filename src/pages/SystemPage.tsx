@@ -14,7 +14,7 @@ import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.0.0";
+export const APP_VERSION = "1.1.0";
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();
@@ -105,7 +105,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           </div>
           <div className="sysrow"><span>Animationen</span>
             <button className={"toggle" + (prefs.anim ? " on" : "")} onClick={() => setPrefs({ anim: !prefs.anim })}><i />{prefs.anim ? "an" : "aus"}</button></div>
-          <div className="sysrow"><span>Maskottchen (Nami, Katze)</span>
+          <div className="sysrow"><span>Maskottchen (Nami, Caramella, Eva)</span>
             <button className={"toggle" + (prefs.mascot ? " on" : "")} onClick={() => setPrefs({ mascot: !prefs.mascot })}><i />{prefs.mascot ? "an" : "aus"}</button></div>
           <div className="sysrow"><span>Ton</span>
             <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>

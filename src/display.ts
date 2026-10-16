@@ -10,7 +10,7 @@ async function win() {
 
 export async function getDisplayMode(): Promise<DisplayMode> {
   const m = await getSetting("pref_display");
-  return m === "randlos" || m === "vollbild" ? m : "fenster";
+  return m === "randlos" || m === "fenster" ? m : "vollbild"; // Standard: Vollbild
 }
 
 export async function applyDisplay(mode: DisplayMode) {

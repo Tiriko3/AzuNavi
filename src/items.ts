@@ -13,7 +13,7 @@ export const ITEMS: MenuItem[] = [
   { id: "kontakte", label: "Kontakte", desc: "Menschen und ihre Verbindungen im Personenbaum", etappe: 3 },
   { id: "berichtsheft", label: "Berichtsheft", desc: "Wochenbericht aus deinen Notizen, Export im IHK-Format", etappe: 8 },
   { id: "projekte", label: "Projekte", desc: "Pinnwand mit allen Projekten, Fortschritt und nächsten Schritten", etappe: 5 },
-  { id: "dateien", label: "Dateien", desc: "Deine echten Ordner, Dateien einsortieren mit dem Ordner-Assistenten", etappe: 4 },
+  { id: "dateien", label: "Dateien", desc: "Deine echten Ordner, Dateien einsortieren mit dem Evaen", etappe: 4 },
   { id: "system", label: "System", desc: "Ton, Datenbank und Einstellungen", etappe: 1 },
 ];
 

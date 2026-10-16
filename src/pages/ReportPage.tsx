@@ -273,11 +273,11 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
           {catNow.pose === "zeigt" && [0, 1, 2, 3, 4, 5].map((i) => <i key={i} style={{ animationDelay: i * 0.18 + "s", left: 30 + ((i * 47) % 200) + "px", top: 10 + ((i * 31) % 90) + "px" }}>✦</i>)}
           {catNow.pose === "schreibt" && [0, 1, 2].map((i) => <u key={i} style={{ animationDelay: i * 0.4 + "s", top: 120 + i * 12 + "px" }} />)}
         </div>
-        <img src={CAT[catNow.pose]} alt="Katze" draggable={false} className={"rcatimg p-" + catNow.pose + (poke ? " poked" : "")}
+        <img src={CAT[catNow.pose]} alt="Caramella" draggable={false} className={"rcatimg p-" + catNow.pose + (poke ? " poked" : "")}
           onClick={() => { setPoke(POKES[Math.floor(Math.random() * POKES.length)]); setTimeout(() => setPoke(null), 2200); }} />
         {poke && <div className="rpoke">{poke}</div>}
         <div className="rbubble">
-          <span className="rname">Berichtsheft-Begleiter</span>
+          <span className="rname">Caramella</span>
           <p>{catNow.text}</p>
           {catNow.path && (
             <div className="inl">

@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.0.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.0.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.1.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.1.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -67,7 +67,7 @@ Beim ersten Start begrüßt dich **Nami**, ein kleiner Wassergeist, und führt d
 3. **Dein Berichtsheft** – lade eine Kopie deines Berichtshefts als Word-Datei hoch, dann erzeugt AzuNavi deine Wochenberichte im selben Format (oder nutze das eingebaute IHK-Layout)
 4. **Deine Qualifikationen** – für Fachinformatiker/innen ist die IHK-Liste schon drin, für andere Berufe kannst du deine eigene Liste einfügen
 5. **Alte Berichtshefte mitnehmen** – bisherige Berichtshefte (Word oder PDF) werden zu Notizen
-6. **Rundgang** durch alle Bereiche
+6. **Rundgang** durch alle Bereiche – die App zeigt dir dabei direkt, wo was liegt. Nami führt durch die App, Eva erklärt die Dateien und Caramella das Berichtsheft.
 
 Alles lässt sich überspringen und später unter **System → Tutorial wiederholen** nachholen.
 
@@ -78,9 +78,9 @@ Alles lässt sich überspringen und später unter **System → Tutorial wiederho
 | Bereich | Was du dort machst |
 |---|---|
 | **Notizen** | Festhalten, was du erledigt hast – mit Datum, Bereich (Schule/Arbeit), IHK-Qualifikation, Projekt, Personen und Bildern. Mit Rechtschreib- und Grammatikprüfung. |
-| **Kontakte** | Dein Personenbaum: Ausbilder, Kollegen, Lehrkräfte – mit Porträts. |
+| **Kontakte** | Dein Personen-Netzplan: Ausbilder, Kolleginnen, Lehrkräfte – mit eigenen Zonen für Schule und Arbeit, mehreren Vor- und Untergeordneten je Person. |
 | **Berichtsheft** | Der Wochenbericht entsteht automatisch aus deinen Notizen. Anpassen und als **Word-Datei** exportieren. Dazu eine **Fähigkeiten-Übersicht** für deinen Ausbilder. |
-| **Projekte** | Detektiv-Pinnwand mit Fäden zwischen Projekten, Fortschritt, „Was als Nächstes“ und einer **Mindmap** pro Projekt. |
+| **Projekte** | Große Netzplan-Übersicht aller Projekte (Doppelklick zoomt hinein) oder Detektiv-Pinnwand mit Fäden, dazu Fortschritt, „Was als Nächstes“ und eine **Mindmap** pro Projekt. |
 | **Dateien** | Deine echten Ordner für Arbeit und Schule. Eine Assistentin hilft beim Einsortieren – nichts wird gelöscht oder überschrieben. |
 | **System** | Schriftgröße, Animationen, Maskottchen, Anzeige (Fenster/randlos/Vollbild), Sicherung, Import. |
 
@@ -102,7 +102,7 @@ Alles lässt sich überspringen und später unter **System → Tutorial wiederho
 | **Esc** | Zurück |
 | **Tab** | Bereich wechseln: Alles / Schule / Arbeit |
 | **F1** oder **?**-Knopf | Hilfe zur aktuellen Seite |
-| **F11** | Vollbild ein/aus |
+| **F11** | Vollbild ein/aus (AzuNavi startet im Vollbild) |
 | **M** | Ton ein/aus |
 
 ---
@@ -180,7 +180,7 @@ Ja, solange die App nicht kostenpflichtig signiert ist, warnt Windows (SmartScre
 **Voraussetzungen:** [Node.js](https://nodejs.org) 20+, [Rust](https://rustup.rs) und die [Tauri-Voraussetzungen für Windows](https://tauri.app/start/prerequisites/) (Visual Studio Build Tools mit „Desktopentwicklung mit C++“, WebView2).
 
 ```powershell
-git clone https://github.com/Tiriko3/azunavi.git
+git clone https://github.com/DEIN-NAME/azunavi.git
 cd azunavi
 npm install
 npm run tauri dev                     # Entwicklungsmodus

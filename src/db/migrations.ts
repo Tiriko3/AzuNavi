@@ -242,4 +242,31 @@ export const MIGRATIONS: Migration[] = [
        )`,
     ],
   },
+  {
+    version: 10,
+    name: "Etappe 10: Personen-Netzplan (mehrere Beziehungen, gemerkte Plätze)",
+    statements: [
+      // Mehrere Vorgesetzte/Untergebene pro Person. „a“ ist übergeordnet, „b“ untergeordnet.
+      `CREATE TABLE IF NOT EXISTS person_links (
+         id    INTEGER PRIMARY KEY AUTOINCREMENT,
+         a_id  INTEGER NOT NULL,
+         b_id  INTEGER NOT NULL,
+         label TEXT,
+         UNIQUE (a_id, b_id)
+       )`,
+      // Alte Einzel-Zuordnung (parent_id) übernehmen
+      `INSERT OR IGNORE INTO person_links (a_id, b_id)
+         SELECT parent_id, id FROM persons WHERE parent_id IS NOT NULL`,
+      `CREATE TABLE IF NOT EXISTS person_pos (
+         person_id INTEGER PRIMARY KEY,
+         x REAL NOT NULL,
+         y REAL NOT NULL
+       )`,
+      `CREATE TABLE IF NOT EXISTS board_pos (
+         project_id INTEGER PRIMARY KEY,
+         x REAL NOT NULL,
+         y REAL NOT NULL
+       )`,
+    ],
+  },
 ];

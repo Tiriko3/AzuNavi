@@ -454,7 +454,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
 
       {/* ---------- Assistent und Rückfragen ---------- */}
       {undoAsk && roots && (
-        <DialogBox name="Ordner-Assistent" pose="denkt" onClose={() => setUndoAsk(null)}
+        <DialogBox name="Eva" pose="denkt" onClose={() => setUndoAsk(null)}
           text={`Am alten Ort liegt inzwischen schon etwas mit dem Namen „${baseName(undoAsk.m.from_path)}“. Ich überschreibe nie etwas. Soll ich „${undoAsk.m.name}“ als „${undoAsk.freeName}“ zurücklegen?`}
           options={[
             { label: `Als „${undoAsk.freeName}“ zurücklegen`, primary: true, onPick: () => doUndo(undoAsk.m, undoAsk.freeName) },
@@ -462,7 +462,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
           ]} />
       )}
       {drop && roots && !assistant && (
-        <DialogBox name="Ordner-Assistent" pose="gruss" onClose={() => setDrop(null)}
+        <DialogBox name="Eva" pose="gruss" onClose={() => setDrop(null)}
           text={`Du hast mir ${drop.length === 1 ? `„${baseName(drop[0])}“` : `${drop.length} Elemente`} gegeben. Was soll ich damit machen?`}
           options={[
             ...(current ? [{ label: `Hierher nach ${prettyFolder(current, roots)}`, primary: true, onPick: () => { setAssistant({ items: drop, fixedDest: current }); setDrop(null); } }] : []),
