@@ -38,6 +38,8 @@ export interface TourStep {
   doneOnClick?: boolean;
   /** Hinweis, was zu tun ist (steht unter dem Text) */
   todo?: string;
+  /** Text, wenn die Aufgabe schon beim Öffnen erledigt war */
+  doneText?: string;
 }
 export const TOUR: TourStep[] = [
   { title: "Das Hauptmenü", pose: "erklaert", page: null, target: ".item.on", side: "links",
@@ -65,10 +67,11 @@ export const TOUR: TourStep[] = [
     todo: "Schau dir die beiden Ansichten an: „Netzplan“ und „Pinnwand“.",
     doneOnClick: true,
     tips: ["„Netzplan“ oder „Pinnwand“ – beides zeigt dieselben Projekte", "„Faden spannen“ verbindet zwei Projekte", "Im Projekt: Was gemacht, Was als Nächstes, Dateien und eine eigene Mindmap"] },
-  { title: "Dateien", pose: "gruss", guide: "eda", page: "dateien", target: ".fpickmain", side: "rechts",
+  { title: "Dateien", pose: "gruss", guide: "eda", page: "dateien", target: ".fpickmain, .fbtns, .wtools", side: "rechts",
     text: "Hallo, ich bin Eda! Ich kümmere mich um deine echten Ordner für Arbeit und Schule. Als Erstes brauche ich einen <b>Hauptordner</b> – darin lege ich die beiden Ordner „Arbeit“ und „Schule“ an. Gibt es sie schon, benutze ich sie einfach.",
     todo: "Klick auf „Hauptordner wählen“ und such dir einen Ordner aus – oder überspring es und hol es später nach.",
-    doneWhen: ".ftree .fnode",
+    doneText: "Deine Ordner stehen schon – perfekt. Alles, was du dort ablegst, siehst du hier.",
+    doneWhen: ".files .frow, .files .tn",
     tips: ["Nichts wird verschoben oder gelöscht – ich lege nur Ordner an", "Danach: Dateien aufs Fenster ziehen oder „+ Datei hinzufügen“", "Jede Ablage lässt sich rückgängig machen"] },
   { title: "Berichtsheft", pose: "schreibt", guide: "caramella", page: "berichtsheft", target: ".ractions", side: "rechts",
     text: "Und ich bin Caramella. Ich baue deinen Wochenbericht aus den Notizen zusammen – du prüfst ihn nur noch und exportierst ihn als Word-Datei.",

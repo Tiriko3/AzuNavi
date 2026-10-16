@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BERUFE, EMPTY_PROFILE, FACHRICHTUNGEN, KAMMERN, isFachinformatiker, loadProfile, saveProfile, type Profile } from "./profile";
 import { analyzeTemplate, saveCustomTemplate, useBundledTemplate, PLACEHOLDER_HELP, type TemplateInfo } from "../report/templates";
 import { listQualifications, replaceQualifications } from "../db/repo";
@@ -25,7 +25,9 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [charId, setCharId] = useState("eigene");
   const [spot, setSpot] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [place, setPlace] = useState<"ru" | "lu" | "ro" | "lo">("ru"); // wo Karte und Figur stehen
-  const [done, setDone] = useState(false);   // Aufgabe erledigt?
+  const [done, setDone] = useState(false);     // Aufgabe erledigt?
+  const [preDone, setPreDone] = useState(false); // war schon vorher erledigt (dann kein Auto-Weiter)
+  const stepStart = useRef(0);
   useEffect(() => { getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
   useEffect(() => { loadProfile().then(setP); listQualifications().then((q) => setQualCount(q.length)); }, []);
 
@@ -33,14 +35,18 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     if (step !== "tour") { onShowPage?.(undefined as never); setSpot(null); setDone(false); return; }
     const t = TOUR[tourI];
     onShowPage?.(t.page ?? null);
-    setSpot(null); setDone(!t.doneWhen && !t.doneOnClick);
+    setSpot(null);
     document.documentElement.removeAttribute("data-turned");
+    // Die Seite wird gerade erst geöffnet: kurz warten und dann prüfen, ob schon alles erledigt ist
+    stepStart.current = Date.now();
+    setPreDone(false);
+    setDone(!t.doneWhen && !t.doneOnClick);
     let stop = false;
     const find = (tries = 0) => {
       if (stop || !t.target) return;
-      const el = document.querySelector(t.target) as HTMLElement | null;
+      const el = t.target.split(",").map((q) => document.querySelector(q.trim()) as HTMLElement | null).find((x) => x && x.offsetParent !== null) ?? null;
       const st = document.getElementById("stage");
-      if (!el || !st) { if (tries < 14) setTimeout(() => find(tries + 1), 200); return; }
+      if (!el || !st) { setSpot(null); if (tries < 14) setTimeout(() => find(tries + 1), 200); return; }
       const r = el.getBoundingClientRect(), s2 = st.getBoundingClientRect();
       const k = s2.width / 1600;
       const box = { x: (r.left - s2.left) / k, y: (r.top - s2.top) / k, w: r.width / k, h: r.height / k };
@@ -72,7 +78,12 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     if (step !== "tour" || done) return;
     const t = TOUR[tourI];
     if (t.doneWhen) {
-      const iv = window.setInterval(() => { if (document.querySelector(t.doneWhen!)) { setDone(true); window.clearInterval(iv); } }, 350);
+      const iv = window.setInterval(() => {
+        if (!document.querySelector(t.doneWhen!)) return;
+        // Treffer gleich zu Beginn heißt: war schon vorher erledigt (z. B. Ordner stehen bereits)
+        if (Date.now() - stepStart.current < 2200) setPreDone(true);
+        setDone(true); window.clearInterval(iv);
+      }, 300);
       return () => window.clearInterval(iv);
     }
     if (t.doneOnClick) {
@@ -90,11 +101,11 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   useEffect(() => {
     if (step !== "tour" || !done) return;
     const t = TOUR[tourI];
-    if (!t.doneWhen && !t.doneOnClick) return;
+    if (preDone || (!t.doneWhen && !t.doneOnClick)) return;
     const id = setTimeout(() => { if (tourI < TOUR.length - 1) setTourI((i) => i + 1); else go(1); }, 1100);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done, step, tourI]);
+  }, [done, preDone, step, tourI]);
 
   const go = (d: number) => { setMsg(""); setStep(ORDER[Math.max(0, Math.min(ORDER.length - 1, ORDER.indexOf(step) + d))]); };
   const next = async () => {
@@ -223,7 +234,8 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
             <p dangerouslySetInnerHTML={{ __html: TOUR[tourI].text }} />
             {TOUR[tourI].todo && (
               <p className={"tuttodo" + (done ? " ok" : "")}>
-                <b>{done ? "✓ Super!" : "Du bist dran:"}</b> {done ? "Weiter geht's …" : TOUR[tourI].todo}
+                <b>{done ? "✓ Passt!" : "Du bist dran:"}</b>{" "}
+                {done ? (preDone ? TOUR[tourI].doneText ?? "Das hast du schon erledigt." : "Weiter geht's …") : TOUR[tourI].todo}
               </p>
             )}
             <ul className="tuttips">{TOUR[tourI].tips.map((t) => <li key={t}>{t}</li>)}</ul>
@@ -241,6 +253,7 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
             ? <button className="btn" onClick={onDone}><span>Los geht's</span></button>
             : <button className="btn" onClick={next}><span>{step === "start" ? "Starten"
                 : step === "tour" && TOUR[tourI].todo && !done ? "Überspringen"
+                : step === "tour" && preDone ? "Weiter"
                 : (step === "import" || step === "vorlage") && !tpl?.info ? "Weiter / überspringen" : "Weiter"}</span></button>}
         </div>
       </div>
