@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { charById } from "./chars";
-import { applyDisplay, getDisplayMode, toggleFullscreen } from "./display";
+import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
 import { HelpPanel } from "./tutorial/HelpPanel";
 import { getSetting as getSet } from "./db/db";
 import { ITEMS, SCOPES, type ItemId, type ScopeId } from "./items";
@@ -26,6 +26,14 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [prefs, setPrefsState] = useState<Prefs>(DEFAULT_PREFS);
   const [tutorial, setTutorial] = useState(false);
+  const [dispMode, setDispMode] = useState<DisplayMode>("vollbild");
+  const [askQuit, setAskQuit] = useState(false);
+  useEffect(() => {
+    getDisplayMode().then(setDispMode);
+    const on = (e: Event) => setDispMode((e as CustomEvent<DisplayMode>).detail);
+    window.addEventListener("azunavi-display", on);
+    return () => window.removeEventListener("azunavi-display", on);
+  }, []);
   const [help, setHelp] = useState(false);
   const [charId, setCharId] = useState("eigene");
   const POSES = charById(charId).poses;
@@ -283,8 +291,8 @@ export default function App() {
               className={"item" + (on ? " on" : "") + (Math.abs(d) === 3 ? " far" : "") + (Math.abs(d - pd) > 2 ? " snap" : "")}
               aria-current={on}
               style={{ transform: `translate(${x}px,${y - 50}px) rotate(${angDeg}deg) skewX(-9deg) scale(${sc})` }}
-              onClick={() => { if (page) return; if (on) openPage(i); else move(i); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); openPage(i); } }}
+              onClick={() => { if (page) return; if (tutorial) { if (!on) move(i); return; } if (on) openPage(i); else move(i); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !tutorial) { e.preventDefault(); openPage(i); } }}
             >
               <span>{it.label}</span>
             </li>
@@ -321,6 +329,19 @@ export default function App() {
       {page && (
         <PageView pageId={page} scope={scope} muted={muted} db={db}
           onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} onHelp={() => setHelp((h) => !h)} escRef={escRef} />
+      )}
+
+      {dispMode !== "fenster" && (
+        <div id="quit">
+          {askQuit ? (
+            <span className="quitask">AzuNavi beenden?
+              <button className="mini hot" onClick={() => { quitApp().catch(() => {}); }}>Ja</button>
+              <button className="mini" onClick={() => setAskQuit(false)}>Nein</button>
+            </span>
+          ) : (
+            <button className="quitbtn" aria-label="Programm beenden" title="Programm beenden" onClick={() => setAskQuit(true)}>✕</button>
+          )}
+        </div>
       )}
 
       <div id="wipe">

@@ -14,7 +14,7 @@ import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.2.1";
+export const APP_VERSION = "1.2.2";
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();

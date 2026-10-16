@@ -12,6 +12,31 @@ import { getSetting, setSetting } from "../db/db";
 type Step = "start" | "profil" | "figur" | "vorlage" | "quali" | "import" | "tour" | "fertig";
 const ORDER: Step[] = ["start", "profil", "figur", "vorlage", "quali", "import", "tour", "fertig"];
 
+type Box = { x: number; y: number; w: number; h: number };
+
+/** Klick-Filter als Pfad: alles gesperrt außer den Löchern. Per Raster gebaut, damit sich überlappende Löcher nicht gegenseitig aufheben. */
+function blockPath(holes: Box[]): string {
+  const cl = (v: number, m: number) => Math.max(0, Math.min(m, Math.round(v)));
+  const xs = new Set([0, 1600]), ys = new Set([0, 900]);
+  for (const h of holes) { xs.add(cl(h.x, 1600)); xs.add(cl(h.x + h.w, 1600)); ys.add(cl(h.y, 900)); ys.add(cl(h.y + h.h, 900)); }
+  const X = [...xs].sort((a, b) => a - b), Y = [...ys].sort((a, b) => a - b);
+  const inHole = (cx: number, cy: number) => holes.some((h) => cx > h.x && cx < h.x + h.w && cy > h.y && cy < h.y + h.h);
+  let d = "";
+  for (let j = 0; j < Y.length - 1; j++) {
+    let start: number | null = null;
+    for (let i = 0; i < X.length - 1; i++) {
+      const blocked = !inHole((X[i] + X[i + 1]) / 2, (Y[j] + Y[j + 1]) / 2);
+      if (blocked && start === null) start = X[i];
+      if (start !== null && (!blocked || i === X.length - 2)) {
+        const end = blocked ? X[i + 1] : X[i];
+        d += `M${start} ${Y[j]}H${end}V${Y[j + 1]}H${start}Z`;
+        start = null;
+      }
+    }
+  }
+  return d;
+}
+
 export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPage?: (page: string | null) => void }) {
   const { prefs } = usePrefs();
   const [step, setStep] = useState<Step>("start");
@@ -28,6 +53,8 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [done, setDone] = useState(false);     // Aufgabe erledigt?
   const [preDone, setPreDone] = useState(false); // war schon vorher erledigt (dann kein Auto-Weiter)
   const stepStart = useRef(0);
+  const [holes, setHoles] = useState<Box[]>([]);   // Fokusmodus: nur diese Flächen sind bedienbar
+  const [nudge, setNudge] = useState(0);           // Klick auf gesperrte Fläche -> Markierung blinkt
   useEffect(() => { getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
   useEffect(() => { loadProfile().then(setP); listQualifications().then((q) => setQualCount(q.length)); }, []);
 
@@ -73,6 +100,56 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, tourI]);
 
+  /* ---------- Fokusmodus: Hintergrund sperren, nur die erlaubten Stellen bleiben aktiv ---------- */
+  useEffect(() => {
+    if (step !== "tour") { setHoles([]); return; }
+    const t = TOUR[tourI];
+    const calc = () => {
+      const st = document.getElementById("stage");
+      if (!st) return;
+      const s2 = st.getBoundingClientRect(), k = s2.width / 1600, pad = 6;
+      const found: Box[] = [];
+      for (const q of t.allow ?? []) {
+        document.querySelectorAll(q).forEach((n) => {
+          const el = n as HTMLElement;
+          if (!el.offsetParent && el.tagName !== "BODY") return;       // unsichtbar
+          const r = el.getBoundingClientRect();
+          if (r.width < 2 || r.height < 2) return;
+          found.push({ x: (r.left - s2.left) / k - pad, y: (r.top - s2.top) / k - pad, w: r.width / k + pad * 2, h: r.height / k + pad * 2 });
+        });
+      }
+      const merged = found.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) }));
+      setHoles((old) => (JSON.stringify(old) === JSON.stringify(merged) ? old : merged));
+    };
+    setHoles([]);                      // neuer Schritt: erst mal alles zu, bis die Seite steht
+    const iv = window.setInterval(calc, 250);
+    const id = window.setTimeout(calc, 60);
+    return () => { window.clearInterval(iv); window.clearTimeout(id); };
+  }, [step, tourI]);
+
+  // Tastatur und Mausrad: ganz vorn abfangen, bevor die App sie sieht
+  useEffect(() => {
+    const typingIn = (t: HTMLElement | null) => !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+    const onKey = (e: KeyboardEvent) => {
+      const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+      if (e.key === "F1") { stop(); return; }                          // Hilfe-Fenster gibt es im ganzen Tutorial nicht
+      if (step !== "tour") return;                                     // Einrichtung: Eingaben gehören den Feldern
+      if (e.key === "F11") { stop(); return; }
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.(".tutcard") && (e.key === "Enter" || e.key === " ")) { e.stopPropagation(); return; } // Knopf in der Karte bedienen, aber nichts an die App weitergeben
+      if ((TOUR[tourI].keys ?? []).includes(e.key)) return;            // für diesen Schritt erlaubt
+      if (typingIn(t) && e.key !== "Escape") return;                   // Tippen in einem erlaubten Feld
+      stop();
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (step !== "tour" || TOUR[tourI].wheel) return;
+      e.stopImmediatePropagation();
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("wheel", onWheel, true);
+    return () => { window.removeEventListener("keydown", onKey, true); window.removeEventListener("wheel", onWheel, true); };
+  }, [step, tourI]);
+
   /* ---------- Aufgabe erledigt? Dann von selbst weiter ---------- */
   useEffect(() => {
     if (step !== "tour" || done) return;
@@ -88,7 +165,7 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     }
     if (t.doneOnClick) {
       const onClick = (e: MouseEvent) => {
-        if ((e.target as Element)?.closest?.(".tutcard")) return; // Klicks auf die Karte zählen nicht
+        if ((e.target as Element)?.closest?.(".tutcard, .tutblock")) return; // Klicks auf die Karte oder auf gesperrte Flächen zählen nicht
         setDone(true);
       };
       document.addEventListener("click", onClick, true);
@@ -153,9 +230,14 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
 
   return (
     <div className={"tut" + (step === "tour" ? " showpage pl-" + place : "")} role="dialog" aria-label="Tutorial">
+      {step === "tour" && (
+        <div className="tutblock" aria-hidden="true"
+          style={{ clipPath: `path(nonzero, "${blockPath(holes)}")` }}
+          onPointerDown={() => setNudge((n) => n + 1)} />
+      )}
       {spot && step === "tour" && (
         <>
-          <div className="tutspot" style={{ left: spot.x - 10, top: spot.y - 10, width: spot.w + 20, height: spot.h + 20, ["--gc" as string]: guide.accent }} />
+          <div key={nudge} className="tutspot" style={{ left: spot.x - 10, top: spot.y - 10, width: spot.w + 20, height: spot.h + 20, ["--gc" as string]: guide.accent }} />
           <div className="tutarrow" style={{ left: spot.x + spot.w / 2, top: spot.y + spot.h + 14, ["--gc" as string]: guide.accent }} />
         </>
       )}

@@ -15,6 +15,7 @@ export async function getDisplayMode(): Promise<DisplayMode> {
 
 export async function applyDisplay(mode: DisplayMode) {
   await setSetting("pref_display", mode);
+  window.dispatchEvent(new CustomEvent("azunavi-display", { detail: mode })); // der Beenden-Knopf blendet sich je nach Modus ein/aus
   if (!inTauri) return;
   const w = await win();
   if (mode === "vollbild") {
@@ -46,4 +47,11 @@ export async function toggleFullscreen(): Promise<DisplayMode> {
   const next: DisplayMode = (await getDisplayMode()) === "vollbild" ? "fenster" : "vollbild";
   await applyDisplay(next);
   return next;
+}
+
+/** Programm beenden (Knopf oben rechts im Vollbild) */
+export async function quitApp() {
+  if (!inTauri) return;
+  const w = await win();
+  await w.close();
 }
