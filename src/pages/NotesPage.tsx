@@ -1,3 +1,4 @@
+import { useQualsEnabled } from "../report/quals";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MutableRefObject } from "react";
 import {
@@ -32,6 +33,7 @@ export function NotesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
   const [persons, setPersons] = useState<Person[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [search, setSearch] = useState("");
+  const qualsOn = useQualsEnabled();
   const [qualOpen, setQualOpen] = useState(false);
   const [qualSearch, setQualSearch] = useState("");
   const [newQual, setNewQual] = useState("");
@@ -210,10 +212,10 @@ export function NotesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
                   <div className="ntags">
                     <span className={"tag " + n.scope}>{SCOPE_LABEL[n.scope]}</span>
                     {proj && <span className="chip proj">{proj.name}</span>}
-                    {n.qualIds.slice(0, 2).map((q) => (
+                    {n.qualIds.filter((q) => qualById.has(q)).slice(0, 2).map((q) => (
                       <span key={q} className="chip">{qualById.get(q)?.name}</span>
                     ))}
-                    {n.qualIds.length > 2 && <span className="chip more">+{n.qualIds.length - 2}</span>}
+                    {n.qualIds.filter((q) => qualById.has(q)).length > 2 && <span className="chip more">+{n.qualIds.filter((q) => qualById.has(q)).length - 2}</span>}
                     {n.attachments.length > 0 && <span className="chip img">Bilder {n.attachments.length}</span>}
                     <span className="faces">
                       {n.personIds.slice(0, 4).map((pid) => {
@@ -302,7 +304,7 @@ export function NotesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
               )}
             </div>
 
-            <div className="lab">Qualifikationen (IHK-Liste)
+            {qualsOn && <div className="lab">Qualifikationen
               <div className="chips">
                 {draft.qualIds.map((id) => (
                   <span key={id} className="chip sel">{qualById.get(id)?.name}
@@ -336,7 +338,7 @@ export function NotesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             <div className="lab">Mit wem?
               <div className="chips">

@@ -1,6 +1,6 @@
 // Alle Datenbank-Abfragen für Notizen, Projekte, Qualifikationen und Kontakte.
 // Verknüpfungen (Notiz <-> Projekt/Qualifikation/Person) laufen über die gemeinsame Tabelle "links".
-import { execute, select } from "./db";
+import { execute, getSetting, select } from "./db";
 
 export type Scope = "schule" | "arbeit";
 
@@ -41,8 +41,11 @@ export async function createProject(name: string, scope: Scope): Promise<number>
 }
 
 /* ---------- Qualifikationen ---------- */
-export const listQualifications = () =>
+const allQualifications = () =>
   select<Qualification>("SELECT id, name, kind, sort FROM qualifications ORDER BY sort, name");
+/** Liste der Qualifikationen. Hat der Nutzer sie ausgeschaltet („quals_enabled“ = 0), ist sie leer – so verschwinden sie überall. */
+export const listQualifications = async (): Promise<Qualification[]> =>
+  (await getSetting("quals_enabled")) === "0" ? [] : allQualifications();
 
 export async function createQualification(name: string): Promise<number> {
   const max = await select<{ m: number | null }>("SELECT MAX(sort) AS m FROM qualifications");
@@ -196,17 +199,20 @@ export async function deletePerson(id: number): Promise<void> {
 }
 
 /** Qualifikationsliste ersetzen (z. B. anderer Ausbildungsberuf). Belegte Qualifikationen bleiben erhalten. */
-export async function replaceQualifications(names: string[]): Promise<number> {
-  const clean = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean)));
+export async function replaceQualifications(input: (string | { name: string; kind?: Qualification["kind"] })[]): Promise<number> {
+  const items = input.map((x) => (typeof x === "string" ? { name: x.trim(), kind: "betrieb" as const } : { name: x.name.trim(), kind: x.kind ?? "betrieb" })).filter((x) => x.name);
+  const seen = new Set<string>();
+  const list = items.filter((x) => (seen.has(x.name) ? false : (seen.add(x.name), true)));
+  const clean = list.map((x) => x.name);
   const used = await select<{ id: number }>("SELECT DISTINCT b_id AS id FROM links WHERE a_type = 'note' AND b_type = 'qualification'");
   const usedIds = new Set(used.map((u) => u.id));
-  const cur = await listQualifications();
+  const cur = await allQualifications();
   for (const q of cur) if (!usedIds.has(q.id) && !clean.includes(q.name)) await execute("DELETE FROM qualifications WHERE id = $1", [q.id]);
   let sort = 1;
-  for (const n of clean) {
-    const ex = await select<{ id: number }>("SELECT id FROM qualifications WHERE name = $1", [n]);
+  for (const it of list) {
+    const ex = await select<{ id: number; kind: string }>("SELECT id, kind FROM qualifications WHERE name = $1", [it.name]);
     if (ex[0]) await execute("UPDATE qualifications SET sort = $1 WHERE id = $2", [sort, ex[0].id]);
-    else await execute("INSERT INTO qualifications (name, kind, sort) VALUES ($1, 'betrieb', $2)", [n, sort]);
+    else await execute("INSERT INTO qualifications (name, kind, sort) VALUES ($1, $2, $3)", [it.name, it.kind, sort]);
     sort++;
   }
   return clean.length;

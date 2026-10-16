@@ -83,7 +83,8 @@ function fillSdt(sdt: El, value: string, alias: string) {
   if (ts.length) { setT(ts[0], value); ts.slice(1).forEach((t: El) => setT(t, "")); }
 }
 
-export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, meta: ReportMeta, qualList?: string[]): Promise<Uint8Array> {
+/** withQuals = false: keine Qualifikationszeilen und keine Dropdown-Liste (Nutzer hat Qualifikationen abgeschaltet) */
+export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, meta: ReportMeta, qualList?: string[], withQuals = true): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(template);
   const xml = await zip.file("word/document.xml")!.async("string");
   const doc = new DOMParser().parseFromString(xml, "text/xml");
@@ -137,7 +138,7 @@ export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, met
     // Einträge: abwechselnd Tätigkeit und Qualifikation
     const cell = kids(rows[1]).filter((k: El) => k.localName === "tc")[0];
     const ps = kids(cell).filter((k: El) => k.localName === "p");
-    const pTask = ps[0], pQual = ps.find((p: El) => all(p, "sdt").length > 0) ?? ps[1];
+    const pTask = ps[0], pQual = withQuals ? (ps.find((p: El) => all(p, "sdt").length > 0) ?? ps[1]) : undefined;
     ps.forEach((p: El) => cell.removeChild(p));
     let entries = day.entries.filter((e) => e.text.trim());
     if (!entries.length) {
@@ -148,7 +149,7 @@ export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, met
       const tts = all(tp, "t");
       if (tts[0]) { setT(tts[0], e.text.replace(/\s*\n+\s*/g, "; ").trim()); tts.slice(1).forEach((x: El) => setT(x, "")); }
       cell.appendChild(tp);
-      const qs = e.quals.length ? e.quals : ABSENT_PLACES.includes(day.place) ? [] : [""];
+      const qs = !pQual ? [] : e.quals.length ? e.quals : ABSENT_PLACES.includes(day.place) ? [] : [""];
       qs.forEach((q, qi) => {
         const qp = pQual.cloneNode(true);
         const sdt = all(qp, "sdt")[0];
@@ -171,7 +172,7 @@ export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, met
   });
 
   // Auswahlliste der Qualifikations-Dropdowns: immer die aktuelle Liste aus der App (auch für andere Berufe)
-  if (qualList && qualList.length) {
+  if (withQuals && qualList && qualList.length) {
     all(body, "sdt").forEach((sdt: El) => {
       if (!aliasOf(sdt).startsWith("Qualifikation")) return;
       const box = all(sdt, "comboBox")[0] ?? all(sdt, "dropDownList")[0];
@@ -183,6 +184,14 @@ export async function buildWeekDocx(template: ArrayBuffer, draft: WeekDraft, met
         box.appendChild(li);
       }
     });
+  }
+  // Ohne Qualifikationen soll auch der Hinweistext am Ende sie nicht erwähnen
+  if (!withQuals) {
+    for (const k of kids(body)) {
+      if (k.localName !== "p" || !/^Hinweise:/.test(textOf(k).trim()) || !/Qualifikation/.test(textOf(k))) continue;
+      const ts = all(k, "t");
+      if (ts.length) { setT(ts[0], "Hinweise: Anwesenheit und Ort per Klick auf das Feld auswählen (Dropdown). Überflüssige Tätigkeitszeilen löschen, weitere per Kopieren/Einfügen ergänzen. Für die nächste Woche das Dokument kopieren und KW sowie Daten anpassen."); ts.slice(1).forEach((t: El) => setT(t, "")); }
+    }
   }
   const out = new XMLSerializer().serializeToString(doc);
   zip.file("word/document.xml", out);

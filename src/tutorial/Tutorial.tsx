@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { BERUFE, EMPTY_PROFILE, FACHRICHTUNGEN, KAMMERN, isFachinformatiker, loadProfile, saveProfile, type Profile } from "./profile";
-import { analyzeTemplate, saveCustomTemplate, useBundledTemplate, PLACEHOLDER_HELP, type TemplateInfo } from "../report/templates";
+import { EMPTY_PROFILE, KAMMERN, loadProfile, saveProfile, type Profile } from "./profile";
+import { ANDERE_ID, PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
+import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/TemplateChooser";
+import { setQualsEnabled } from "../report/quals";
 import { listQualifications, replaceQualifications } from "../db/repo";
-import { baseName, fsapi } from "../fsapi";
 import { ImportDialog } from "../import/ImportDialog";
 import { usePrefs } from "../prefs";
 import { GUIDES, NAMI, TOUR, type GuideId, type Pose } from "./tour";
@@ -42,8 +43,9 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [step, setStep] = useState<Step>("start");
   const [tourI, setTourI] = useState(0);
   const [p, setP] = useState<Profile>(EMPTY_PROFILE);
-  const [tpl, setTpl] = useState<{ name: string; info?: TemplateInfo; err?: string; pdf?: boolean; bytes?: ArrayBuffer } | null>(null);
-  const [takeQuals, setTakeQuals] = useState(true);
+  const [tplChoice, setTplChoice] = useState<TplChoice>({ mode: "standard" });
+  const [qualMode, setQualMode] = useState<"liste" | "vorlage" | "eigene" | "keine" | null>(null); // null = noch nichts gewählt = überspringen = ohne Qualifikationen
+  const [otherBeruf, setOtherBeruf] = useState(false);
   const [qualText, setQualText] = useState("");
   const [qualCount, setQualCount] = useState(0);
   const [msg, setMsg] = useState("");
@@ -56,7 +58,10 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [holes, setHoles] = useState<Box[]>([]);   // Fokusmodus: nur diese Flächen sind bedienbar
   const [nudge, setNudge] = useState(0);           // Klick auf gesperrte Fläche -> Markierung blinkt
   useEffect(() => { getSetting("pref_char").then((c) => c && setCharId(c)); }, []);
-  useEffect(() => { loadProfile().then(setP); listQualifications().then((q) => setQualCount(q.length)); }, []);
+  useEffect(() => { loadProfile().then((pr) => { setP(pr); if (pr.beruf && !findProfile(pr.beruf, pr.fachrichtung)) setOtherBeruf(true); }); listQualifications().then((q) => setQualCount(q.length)); }, []);
+  const prof = findProfile(p.beruf, p.fachrichtung);
+  const suggestion = qualSuggestion(prof, p.fachrichtung);
+  const tplQuals = tplChoice.mode === "datei" && tplChoice.kind === "karten" ? tplChoice.quals : [];
 
   useEffect(() => {
     if (step !== "tour") { onShowPage?.(undefined as never); setSpot(null); setDone(false); return; }
@@ -187,15 +192,23 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const go = (d: number) => { setMsg(""); setStep(ORDER[Math.max(0, Math.min(ORDER.length - 1, ORDER.indexOf(step) + d))]); };
   const next = async () => {
     if (step === "profil") {
-      if (!p.vorname.trim() || !p.nachname.trim() || !p.beruf.trim()) { setMsg("Bitte mindestens Vorname, Nachname und Ausbildungsberuf eintragen."); return; }
+      if (!p.vorname.trim() || !p.nachname.trim() || !p.beruf.trim()) { setMsg("Bitte mindestens Vorname, Nachname und Ausbildungsberuf angeben."); return; }
       await saveProfile(p);
     }
     if (step === "figur") await setSetting("pref_char", charId);
-    if (step === "vorlage" && tpl?.bytes && tpl.info && tpl.info.kind !== "unbekannt") {
-      await saveCustomTemplate(tpl.bytes);
-      if (takeQuals && tpl.info.quals.length) setQualCount(await replaceQualifications(tpl.info.quals));
+    if (step === "vorlage") {
+      try { await applyTplChoice(tplChoice); } catch (e) { setMsg("Die Vorlage konnte nicht übernommen werden: " + String(e).replace(/^Error:\s*/, "")); return; }
     }
-    if (step === "quali" && qualText.trim()) setQualCount(await replaceQualifications(qualText.split("\n")));
+    if (step === "quali") {
+      // Qualifikationen sind freiwillig: wer überspringt, bekommt sie komplett nicht (für diesen Nutzer)
+      if (qualMode === "liste" && suggestion) { await setQualsEnabled(true); setQualCount(await replaceQualifications(suggestion.items)); }
+      else if (qualMode === "vorlage" && tplQuals.length) { await setQualsEnabled(true); setQualCount(await replaceQualifications(tplQuals)); }
+      else if (qualMode === "eigene" && qualText.trim()) { await setQualsEnabled(true); setQualCount(await replaceQualifications(qualText.split("\n"))); }
+      else {
+        await setQualsEnabled(false);
+        if (prof?.id !== "si") await replaceQualifications([]);   // die vorinstallierte IHK-Liste (Systemintegration) räumen, damit sie später nicht fälschlich auftaucht (belegte bleiben)
+      }
+    }
     if (step === "tour" && tourI < TOUR.length - 1) { setTourI(tourI + 1); return; }
     if (step === "import") setTourI(0);
     go(1);
@@ -204,20 +217,6 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
     if (step === "tour" && tourI > 0) { setTourI(tourI - 1); return; }   // ein Rundgang-Schritt zurück
     if (step === "tour") { setTourI(0); go(-1); return; }                // aus dem Rundgang zurück in die Einrichtung
     go(-1);
-  };
-
-  const pickTemplate = async () => {
-    const fs = await fsapi();
-    const path = await fs.pickFile();
-    if (!path) return;
-    const name = baseName(path);
-    try {
-      const u = await fs.read(path, 30 * 1024 * 1024);
-      const bytes = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
-      if (/\.pdf$/i.test(name)) { setTpl({ name, pdf: true }); return; }
-      if (!/\.docx$/i.test(name)) { setTpl({ name, err: "Bitte eine Word-Datei (.docx) oder PDF wählen." }); return; }
-      setTpl({ name, info: await analyzeTemplate(bytes), bytes });
-    } catch (e) { setTpl({ name, err: String(e).replace(/^Error:\s*/, "") }); }
   };
 
   const guideId: GuideId = step === "tour" ? (TOUR[tourI].guide ?? "nami") : "nami";
@@ -257,7 +256,31 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           {step === "profil" && <>
             <h2>Wer bist du?</h2>
             <div className="row2">{field("vorname", "Vorname")}{field("nachname", "Nachname")}</div>
-            <div className="row2">{field("beruf", "Ausbildungsberuf", "z. B. Fachinformatiker/in", "tut-berufe")}{field("fachrichtung", "Fachrichtung (falls es eine gibt)", "z. B. Systemintegration", "tut-fach")}</div>
+            <div className="row2">
+              <label className="lab">Ausbildungsberuf
+                <select className="field" value={otherBeruf ? ANDERE_ID : (prof?.id ?? "")} onChange={(e) => {
+                  const id = e.target.value;
+                  if (id === ANDERE_ID) { setOtherBeruf(true); setP({ ...p, beruf: "", fachrichtung: "" }); return; }
+                  setOtherBeruf(false);
+                  const pr = profileById(id);
+                  if (pr) setP({ ...p, beruf: pr.beruf, fachrichtung: pr.fachrichtung, kammer: pr.kammer });
+                  else setP({ ...p, beruf: "", fachrichtung: "" });
+                }}>
+                  <option value="">– bitte wählen –</option>
+                  {PROFILES.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                  <option value={ANDERE_ID}>Anderer Beruf …</option>
+                </select>
+              </label>
+              {otherBeruf ? <>{field("beruf", "Dein Ausbildungsberuf", "z. B. Elektroniker/in")}</>
+                : prof?.fachrichtungen ? (
+                  <label className="lab">{prof.fachrichtungLabel ?? "Fachrichtung"}
+                    <select className="field" value={p.fachrichtung} onChange={(e) => setP({ ...p, fachrichtung: e.target.value })}>
+                      {prof.fachrichtungen.map((f) => <option key={f}>{f}</option>)}
+                    </select>
+                  </label>
+                ) : <div className="lab"><span>Zuständige Stelle</span><div className="tutnote">{prof ? `${prof.hinweis}` : "Wähle deinen Beruf, dann stelle ich Kammer und Vorlage passend ein."}</div></div>}
+            </div>
+            {otherBeruf && <div className="row2">{field("fachrichtung", "Fachrichtung (falls es eine gibt)")}<div className="lab"><span>Vorlage</span><div className="tutnote">Für deinen Beruf gibt es keine fertige Vorlage. Du kannst gleich eine eigene hochladen oder die Standard-Vorlage nehmen.</div></div></div>}
             <label className="lab">Was machst du in deinem Beruf? (ein, zwei Sätze)
               <textarea className="field" rows={2} value={p.taetigkeit} onChange={(e) => setP({ ...p, taetigkeit: e.target.value })} placeholder="z. B. Ich betreue Server und Netzwerke und helfe Kolleginnen bei IT-Problemen." />
             </label>
@@ -269,8 +292,6 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
             </div>
             <div className="row2">{field("betrieb", "Ausbildungsbetrieb")}{field("ausbilder", "Ausbilder/in (Nachname, Vorname)")}</div>
             <label className="lab">Ausbildungsbeginn<input className="field" type="month" value={p.beginn} onChange={(e) => setP({ ...p, beginn: e.target.value })} /></label>
-            <datalist id="tut-berufe">{BERUFE.map((b) => <option key={b} value={b} />)}</datalist>
-            <datalist id="tut-fach">{FACHRICHTUNGEN.map((b) => <option key={b} value={b} />)}</datalist>
           </>}
           {step === "figur" && <>
             <h2>Wähle deine Figur</h2>
@@ -286,25 +307,34 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           </>}
           {step === "vorlage" && <>
             <h2>Dein Berichtsheft</h2>
-            <p>Hast du eine Vorlage oder ein altes Berichtsheft als Word-Datei? Lade eine Kopie hoch, dann erzeuge ich deine Wochenberichte künftig im selben Format. Ohne Vorlage nutze ich ein sauberes IHK-Layout mit Tageskarten.</p>
-            <div className="inl">
-              <button className="btn" onClick={pickTemplate}><span>Vorlage hochladen</span></button>
-              <button className="mini" onClick={async () => { await useBundledTemplate(); setTpl(null); next(); }}>Standard-Layout nutzen</button>
-            </div>
-            {tpl?.err && <div className="errbox">{tpl.err}</div>}
-            {tpl?.pdf && <p className="tutnote">„{tpl.name}“ ist eine PDF. Eine PDF kann ich nicht als Vorlage befüllen, aber im übernächsten Schritt kann ich die <b>Einträge daraus importieren</b>. Für das Format nehme ich das Standard-Layout.</p>}
-            {tpl?.info?.kind === "karten" && <p className="tutnote ok">Erkannt: <b>Tageskarten-Vorlage</b> mit Dropdowns. Ich exportiere künftig genau in diesem Format.
-              {tpl.info.quals.length > 0 && <label className="tutcheck"><input type="checkbox" checked={takeQuals} onChange={(e) => setTakeQuals(e.target.checked)} /> {tpl.info.quals.length} Qualifikationen aus der Vorlage übernehmen</label>}</p>}
-            {tpl?.info?.kind === "platzhalter" && <p className="tutnote ok">Erkannt: Vorlage mit <b>Platzhaltern</b> ({tpl.info.placeholders.map((x) => `{{${x}}}`).join(", ")}). Die fülle ich beim Export aus.</p>}
-            {tpl?.info?.kind === "unbekannt" && <p className="tutnote">Diese Vorlage kann ich noch nicht automatisch befüllen. Schreib in deine Word-Datei einfach Platzhalter an die passenden Stellen, zum Beispiel <code>{"{{KW}}"}</code>, <code>{"{{NAME}}"}</code>, <code>{"{{MONTAG}}"}</code>, und lade sie nochmal hoch. Möglich sind: {PLACEHOLDER_HELP.map((x) => `{{${x}}}`).join(" ")}</p>}
+            <p>Wie soll dein Wochenbericht aussehen? Such dir einen Weg aus. Du kannst das später jederzeit unter System ändern.</p>
+            <TemplateChooser prof={prof} value={tplChoice} onChange={setTplChoice} />
           </>}
           {step === "quali" && <>
-            <h2>Deine Qualifikationen</h2>
-            <p>Jede Notiz bekommt eine oder mehrere Qualifikationen aus deinem Ausbildungsrahmenplan. So sieht dein Ausbilder, was du schon gelernt hast.</p>
-            <p className="tutnote">Aktuell sind <b>{qualCount}</b> Qualifikationen hinterlegt{isFachinformatiker(p) ? " (IHK-Liste für Fachinformatiker/innen)" : ""}.</p>
-            <label className="lab">{isFachinformatiker(p) ? "Andere Liste? Hier einfügen (eine pro Zeile), sonst leer lassen" : "Für deinen Beruf: Liste einfügen (eine Qualifikation pro Zeile, z. B. aus deinem Berichtsheft oder dem Ausbildungsrahmenplan)"}
-              <textarea className="field" rows={6} value={qualText} onChange={(e) => setQualText(e.target.value)} />
-            </label>
+            <h2>Qualifikationen <small>freiwillig</small></h2>
+            <p>Qualifikationen sind Stichwörter aus deinem Ausbildungsrahmenplan, die du an Notizen hängen kannst. Manche Betriebe und Kammern wollen das im Berichtsheft, andere nicht. Du entscheidest.</p>
+            <div className="qopts">
+              {suggestion && (
+                <div className={"qopt" + (qualMode === "liste" ? " on" : "")} onClick={() => setQualMode("liste")} role="button" tabIndex={0}>
+                  <b>{suggestion.title} <small>{suggestion.items.length} Einträge</small></b>
+                  <span>{suggestion.source}</span>
+                  <details onClick={(e) => e.stopPropagation()}><summary>Liste ansehen</summary><ul className="qtlist">{suggestion.items.map((i) => <li key={i.name}>{i.name}</li>)}</ul></details>
+                </div>
+              )}
+              {tplQuals.length > 0 && (
+                <div className={"qopt" + (qualMode === "vorlage" ? " on" : "")} onClick={() => setQualMode("vorlage")} role="button" tabIndex={0}>
+                  <b>Aus meiner Vorlage übernehmen <small>{tplQuals.length} Einträge</small></b><span>Die Auswahlliste aus der Datei, die du hochgeladen hast.</span>
+                </div>
+              )}
+              <div className={"qopt" + (qualMode === "eigene" ? " on" : "")} onClick={() => setQualMode("eigene")} role="button" tabIndex={0}>
+                <b>Eigene Liste einfügen</b><span>Eine Qualifikation pro Zeile, z. B. aus dem Ausbildungsrahmenplan deines Betriebs.</span>
+                {qualMode === "eigene" && <textarea className="field" rows={5} value={qualText} onClick={(e) => e.stopPropagation()} onChange={(e) => setQualText(e.target.value)} />}
+              </div>
+              <div className={"qopt" + (qualMode === "keine" ? " on" : "")} onClick={() => setQualMode("keine")} role="button" tabIndex={0}>
+                <b>Keine Qualifikationen nutzen</b><span>Dann gibt es sie nirgends: kein Feld in den Notizen, keine Dropdowns im Export, keine Fähigkeiten-Übersicht.</span>
+              </div>
+            </div>
+            <p className="tutnote">Wenn du diesen Schritt überspringst, bleiben die Qualifikationen aus. Unter System kannst du sie jederzeit einschalten.</p>
           </>}
           {step === "import" && <>
             <h2>Alte Berichtshefte mitnehmen</h2>
@@ -336,7 +366,8 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
             : <button className="btn" onClick={next}><span>{step === "start" ? "Starten"
                 : step === "tour" && TOUR[tourI].todo && !done ? "Überspringen"
                 : step === "tour" && preDone ? "Weiter"
-                : (step === "import" || step === "vorlage") && !tpl?.info ? "Weiter / überspringen" : "Weiter"}</span></button>}
+                : step === "quali" && (qualMode === null || qualMode === "keine" || (qualMode === "eigene" && !qualText.trim())) ? "Überspringen (ohne Qualifikationen)"
+                : step === "import" ? "Weiter / überspringen" : "Weiter"}</span></button>}
         </div>
       </div>
     </div>

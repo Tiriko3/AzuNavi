@@ -6,20 +6,29 @@ import { inTauri } from "../db/db";
 import { fsapi } from "../fsapi";
 import { createBackup, resetApp, restoreBackup } from "../backup";
 import { ImportDialog } from "../import/ImportDialog";
-import { loadProfile, type Profile } from "../tutorial/profile";
-import { loadActiveTemplate } from "../report/templates";
+import { loadProfile, saveProfile, type Profile } from "../tutorial/profile";
+import { loadActiveTemplate, useBundledTemplate } from "../report/templates";
+import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/TemplateChooser";
+import { setQualsEnabled, useQualsEnabled } from "../report/quals";
+import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
+import { listQualifications, replaceQualifications } from "../db/repo";
 import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.2.2";
+export const APP_VERSION = "1.3.0";
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tplInfo, setTplInfo] = useState("");
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplChoice, setTplChoice] = useState<TplChoice>({ mode: "standard" });
+  const qualsOn = useQualsEnabled();
+  const [qualCount, setQualCount] = useState(0);
+  const [armLoad, setArmLoad] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [msg, setMsg] = useState("");
@@ -44,14 +53,19 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
     await setSetting("lt_dir", d); await setSetting("lt_on", "1");
     setLt({ on: true, dir: d, status: "" }); ltTest();
   });
+  const refreshTpl = async () => {
+    const t = await loadActiveTemplate();
+    const name = await getSetting("custom_template_name");
+    setTplInfo(t.custom
+      ? `Eigene Vorlage${name ? ` „${name}“` : ""} (${t.info.kind === "karten" ? "Tageskarten" : t.info.kind === "platzhalter" ? "mit Platzhaltern" : "freies Layout"})`
+      : `Standard-Vorlage${t.profile ? ` für ${t.profile.beruf}` : " (IHK-Tageskarten)"}`);
+  };
+  const refreshQuals = () => listQualifications().then((q) => setQualCount(q.length));
+  useEffect(() => { loadProfile().then(setProfile); refreshTpl().catch(() => {}); refreshQuals(); }, [qualsOn]);
   useEffect(() => {
-    loadProfile().then(setProfile);
-    loadActiveTemplate().then((t) => setTplInfo(t.custom ? `Eigene Vorlage (${t.info.kind === "karten" ? "Tageskarten" : t.info.kind === "platzhalter" ? "mit Platzhaltern" : "Standard-Layout"})` : "Eingebautes IHK-Layout mit Tageskarten")).catch(() => {});
-  }, []);
-  useEffect(() => {
-    escRef.current = () => { if (importOpen) { setImportOpen(false); return true; } return false; };
+    escRef.current = () => { if (tplOpen) { setTplOpen(false); return true; } if (importOpen) { setImportOpen(false); return true; } return false; };
     return () => { escRef.current = null; };
-  }, [escRef, importOpen]);
+  }, [escRef, importOpen, tplOpen]);
   const act = async (f: () => Promise<void>) => { setErr(""); setMsg(""); setBusy(true); try { await f(); } catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); } finally { setBusy(false); } };
 
   const backup = () => act(async () => {
@@ -78,6 +92,23 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
     await resetApp();
     setMsg("Alles gelöscht. Die App startet neu …");
     setTimeout(() => location.reload(), 1200);
+  });
+
+  const prof = profile ? findProfile(profile.beruf, profile.fachrichtung) : null;
+  const suggestion = qualSuggestion(prof, profile?.fachrichtung ?? "");
+  const changeBeruf = (id: string) => act(async () => {
+    const pr = profileById(id); if (!pr || !profile) return;
+    const np = { ...profile, beruf: pr.beruf, fachrichtung: pr.fachrichtung, kammer: pr.kammer };
+    await saveProfile(np); setProfile(np); await refreshTpl();
+    setMsg("Beruf geändert: Kammer und Standard-Vorlage sind angepasst. Deine Qualifikationen habe ich nicht angefasst.");
+  });
+  const changeFach = (f: string) => act(async () => { if (!profile) return; const np = { ...profile, fachrichtung: f }; await saveProfile(np); setProfile(np); setArmLoad(false); });
+  const applyTpl = () => act(async () => { await applyTplChoice(tplChoice); await refreshTpl(); setTplOpen(false); setMsg("Vorlage übernommen. Sie gilt ab dem nächsten Export."); });
+  const toggleQuals = () => act(async () => { await setQualsEnabled(!qualsOn); setMsg(!qualsOn ? "Qualifikationen sind wieder an. Frühere Zuordnungen sind noch da." : "Qualifikationen sind aus: kein Feld in den Notizen, keine Dropdowns im Export, keine Fähigkeiten-Übersicht. Nichts ist gelöscht."); });
+  const loadQualList = () => act(async () => {
+    if (!suggestion) return;
+    if (!armLoad) { setArmLoad(true); return; }
+    await replaceQualifications(suggestion.items); await refreshQuals(); setArmLoad(false); setMsg(`Liste geladen: ${suggestion.items.length} Qualifikationen. Schon vergebene bleiben erhalten.`);
   });
 
   return (
@@ -120,7 +151,20 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
         </section>
 
         <section className="paperbox syscard">
-          <h3>Daten</h3>
+          <h3>Beruf &amp; Berichtsheft</h3>
+          {profile && <div className="sysrow"><span>Beruf</span>
+            <select className="field mini-select" value={prof?.id ?? "andere"} onChange={(e) => changeBeruf(e.target.value)}>
+              {!prof && <option value="andere">Anderer Beruf: {profile.beruf || "–"}</option>}
+              {PROFILES.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select></div>}
+          {prof?.fachrichtungen && profile && <div className="sysrow"><span>{prof.fachrichtungLabel ?? "Fachrichtung"}</span>
+            <select className="field mini-select" value={profile.fachrichtung} onChange={(e) => changeFach(e.target.value)}>{prof.fachrichtungen.map((f) => <option key={f}>{f}</option>)}</select></div>}
+          <div className="sysrow"><span>Vorlage</span><span className="inl"><span className="small">{tplInfo}</span><button className="mini hot" onClick={() => { setTplChoice({ mode: "standard" }); setTplOpen(true); }}>Ansehen / ändern</button></span></div>
+          <div className="sysrow"><span>Qualifikationen</span>
+            <button className={"toggle" + (qualsOn ? " on" : "")} onClick={toggleQuals}><i />{qualsOn ? "an" : "aus"}</button></div>
+          {qualsOn && suggestion && <div className="sysrow"><span>{qualCount} gespeichert</span>
+            <button className={"mini" + (armLoad ? " hot" : "")} disabled={busy} onClick={loadQualList}>{armLoad ? "Wirklich laden?" : "Liste für meinen Beruf laden"}</button></div>}
+          <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
           <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
@@ -151,7 +195,21 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           </div>
         </section>
       </div>
-      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+      {importOpen && <ImportDialog onClose={() => { setImportOpen(false); refreshTpl().catch(() => {}); }} />}
+      {tplOpen && (
+        <div className="fmodal impmodal">
+          <div className="impbox paperbox">
+            <h3>Vorlage für dein Berichtsheft</h3>
+            <p className="small">Aktuell: {tplInfo}. Wähle eine neue und klick auf „Übernehmen“.</p>
+            <TemplateChooser prof={prof} value={tplChoice} onChange={setTplChoice} />
+            <div className="actions static">
+              <button className="btn" onClick={applyTpl} disabled={busy}><span>Übernehmen</span></button>
+              <button className="btn ghost" onClick={() => setTplOpen(false)}><span>Abbrechen</span></button>
+              {tplInfo.startsWith("Eigene") && <button className="mini" disabled={busy} onClick={() => act(async () => { await useBundledTemplate(); await refreshTpl(); setTplOpen(false); setMsg("Zurück zur Standard-Vorlage."); })}>Zurück zur Standard-Vorlage</button>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

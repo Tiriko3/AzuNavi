@@ -9,7 +9,7 @@ export interface Migration {
 
 // IHK-Qualifikationen, übernommen aus deiner Berichtsheft-Vorlage (Word).
 // kind: betrieb = betriebliche Qualifikation, schule = schulische, sonst = Auffangoption
-const QUALIS: { name: string; kind: "betrieb" | "schule" | "sonst" }[] = [
+export const QUALIS: { name: string; kind: "betrieb" | "schule" | "sonst" }[] = [
   { name: "Administrieren von IT-Systemen", kind: "betrieb" },
   { name: "Betreiben von IT-Systemen", kind: "betrieb" },
   { name: "Programmieren von Softwarelösungen", kind: "betrieb" },

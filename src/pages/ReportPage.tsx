@@ -10,6 +10,8 @@ import { fsapi } from "../fsapi";
 import { buildWeekDocx, readTemplateMeta } from "../report/weekDocx";
 import { buildSkillsDocx, type SkillRow } from "../report/skillsDocx";
 import { buildPlaceholderDocx, loadActiveTemplate } from "../report/templates";
+import { buildFreeDocx } from "../report/freeTemplate";
+import { useQualsEnabled } from "../report/quals";
 import { SpellCheck } from "../spell/SpellCheck";
 import { getSetting } from "../db/db";
 import { PLACES, isoWeek, monthName, mondayOf, shortDate, weekDates, weekdayName, type ReportMeta, type WeekDraft } from "../report/types";
@@ -29,6 +31,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
   const now = isoWeek(new Date());
   const [year, setYear] = useState(now.year);
   const [week, setWeek] = useState(now.week);
+  const qualsOn = useQualsEnabled();
   const [tab, setTab] = useState<Tab>("woche");
   const [notes, setNotes] = useState<Note[]>([]);
   const [quals, setQuals] = useState<Qualification[]>([]);
@@ -116,9 +119,12 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
       await new Promise((r) => setTimeout(r, 900));
       const tpl = await loadActiveTemplate();
       const kammer = (await getSetting("bh_kammer")) ?? "";
+      const useQ = quals.length > 0 && await (await import("../report/quals")).qualsEnabled();
       const bytes = tpl.info.kind === "platzhalter"
         ? await buildPlaceholderDocx(tpl.bytes, draft, { ...meta, kammer })
-        : await buildWeekDocx(tpl.bytes, draft, meta, quals.map((q) => q.name));
+        : tpl.info.kind === "frei"
+          ? await buildFreeDocx(tpl.bytes, draft, { ...meta, kammer }, { quals: useQ, kammer })
+          : await buildWeekDocx(tpl.bytes, draft, meta, quals.map((q) => q.name), useQ);
       const fs = await fsapi();
       const path = await fs.saveFile(`Berichtsheft_KW${String(week).padStart(2, "0")}_${year}.docx`, bytes, "Word-Dokument", "docx");
       if (!path) return;
@@ -141,7 +147,8 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
   const exportSkills = async () => {
     if (!meta.name.trim()) { setTab("angaben"); setCat({ pose: "schreibt", text: "Trag zuerst deinen Namen ein, er steht oben auf der Übersicht." }); return; }
     try {
-      const bytes = await buildSkillsDocx(await loadTemplate(), skills, meta, todayStr());
+      const tpl = await loadActiveTemplate();
+      const bytes = await buildSkillsDocx(tpl.bytes, skills, meta, todayStr(), tpl.profile?.accent, tpl.profile?.accentLight);
       const path = await (await fsapi()).saveFile(`Faehigkeiten_Uebersicht_${todayStr()}.docx`, bytes, "Word-Dokument", "docx");
       if (path) setCat({ pose: "zeigt", text: `Die Fähigkeiten-Übersicht ist gespeichert. ${used} von ${total} Qualifikationen sind belegt.`, path });
     } catch (e) { setErr("Export fehlgeschlagen: " + String(e)); }
@@ -170,7 +177,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
           <span className={"rstate" + (exported.at ? " done" : edited ? " edit" : "")}>{exported.at ? "exportiert" : edited ? "angepasst" : "aus Notizen"}</span>
         </div>
         <span className="pvtabs">
-          {([["woche", "Woche"], ["faehig", "Fähigkeiten"], ["angaben", "Angaben"]] as [Tab, string][]).map(([k, l]) => (
+          {([["woche", "Woche"], ...(qualsOn ? [["faehig", "Fähigkeiten"]] : []), ["angaben", "Angaben"]] as [Tab, string][]).map(([k, l]) => (
             <button key={k} className={"pvtab" + (tab === k ? " on" : "")} onClick={() => { setTab(k); setCat(null); }}><span>{l}</span></button>
           ))}
         </span>
@@ -211,14 +218,14 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
                       onChange={(ev) => update((x) => { x.days[di].entries[ei].text = ev.target.value; return x; })} />
                     <SpellCheck compact value={e.text} onChange={(v) => update((x) => { x.days[di].entries[ei].text = v; return x; })} />
                     <div className="chips">
-                      {e.quals.map((q, qi) => (
+                      {qualsOn && e.quals.map((q, qi) => (
                         <span key={qi} className="chip sel" title={q}>{q.length > 42 ? q.slice(0, 42) + "…" : q}
                           <button type="button" aria-label="entfernen" onClick={() => update((x) => { x.days[di].entries[ei].quals.splice(qi, 1); return x; })}>×</button></span>
                       ))}
-                      <select className="field mini-select" value="" onChange={(ev) => ev.target.value && update((x) => { x.days[di].entries[ei].quals.push(ev.target.value); return x; })}>
+                      {qualsOn && <select className="field mini-select" value="" onChange={(ev) => ev.target.value && update((x) => { x.days[di].entries[ei].quals.push(ev.target.value); return x; })}>
                         <option value="">+ Qualifikation</option>
                         {qualNames.filter((q) => !e.quals.includes(q)).map((q) => <option key={q} value={q}>{q}</option>)}
-                      </select>
+                      </select>}
                       <button className="tsm del" aria-label="Eintrag entfernen" title="Eintrag entfernen (die Notiz bleibt)" onClick={() => update((x) => { x.days[di].entries.splice(ei, 1); return x; })}>×</button>
                     </div>
                   </div>
@@ -262,7 +269,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
             </label>
           ))}
           <p className="small">Vorschau: <b>{meta.name || "Name"}</b> · {meta.beruf} · {meta.betrieb} · Ausbilder: {meta.ausbilder}</p>
-          <p className="small">Die Vorlage ist deine IHK-Word-Datei (Tageskarten mit Dropdowns für Anwesenheit, Ort und Qualifikation). „Dauer gesamt“ und die Unterschriften bleiben wie in der Vorlage zum Ausfüllen.</p>
+          <p className="small">Die Vorlage wählst du unter System (Standard-Vorlage deines Berufs oder deine eigene Datei). „Dauer gesamt“ und die Unterschriften bleiben wie in der Vorlage zum Ausfüllen.</p>
         </div>
       )}
 

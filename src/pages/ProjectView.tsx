@@ -1,3 +1,4 @@
+import { useQualsEnabled } from "../report/quals";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MindMap } from "./MindMap";
 import { SpellCheck } from "../spell/SpellCheck";
@@ -33,6 +34,7 @@ interface Props {
 
 export function ProjectView({ project: p, projects, threads, persons, version, escRef, onBack, onEdit, onOpen, onChanged }: Props) {
   const [notes, setNotes] = useState<Note[]>([]);
+  const qualsOn = useQualsEnabled();
   const [quals, setQuals] = useState<Qualification[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [files, setFiles] = useState<(TrackedFile & { missing: boolean })[]>([]);
@@ -192,10 +194,10 @@ export function ProjectView({ project: p, projects, threads, persons, version, e
               <SpellCheck compact value={noteForm.text} onChange={(v) => setNoteForm({ ...noteForm, text: v })} />
               <div className="inl">
                 <input className="field" type="date" value={noteForm.date} onChange={(e) => setNoteForm({ ...noteForm, date: e.target.value })} />
-                <select className="field" value={noteForm.qualId ?? ""} onChange={(e) => setNoteForm({ ...noteForm, qualId: e.target.value ? Number(e.target.value) : null })}>
+                {qualsOn && <select className="field" value={noteForm.qualId ?? ""} onChange={(e) => setNoteForm({ ...noteForm, qualId: e.target.value ? Number(e.target.value) : null })}>
                   <option value="">Qualifikation (optional)</option>
                   {quals.map((q) => <option key={q.id} value={q.id}>{q.name}</option>)}
-                </select>
+                </select>}
               </div>
               <div className="inl">
                 <button className="mini hot" onClick={addNote}>Speichern</button>
@@ -214,7 +216,7 @@ export function ProjectView({ project: p, projects, threads, persons, version, e
                   <div className="pvdate"><b>{d.day}. {d.month}</b><small>KW {d.kw}</small></div>
                   <div className="pvntext">
                     <p>{n.text}</p>
-                    {n.qualIds.length > 0 && <div className="chips">{n.qualIds.map((q) => <span key={q} className="chip">{qualById.get(q)?.name}</span>)}</div>}
+                    {n.qualIds.filter((q) => qualById.has(q)).length > 0 && <div className="chips">{n.qualIds.filter((q) => qualById.has(q)).map((q) => <span key={q} className="chip">{qualById.get(q)?.name}</span>)}</div>}
                   </div>
                 </div>
               );

@@ -6,8 +6,12 @@ import { BaseDirectory, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs
 import { getSetting, inTauri, setSetting } from "../db/db";
 import { W, all, kids, setT, textOf } from "./weekDocx";
 import { ABSENT_PLACES, shortDate, weekDates, weekdayName, type ReportMeta, type WeekDraft } from "./types";
+import { findProfile, type BerufProfile } from "../profiles/berufe";
+import { buildStandardTemplate } from "./standard";
+import { makeEmptyCopy } from "./freeTemplate";
 
-export type TemplateKind = "karten" | "platzhalter" | "unbekannt";
+// karten = Tageskarten wie die IHK-Vorlage, platzhalter = Word mit {{…}}, frei = jedes andere Layout (wird als Rahmen benutzt)
+export type TemplateKind = "karten" | "platzhalter" | "frei";
 export interface TemplateInfo { kind: TemplateKind; quals: string[]; placeholders: string[] }
 const CUSTOM = "templates/vorlage.docx";
 let memCustom: ArrayBuffer | null = null; // nur Browser-Test
@@ -29,7 +33,7 @@ export async function analyzeTemplate(bytes: ArrayBuffer): Promise<TemplateInfo>
   }
   const plain = xml.replace(/<w:p[ >][\s\S]*?<\/w:p>/g, (p) => (p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, "")).join("") + "\n");
   const placeholders = [...new Set([...plain.matchAll(/\{\{\s*([A-Za-zÄÖÜäöü_0-9]+)\s*\}\}/g)].map((x) => x[1].toUpperCase()))];
-  const kind: TemplateKind = /w:alias w:val="Anwesenheit Tag/.test(xml) ? "karten" : placeholders.length ? "platzhalter" : "unbekannt";
+  const kind: TemplateKind = /w:alias w:val="Anwesenheit Tag/.test(xml) ? "karten" : placeholders.length ? "platzhalter" : "frei";
   return { kind, quals, placeholders };
 }
 
@@ -42,8 +46,19 @@ export async function saveCustomTemplate(bytes: ArrayBuffer) {
 }
 export async function useBundledTemplate() { await setSetting("custom_template", "0"); }
 
-/** Aktive Vorlage: deine hochgeladene, sonst die eingebaute IHK-Vorlage */
-export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom: boolean; info: TemplateInfo }> {
+/** Profil des Nutzers (Beruf + Fachrichtung) – null bei anderem Beruf */
+export async function activeProfile(): Promise<BerufProfile | null> {
+  return findProfile((await getSetting("profile_beruf")) ?? "", (await getSetting("profile_fachrichtung")) ?? "");
+}
+
+/** Standard-Vorlage für einen Beruf (Farben, Titelzeile, Kopfzeile). Bei Profil = null: neutrale IHK-Vorlage. */
+export async function standardTemplateFor(prof: BerufProfile | null, kammerText: string): Promise<ArrayBuffer> {
+  const base = await (await fetch(bundledUrl)).arrayBuffer();
+  return buildStandardTemplate(base, prof, { kammerText });
+}
+
+/** Aktive Vorlage: deine hochgeladene, sonst die Standard-Vorlage deines Berufs */
+export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom: boolean; info: TemplateInfo; profile: BerufProfile | null }> {
   let bytes: ArrayBuffer | null = null;
   if ((await getSetting("custom_template")) === "1") {
     try {
@@ -52,8 +67,21 @@ export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom
     } catch { bytes = null; }
   }
   const custom = !!bytes;
-  if (!bytes) bytes = await (await fetch(bundledUrl)).arrayBuffer();
-  return { bytes, custom, info: await analyzeTemplate(bytes) };
+  const profile = await activeProfile();
+  if (!bytes) bytes = await standardTemplateFor(profile, (await getSetting("bh_kammer")) ?? "");
+  return { bytes, custom, info: await analyzeTemplate(bytes), profile };
+}
+
+/**
+ * Hochgeladene Datei als Vorlage übernehmen. Wird nichts abgelehnt:
+ * Tageskarten und Platzhalter-Vorlagen gehen so durch, jedes andere Layout wird (auf Wunsch) zur leeren Kopie.
+ */
+export async function adoptTemplate(bytes: ArrayBuffer, emptyIfFree = true, name = ""): Promise<TemplateKind> {
+  const info = await analyzeTemplate(bytes);
+  const out = info.kind === "frei" && emptyIfFree ? await makeEmptyCopy(bytes) : bytes;
+  await saveCustomTemplate(out);
+  if (name) await setSetting("custom_template_name", name);
+  return info.kind;
 }
 
 /* ---------- Vorlagen mit Platzhaltern ---------- */

@@ -849,3 +849,30 @@ select.field{padding-right:6px}
 .quitbtn{width:30px;height:30px;border:2px solid #fff;background:rgba(4,16,107,.75);color:#fff;font:800 15px/1 var(--text);cursor:pointer;border-radius:50%;padding:0;transition:background .15s,transform .15s}
 .quitbtn:hover{background:#ff2d5f;transform:scale(1.1)}
 .quitask{display:flex;align-items:center;gap:8px;background:#04106b;color:#fff;font:700 14px var(--text);padding:6px 12px;border:2px solid #fff;box-shadow:3px 3px 0 rgba(0,0,0,.4)}
+
+/* Vorlage wählen (Tutorial + System) */
+.tplc{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.tplcard{display:flex;gap:14px;align-items:flex-start;border:3px solid #c9d3f5;background:#fff;padding:10px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.tplcard.on{border-color:var(--hot);box-shadow:4px 4px 0 rgba(4,16,107,.25)}
+.tplcard.hint{cursor:default;background:#eef3ff;border-style:dashed}
+.tplthumb{width:118px;height:auto;border:1px solid #9aa5b1;flex:none;cursor:zoom-in;background:#fff}
+.tplbody{flex:1;min-width:0}
+.tplbody b{display:block;font:800 16px var(--display);color:var(--abyss);margin-bottom:3px}
+.tplbody p{margin:0 0 7px;font-size:calc(14px * var(--fs))}
+.tplinfo{margin-top:8px}
+.tplradio{display:flex;flex-direction:column;gap:5px;margin-top:6px;font-size:calc(14px * var(--fs))}
+.tplradio input{margin-right:6px}
+.tplbig{position:fixed;inset:0;z-index:300;background:rgba(3,11,62,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;cursor:zoom-out}
+.tplbig img{max-height:82vh;max-width:92vw;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.6)}
+
+/* Qualifikations-Schritt im Tutorial */
+.qopts{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+.qopt{border:3px solid #c9d3f5;background:#fff;padding:9px 12px;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.qopt.on{border-color:var(--hot);box-shadow:4px 4px 0 rgba(4,16,107,.25)}
+.qopt b{font:800 16px var(--display);color:var(--abyss)}
+.qopt b small{font:600 12px var(--text);color:#6B7280;margin-left:6px}
+.qopt span{font-size:calc(13.5px * var(--fs));color:#2c3566}
+.qopt details{font-size:13px}
+.qtlist{max-height:140px;overflow:auto;margin:6px 0 0;padding-left:18px;font-size:12.5px}
+
+.sys .mini-select{max-width:250px}

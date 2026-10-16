@@ -21,12 +21,15 @@ function cell(text: string, w: number, o: { bold?: boolean; color?: string; fill
 const para = (text: string, o: { bold?: boolean; color?: string; size?: number; after?: number } = {}) =>
   `<w:p><w:pPr><w:spacing w:before="120" w:after="${o.after ?? 80}"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>${o.bold ? "<w:b/>" : ""}<w:color w:val="${o.color ?? "1D4E6B"}"/><w:sz w:val="${o.size ?? 20}"/></w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r></w:p>`;
 
-export async function buildSkillsDocx(template: ArrayBuffer, rows: SkillRow[], meta: ReportMeta, today: string): Promise<Uint8Array> {
+export async function buildSkillsDocx(template: ArrayBuffer, rows: SkillRow[], meta: ReportMeta, today: string, accent = "1D4E6B", accentLight = "4A7DB5"): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(template);
   const xml = await zip.file("word/document.xml")!.async("string");
   const doc = new DOMParser().parseFromString(xml, "text/xml");
   const body = all(doc, "body")[0];
-  const top = kids(body);
+  let top = kids(body);
+  // Titelzeile der Standard-Vorlage („AUSBILDUNGSNACHWEIS · IHK“) gehört nur zum Wochenbericht
+  top.forEach((k) => { if (k.localName === "p" && /^(AUSBILDUNGSNACHWEIS|BERICHTSHEFT|WOCHENBERICHT)/.test(textOf(k).trim())) body.removeChild(k); });
+  top = kids(body);
 
   // Kopf umbenennen
   const header = top.find((k) => k.localName === "tbl")!;
@@ -78,6 +81,8 @@ export async function buildSkillsDocx(template: ArrayBuffer, rows: SkillRow[], m
   const sign = kids(body).find((k) => k.localName === "tbl" && textOf(k).includes("Unterschrift"));
   for (const n of kids(all(fdoc, "body")[0])) body.insertBefore(doc.importNode(n, true), sign ?? null);
 
-  zip.file("word/document.xml", new XMLSerializer().serializeToString(doc));
+  // eigene Tabelle in den Farben des Berufsprofils
+  const outXml = new XMLSerializer().serializeToString(doc).replace(/1D4E6B/g, accent).replace(/4A7DB5/g, accentLight);
+  zip.file("word/document.xml", outXml);
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
