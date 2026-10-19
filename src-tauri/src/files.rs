@@ -219,6 +219,14 @@ pub async fn fs_write_file(path: String, bytes: Vec<u8>) -> Result<(), String> {
 /// Portable App: legt beim Start eine Verknüpfung „AzuNavi“ auf dem Desktop an.
 /// Ist sie schon da und zeigt auf diese .exe, passiert nichts. Nach einem Umzug der .exe
 /// (z. B. auf einen anderen Laptop oder in einen anderen Ordner) wird sie neu gesetzt.
+/// Handy (Android/iOS): Es gibt keinen Desktop-Ordner und keine Verknüpfungen. Diese Fassung wird nur dort übersetzt.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub async fn ensure_desktop_shortcut(_app: tauri::AppHandle) -> Result<String, String> {
+    Ok("nicht-windows".into())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub async fn ensure_desktop_shortcut(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
