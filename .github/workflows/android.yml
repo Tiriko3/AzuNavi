@@ -1,0 +1,92 @@
+# Baut die Android-App (APK, arm64) auf GitHub.
+# Starten: GitHub -> Actions -> "Android bauen" -> "Run workflow" -> Zweig wählen (z. B. android).
+# Ergebnis: ein Vorab-Release "android-test-<Nummer>" mit der APK zum Installieren.
+# Signatur: Mit den Secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS dauerhaft
+# (Updates installieren sich über die alte Version, Daten bleiben). Ohne Secrets: temporärer Schlüssel.
+name: Android bauen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v7
+
+      - name: Java 17 wählen (auf GitHub vorinstalliert)
+        run: echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+
+      - name: Node einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust mit Android-Ziel einrichten
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Rust-Zwischenstand wiederverwenden
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Pakete installieren
+        run: npm ci
+
+      - name: Android-Projekt erzeugen
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npm run tauri -- android init --ci
+
+      - name: Querformat festlegen (Oberfläche ist für 16:9 gebaut)
+        run: |
+          M=src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          sed -i '0,/<activity /s//<activity android:screenOrientation="sensorLandscape" /' "$M"
+          grep -q 'screenOrientation="sensorLandscape"' "$M"
+
+      - name: App bauen (arm64)
+        run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npm run tauri -- android build --apk --target aarch64
+
+      - name: APK signieren
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*release-unsigned.apk' | head -1)
+          test -n "$APK" || { echo "Keine unsignierte APK gefunden"; find src-tauri/gen/android/app/build/outputs -name '*.apk'; exit 1; }
+          if [ -n "${KS_B64:-}" ]; then
+            echo "$KS_B64" | base64 -d > ks.jks
+            export PASS="$KS_PASS"; ALIAS="$KS_ALIAS"; MODE="dauerhaft"
+          else
+            export PASS=$(openssl rand -hex 16); ALIAS="azunavi"; MODE="temporaer"
+            keytool -genkeypair -keystore ks.jks -storetype PKCS12 -storepass "$PASS" -keypass "$PASS" -alias "$ALIAS" -keyalg RSA -keysize 3072 -validity 365 -dname "CN=AzuNavi Test" -noprompt
+            echo "::warning::Kein eigener Schlüssel hinterlegt: temporär signiert. Ein späteres Update geht nur nach Deinstallation (die Daten auf dem Handy gehen dabei verloren)."
+          fi
+          "$BT/zipalign" -f -p 4 "$APK" aligned.apk
+          "$BT/apksigner" sign --ks ks.jks --ks-pass env:PASS --ks-key-alias "$ALIAS" --out signed.apk aligned.apk
+          "$BT/apksigner" verify signed.apk
+          rm -f ks.jks aligned.apk
+          V=$(node -p "require('./package.json').version")
+          mv signed.apk "AzuNavi_${V}_android_arm64.apk"
+          echo "APK_FILE=AzuNavi_${V}_android_arm64.apk" >> "$GITHUB_ENV"
+          echo "SIGN_MODE=$MODE" >> "$GITHUB_ENV"
+
+      - name: Als Vorab-Release bereitstellen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "android-test-${{ github.run_number }}" "$APK_FILE" --prerelease --target "${{ github.sha }}" \
+            --title "AzuNavi Android Test ${{ github.run_number }} (${{ github.ref_name }})" \
+            --notes "Test-Version für Android-Handys (arm64). Signatur: ${SIGN_MODE}. Installation: APK aufs Handy laden, Installation aus dieser Quelle erlauben, öffnen. Funktioniert im Querformat."
