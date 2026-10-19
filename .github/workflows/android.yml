@@ -47,9 +47,19 @@ jobs:
 
       - name: Querformat festlegen (Oberfläche ist für 16:9 gebaut)
         run: |
-          M=src-tauri/gen/android/app/src/main/AndroidManifest.xml
-          sed -i '0,/<activity /s//<activity android:screenOrientation="sensorLandscape" /' "$M"
-          grep -q 'screenOrientation="sensorLandscape"' "$M"
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path("src-tauri/gen/android/app/src/main/AndroidManifest.xml")
+          s = p.read_text(encoding="utf-8")
+          if "android:screenOrientation" not in s:
+              # In der erzeugten Datei steht "<activity" allein am Zeilenende, die Attribute folgen darunter
+              s2 = re.sub(r"<activity\b", '<activity android:screenOrientation="sensorLandscape"', s, count=1)
+              if s2 == s:
+                  raise SystemExit("Kein <activity> in der AndroidManifest.xml gefunden")
+              p.write_text(s2, encoding="utf-8")
+          assert 'android:screenOrientation="sensorLandscape"' in p.read_text(encoding="utf-8")
+          print("Querformat gesetzt")
+          PY
 
       - name: App bauen (arm64)
         run: |
