@@ -1,0 +1,111 @@
+/* AzuNavi Handy-Oberfläche (Hochformat). Alles mit m- Präfix, damit nichts die PC-Oberfläche berührt. */
+.m-app{--m-navy:#04106b;--m-deep:#0a1a8c;--m-hot:#ff2d5f;--m-bg:#eef2fb;--m-card:#fff;--m-ink:#0b1446;--m-mute:#5b6690;--m-line:#dfe5f5;
+  --m-alle:#1f5bff;--m-schule:#0fa9a2;--m-arbeit:#7b5cff;--m-acc:var(--m-alle);--m-fs:var(--fs,1);
+  position:fixed;inset:0;display:flex;flex-direction:column;background:var(--m-bg);color:var(--m-ink);
+  font:500 calc(16px * var(--m-fs))/1.45 var(--text,"Poppins",system-ui,sans-serif);-webkit-font-smoothing:antialiased;overflow:hidden}
+.m-app[data-scope=schule]{--m-acc:var(--m-schule)} .m-app[data-scope=arbeit]{--m-acc:var(--m-arbeit)}
+.m-app *{box-sizing:border-box} .m-app button{font:inherit;color:inherit;cursor:pointer} .m-ic{flex:none;display:block}
+.m-app input,.m-app select,.m-app textarea{font:500 16px/1.4 inherit;font-family:inherit}
+
+/* App-Leiste oben */
+.m-top{flex:none;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 12px;color:#fff;
+  background:linear-gradient(118deg,var(--m-navy) 0 62%,var(--m-deep) 62% 100%);position:relative;overflow:hidden;z-index:2}
+.m-top::after{content:"";position:absolute;right:-30px;top:0;bottom:0;width:120px;background:var(--m-acc);opacity:.35;transform:skewX(-18deg)}
+.m-toprow{display:flex;align-items:center;gap:10px;position:relative;z-index:1}
+.m-title{flex:1;min-width:0;margin:0;font:italic 900 calc(26px * var(--m-fs))/1.05 var(--display,"Montserrat",sans-serif);text-transform:uppercase;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-title small{display:block;font:600 12px/1.3 var(--text,"Poppins",sans-serif);letter-spacing:.06em;opacity:.8;text-transform:uppercase}
+.m-iconbtn{width:44px;height:44px;border:0;border-radius:14px;background:rgba(255,255,255,.12);display:grid;place-items:center;flex:none}
+.m-sheet .m-iconbtn,.m-card .m-iconbtn{background:#eef2fb;color:var(--m-ink)}
+.m-scope{position:relative;z-index:1;margin-top:12px;display:flex;gap:6px}
+.m-scope button{flex:1;height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.13);color:#fff;font:700 14px var(--text,"Poppins")}
+.m-scope button.on{background:#fff;color:var(--m-navy);box-shadow:0 2px 0 var(--m-hot)}
+
+/* Inhalt */
+.m-main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(170px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain}
+.m-h{margin:18px 4px 8px;font:italic 900 15px/1.2 var(--display,"Montserrat");text-transform:uppercase;letter-spacing:.02em;color:var(--m-navy);display:flex;align-items:center;gap:8px}
+.m-h::before{content:"";width:14px;height:6px;background:var(--m-hot);transform:skewX(-20deg)}
+.m-card{background:var(--m-card);border-radius:18px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 0 var(--m-line),0 6px 18px rgba(11,20,70,.06);position:relative;overflow:hidden}
+.m-card.tap{cursor:pointer} .m-card.tap:active{transform:scale(.985)}
+.m-card[data-scope]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--m-alle)}
+.m-card[data-scope=schule]::before{background:var(--m-schule)} .m-card[data-scope=arbeit]::before{background:var(--m-arbeit)}
+.m-card .m-meta{font-size:13px;color:var(--m-mute);display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.m-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.m-chip{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;background:#eef2fb;color:var(--m-ink);font-size:13px;font-weight:600}
+.m-chip.acc{background:color-mix(in srgb,var(--m-acc) 14%,#fff);color:var(--m-ink)}
+.m-hero{background:linear-gradient(135deg,var(--m-navy),var(--m-deep));color:#fff;border-radius:22px;padding:18px;display:flex;gap:12px;align-items:center;margin-bottom:12px;position:relative;overflow:hidden}
+.m-hero img{width:86px;height:86px;object-fit:contain;flex:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.35))}
+.m-hero b{display:block;font:italic 900 22px/1.1 var(--display,"Montserrat");text-transform:uppercase}
+.m-hero p{margin:4px 0 0;opacity:.85;font-size:14px}
+.m-week{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.m-week span{height:40px;border-radius:12px;background:#eef2fb;display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--m-mute)}
+.m-week span.full{background:var(--m-acc);color:#fff} .m-week span.today{outline:2px solid var(--m-hot);outline-offset:1px}
+.m-bar{height:8px;border-radius:99px;background:#e6ebf7;overflow:hidden;margin-top:8px} .m-bar i{display:block;height:100%;background:var(--m-acc);border-radius:99px}
+.m-row{display:flex;align-items:center;gap:12px} .m-grow{flex:1;min-width:0}
+.m-avatar{width:48px;height:48px;border-radius:16px;flex:none;display:grid;place-items:center;font:italic 900 18px var(--display,"Montserrat");color:#fff;background:var(--m-acc);overflow:hidden}
+.m-avatar img{width:100%;height:100%;object-fit:cover}
+.m-search{display:flex;align-items:center;gap:8px;background:#fff;border-radius:14px;padding:0 12px;height:48px;margin-bottom:10px;box-shadow:0 1px 0 var(--m-line)}
+.m-search input{flex:1;border:0;outline:0;background:transparent;min-width:0}
+.m-filter{display:flex;gap:6px;overflow-x:auto;margin:0 -14px 10px;padding:0 14px;scrollbar-width:none}
+.m-filter button{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--m-line);background:#fff;font-weight:600;font-size:14px}
+.m-filter button.on{background:var(--m-ink);color:#fff;border-color:var(--m-ink)}
+.m-status{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:#eef2fb;text-transform:uppercase;letter-spacing:.03em}
+.m-status.aktiv{background:#dff7ec;color:#0a7a4c} .m-status.idee{background:#fff3d6;color:#8a5a00} .m-status.pausiert{background:#eceff7;color:#5b6690} .m-status.fertig{background:#e4e9ff;color:#2a3fbf}
+
+/* Leerzustand */
+.m-empty{text-align:center;padding:30px 20px;color:var(--m-mute)} .m-empty img{width:130px;height:130px;object-fit:contain}
+.m-empty b{display:block;color:var(--m-ink);font:italic 900 19px var(--display,"Montserrat");text-transform:uppercase;margin:6px 0}
+
+/* Knöpfe */
+.m-btn{height:52px;padding:0 20px;border:0;border-radius:16px;background:var(--m-hot);color:#fff;font:italic 900 16px var(--display,"Montserrat");text-transform:uppercase;letter-spacing:.02em;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.m-btn.sec{background:#fff;color:var(--m-ink);border:2px solid var(--m-line);font-style:normal;font-family:var(--text,"Poppins");font-weight:700;text-transform:none}
+.m-btn.ghost{background:transparent;color:#c2183f;font-style:normal;font-family:var(--text,"Poppins");font-weight:700;text-transform:none}
+.m-btn:disabled{opacity:.45}
+.m-btnrow{display:flex;gap:8px} .m-btnrow>*{flex:1}
+
+/* Untere Navigation und Plus-Knopf */
+.m-nav{position:absolute;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:66px;border-radius:22px;background:var(--m-navy);display:flex;align-items:stretch;padding:6px;gap:2px;z-index:5;
+  box-shadow:0 10px 30px rgba(4,16,107,.35)}
+.m-nav button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.62);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:600 11px var(--text,"Poppins")}
+.m-nav button.on{background:rgba(255,255,255,.13);color:#fff} .m-nav button.on .m-ic{color:var(--m-hot)}
+.m-fab{position:absolute;right:20px;bottom:calc(90px + env(safe-area-inset-bottom,0px));width:62px;height:62px;border:0;border-radius:20px;background:var(--m-hot);color:#fff;display:grid;place-items:center;z-index:6;
+  box-shadow:0 10px 24px rgba(255,45,95,.45);transform:rotate(-6deg)} .m-fab:active{transform:rotate(-6deg) scale(.94)}
+
+/* Blätter von unten */
+.m-sheet-bg{position:fixed;inset:0;background:rgba(4,16,107,.45);z-index:50;display:flex;align-items:flex-end;animation:m-fade .18s}
+.m-sheet{width:100%;max-height:88vh;background:var(--m-bg);border-radius:24px 24px 0 0;display:flex;flex-direction:column;animation:m-up .24s cubic-bezier(.2,.9,.3,1);padding-bottom:env(safe-area-inset-bottom,0px)}
+.m-sheet.tall{height:94vh;max-height:94vh}
+.m-sheet-grip{width:44px;height:5px;border-radius:9px;background:#c8d0ea;margin:8px auto 0}
+.m-sheet-head{display:flex;align-items:center;gap:8px;padding:8px 14px 8px 18px}
+.m-sheet-head h2{flex:1;margin:0;font:italic 900 20px var(--display,"Montserrat");text-transform:uppercase;color:var(--m-navy)}
+.m-sheet-body{flex:1;overflow-y:auto;padding:4px 16px 16px}
+.m-sheet-foot{padding:10px 16px 14px;border-top:1px solid var(--m-line);background:var(--m-bg);display:flex;gap:8px}
+@keyframes m-up{from{transform:translateY(100%)}} @keyframes m-fade{from{opacity:0}}
+.no-anim .m-sheet,.no-anim .m-sheet-bg{animation:none}
+
+/* Formularfelder */
+.m-field{display:block;margin-bottom:12px} .m-field>span{display:block;font-size:13px;font-weight:700;color:var(--m-mute);margin:0 4px 5px;text-transform:uppercase;letter-spacing:.04em}
+.m-field input,.m-field select,.m-field textarea{width:100%;border:2px solid var(--m-line);background:#fff;border-radius:14px;padding:12px 14px;color:var(--m-ink);outline:0}
+.m-field input:focus,.m-field select:focus,.m-field textarea:focus{border-color:var(--m-acc)}
+.m-field textarea{min-height:150px;resize:vertical}
+.m-seg{display:flex;background:#fff;border:2px solid var(--m-line);border-radius:14px;padding:3px;gap:3px}
+.m-seg button{flex:1;height:40px;border:0;border-radius:10px;background:transparent;font-weight:700}
+.m-seg button.on{background:var(--m-ink);color:#fff} .m-seg button.on[data-v=schule]{background:var(--m-schule)} .m-seg button.on[data-v=arbeit]{background:var(--m-arbeit)}
+.m-pick{display:flex;flex-wrap:wrap;gap:6px}
+.m-pick button{height:36px;padding:0 12px;border-radius:999px;border:2px solid var(--m-line);background:#fff;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:4px}
+.m-pick button.on{border-color:var(--m-acc);background:color-mix(in srgb,var(--m-acc) 12%,#fff)}
+.m-list button{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:8px 12px;border:0;border-bottom:1px solid var(--m-line);background:#fff;text-align:left}
+.m-list{border-radius:16px;overflow:hidden;box-shadow:0 1px 0 var(--m-line)} .m-list button:last-child{border-bottom:0}
+.m-check{width:24px;height:24px;border-radius:8px;border:2px solid var(--m-line);display:grid;place-items:center;flex:none;color:#fff}
+.m-check.on{background:var(--m-acc);border-color:var(--m-acc)}
+.m-thumbs{display:flex;gap:8px;flex-wrap:wrap} .m-thumbs div{width:84px;height:84px;border-radius:14px;overflow:hidden;position:relative;background:#dfe5f5}
+.m-thumbs img{width:100%;height:100%;object-fit:cover} .m-thumbs div button{position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:9px;border:0;background:rgba(4,16,107,.7);color:#fff;display:grid;place-items:center}
+.m-note{font-size:13px;color:var(--m-mute);margin:6px 4px}
+.m-err{background:#ffe4ea;color:#9b1236;border-radius:14px;padding:10px 12px;margin:8px 0;font-size:14px}
+.m-ok{background:#ddf6ea;color:#0a6a43;border-radius:14px;padding:10px 12px;margin:8px 0;font-size:14px}
+.m-toast{position:absolute;left:16px;right:96px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--m-ink);color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;animation:m-up .2s}
+.m-sub{display:flex;align-items:center;gap:8px;margin:0 0 10px} .m-sub button{border:0;background:#fff;border-radius:12px;height:40px;padding:0 10px;display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.m-day{font:italic 900 14px var(--display,"Montserrat");text-transform:uppercase;color:var(--m-mute);margin:16px 4px 6px}
+/* Wiederverwendete PC-Bausteine (Cloud-Sicherung, Vorlagen) im Blatt etwas anpassen */
+.m-sheet .lab{display:block;margin-bottom:10px;font-weight:600} .m-sheet .field{width:100%;min-height:46px;border-radius:12px;border:2px solid var(--m-line);padding:8px 12px;font-size:16px;background:#fff}
+.m-sheet .sysrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0} .m-sheet .tplc{font-size:14px}

@@ -20,7 +20,8 @@ import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from ".
 import { isMobile } from "../platform";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.6.0";
+import { APP_VERSION } from "../version";
+export { APP_VERSION };
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();

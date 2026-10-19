@@ -1,0 +1,73 @@
+// Kontakte auf dem Handy: Liste mit Suche, Ansicht mit Anrufen/Mail, Bearbeiten. Netzplan-Verbindungen bleiben unberührt.
+import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import { deletePerson, listPersons, savePerson, type Person, type PersonInput, type Scope } from "../db/repo";
+import { fileUrl, pickAndStoreImages } from "../files";
+import { Empty, Field, Icon, Seg, Sheet } from "./ui";
+import namiImg from "../assets/figuren/nami_gruss.webp";
+
+type ScopeF = "alle" | Scope;
+const initials = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+function Avatar({ p }: { p: { name: string; portrait_path: string | null; scope: string } }) {
+  const [u, setU] = useState<string | null>(null);
+  useEffect(() => { if (p.portrait_path) fileUrl(p.portrait_path).then(setU); else setU(null); }, [p.portrait_path]);
+  return <div className="m-avatar" style={{ background: p.scope === "schule" ? "var(--m-schule)" : "var(--m-arbeit)" }}>{u ? <img src={u} alt="" /> : initials(p.name) || "?"}</div>;
+}
+
+export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: MutableRefObject<(() => void) | null>; toast: (t: string) => void }) {
+  const [list, setList] = useState<Person[] | null>(null);
+  const [q, setQ] = useState("");
+  const [view, setView] = useState<Person | null>(null);
+  const [edit, setEdit] = useState<PersonInput | null>(null);
+  const [arm, setArm] = useState(false), [err, setErr] = useState("");
+  const load = () => listPersons().then(setList);
+  useEffect(() => { load(); }, []);
+  const blank = (): PersonInput => ({ name: "", role: "", scope: scope === "alle" ? "arbeit" : scope, parent_id: null, phone: "", email: "", info: "", portrait_path: null });
+  fabRef.current = () => { setErr(""); setEdit(blank()); };
+  const shown = useMemo(() => (list ?? []).filter((p) => (scope === "alle" || p.scope === scope) && (!q || (p.name + " " + (p.role ?? "")).toLowerCase().includes(q.toLowerCase()))), [list, q, scope]);
+  const save = async () => {
+    if (!edit) return;
+    if (!edit.name.trim()) { setErr("Ein Name fehlt."); return; }
+    await savePerson(edit); setEdit(null); setView(null); await load(); toast("Kontakt gespeichert");
+  };
+  const remove = async () => { if (!view) return; if (!arm) { setArm(true); return; } await deletePerson(view.id); setView(null); setArm(false); await load(); toast("Kontakt gelöscht"); };
+  const toInput = (p: Person): PersonInput => ({ id: p.id, name: p.name, role: p.role ?? "", scope: p.scope, parent_id: p.parent_id, phone: p.phone ?? "", email: p.email ?? "", info: p.info ?? "", portrait_path: p.portrait_path });
+
+  return (
+    <>
+      <div className="m-search"><Icon n="search" size={20} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name oder Rolle" aria-label="Kontakte durchsuchen" /></div>
+      {list && shown.length === 0 && <Empty img={namiImg} title={q ? "Nichts gefunden" : "Noch keine Kontakte"} text="Ausbilder, Lehrer, Kollegen: wer hilft dir in der Ausbildung?">{!q && <button className="m-btn" onClick={() => setEdit(blank())}><Icon n="plus" />Kontakt anlegen</button>}</Empty>}
+      {shown.map((p) => (
+        <article key={p.id} className="m-card tap" onClick={() => { setArm(false); setView(p); }}>
+          <div className="m-row"><Avatar p={p} /><div className="m-grow"><b>{p.name}</b><div className="m-meta" style={{ marginTop: 0 }}>{p.role || (p.scope === "schule" ? "Schule" : "Arbeit")}</div></div><Icon n="right" size={20} /></div>
+        </article>
+      ))}
+
+      <Sheet open={!!view && !edit} onClose={() => setView(null)} title="Kontakt"
+        footer={view && <><button className="m-btn ghost" style={{ width: "auto" }} onClick={remove}><Icon n="trash" size={20} />{arm ? "Wirklich?" : ""}</button><button className="m-btn" onClick={() => { setErr(""); setEdit(toInput(view)); }}><Icon n="edit" />Bearbeiten</button></>}>
+        {view && <>
+          <div className="m-row" style={{ margin: "6px 0 14px" }}><Avatar p={view} /><div><b style={{ fontSize: 20 }}>{view.name}</b><div className="m-meta" style={{ marginTop: 0 }}>{view.role || "–"} · {view.scope === "schule" ? "Schule" : "Arbeit"}</div></div></div>
+          <div className="m-btnrow" style={{ marginBottom: 12 }}>
+            {view.phone && <a className="m-btn sec" href={`tel:${view.phone}`}><Icon n="phone" size={20} />Anrufen</a>}
+            {view.email && <a className="m-btn sec" href={`mailto:${view.email}`}><Icon n="mail" size={20} />E-Mail</a>}
+          </div>
+          {view.phone && <p className="m-note">Telefon: {view.phone}</p>}{view.email && <p className="m-note">E-Mail: {view.email}</p>}
+          {view.info && <div className="m-card" style={{ whiteSpace: "pre-wrap" }}>{view.info}</div>}
+        </>}
+      </Sheet>
+
+      <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Kontakt bearbeiten" : "Neuer Kontakt"} tall footer={<button className="m-btn" onClick={save}><Icon n="check" />Speichern</button>}>
+        {edit && <>
+          {err && <div className="m-err">{err}</div>}
+          <div className="m-row" style={{ marginBottom: 12 }}><Avatar p={edit} /><button className="m-btn sec" style={{ width: "auto" }} onClick={async () => { const f = await pickAndStoreImages("portraits", false); if (f[0]) setEdit({ ...edit, portrait_path: f[0].path }); }}><Icon n="image" size={20} />Foto wählen</button></div>
+          <Field label="Name"><input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} autoFocus={!edit.id} /></Field>
+          <Field label="Rolle"><input value={edit.role} placeholder="z. B. Ausbilderin, Lehrer" onChange={(e) => setEdit({ ...edit, role: e.target.value })} /></Field>
+          <Field label="Bereich"><Seg value={edit.scope} options={[["arbeit", "Arbeit"], ["schule", "Schule"]]} onChange={(v) => setEdit({ ...edit, scope: v })} /></Field>
+          <Field label="Telefon"><input type="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field>
+          <Field label="E-Mail"><input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></Field>
+          <Field label="Notizen zur Person"><textarea value={edit.info} onChange={(e) => setEdit({ ...edit, info: e.target.value })} style={{ minHeight: 90 }} /></Field>
+          <p className="m-note">Wer wem übergeordnet ist, stellst du im Netzplan am PC ein.</p>
+        </>}
+      </Sheet>
+    </>
+  );
+}

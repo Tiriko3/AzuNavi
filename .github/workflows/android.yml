@@ -45,7 +45,7 @@ jobs:
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npm run tauri -- android init --ci
 
-      - name: Querformat festlegen (Oberfläche ist für 16:9 gebaut)
+      - name: Hochformat festlegen (Handy-Oberfläche)
         run: |
           python3 - <<'PY'
           import pathlib, re
@@ -53,12 +53,12 @@ jobs:
           s = p.read_text(encoding="utf-8")
           if "android:screenOrientation" not in s:
               # In der erzeugten Datei steht "<activity" allein am Zeilenende, die Attribute folgen darunter
-              s2 = re.sub(r"<activity\b", '<activity android:screenOrientation="sensorLandscape"', s, count=1)
+              s2 = re.sub(r"<activity\b", '<activity android:screenOrientation="portrait"', s, count=1)
               if s2 == s:
                   raise SystemExit("Kein <activity> in der AndroidManifest.xml gefunden")
               p.write_text(s2, encoding="utf-8")
-          assert 'android:screenOrientation="sensorLandscape"' in p.read_text(encoding="utf-8")
-          print("Querformat gesetzt")
+          assert 'android:screenOrientation="portrait"' in p.read_text(encoding="utf-8")
+          print("Hochformat gesetzt")
           PY
 
       - name: App bauen (arm64)

@@ -5,7 +5,7 @@ import { getSetting, inTauri, setSetting } from "../db/db";
 import { createBackup, restoreBackup } from "../backup";
 import { fsapi } from "../fsapi";
 import { isMobile } from "../platform";
-import { APP_VERSION } from "../pages/SystemPage";
+import { APP_VERSION } from "../version";
 
 type Mode = "login" | "register" | "recover";
 interface CloudInfo { b64: string; meta_seq: number; created: number; device: string; size: number }
