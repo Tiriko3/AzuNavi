@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.7.1-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.7.1.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.8.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.8.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -228,9 +228,10 @@ AzuNavi läuft als Test auch auf Android-Handys (arm64, Querformat). Gebaut wird
 - Nur am PC: Dateien (echte Ordner), LanguageTool (Java), Anzeige-/Fenstereinstellungen, Desktop-Verknüpfung.
 - Für Updates ohne Datenverlust einen eigenen Signaturschlüssel als GitHub-Secret hinterlegen (siehe `.github/workflows/android.yml`).
 
-## Cloud-Sicherung (Test)
+## Sicherung in deiner Cloud (OneDrive & Co.)
 
-**Nur mit erfundenen Daten**, bis Server, Datenschutz und Review freigegeben sind. Unter System → „Cloud-Sicherung (Test)“:
-Konto auf dem eigenen AzuNavi-Server (nur per Einladung), Sicherung verschlüsselt hochladen und auf einem anderen Gerät holen.
-Der Server sieht nie Passwort, Schlüssel oder Inhalte. Server: `server/README.md`, Verschlüsselung: `sync-client/README.md`.
-Es wird immer die ganze Sicherung übertragen (kein Zusammenführen): vor dem Gerätewechsel hochladen. Eine neuere Sicherung eines anderen Geräts wird nie unbemerkt überschrieben.
+AzuNavi läuft komplett lokal. Wer PC und Handy nutzen will, sichert in den **eigenen** Cloud-Speicher: unter System (PC) bzw. Mehr (Handy) → „Sicherung in deiner Cloud“.
+- **PC:** einmal den Cloud-Ordner wählen (z. B. `C:\Users\NAME\OneDrive\AzuNavi`), danach sichert ein Klick dorthin. OneDrive lädt die Datei selbst hoch.
+- **Handy:** beim Sichern im Android-Speicherdialog **OneDrive** wählen. Zum Holen die Datei dort auswählen.
+- Die Sicherung wird mit deinem Passwort verschlüsselt (AES-256-GCM). Ohne Passwort kann sie niemand öffnen, auch der Cloud-Anbieter nicht.
+- Es wird immer die ganze Sicherung übertragen: vor dem Gerätewechsel sichern, auf dem anderen Gerät holen.

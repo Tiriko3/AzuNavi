@@ -888,3 +888,7 @@ button,.item{-webkit-user-select:none;user-select:none}
 .syncp{display:flex;flex-direction:column;gap:8px}
 .rkbox{border:3px solid var(--hot);background:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .rkcode{display:block;font:700 17px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.04em;background:#eef3ff;padding:10px 12px;word-break:break-all;user-select:all}
+
+/* Sicherung in deiner Cloud: Häkchen-Zeilen */
+.cloudp .chk{display:flex!important;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-weight:600;margin:6px 0}
+.cloudp .chk input{width:20px;height:20px;margin:0;flex:none}

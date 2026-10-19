@@ -194,3 +194,8 @@
 .no-anim .m-app *,.no-anim .m-app *::before,.no-anim .m-app *::after{animation:none!important;transition:none!important}
 .no-anim .m-wipe,.no-anim .m-bubble,.no-anim .m-beam{display:none}
 @media (prefers-reduced-motion:reduce){.m-app *,.m-app *::before,.m-app *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}.m-bubble,.m-beam,.m-wipe{display:none}}
+/* Sicherung in deiner Cloud im Handy-Blatt */
+.m-sheet .cloudp .actions{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.m-sheet .cloudp .btn{width:100%;height:50px;border:0;border-radius:14px;background:var(--m-hot);color:#fff;font:italic 900 15px var(--display,"Montserrat");text-transform:uppercase;box-shadow:none;transform:none;clip-path:none}
+.m-sheet .cloudp .btn span{transform:none} .m-sheet .cloudp .btn.ghost{background:#fff;color:var(--m-ink);border:2px solid var(--m-line);font-style:normal;text-transform:none;font-family:var(--text,"Poppins");font-weight:700}
+.m-sheet .cloudp .errbox,.m-sheet .cloudp .tutnote{border-radius:14px}

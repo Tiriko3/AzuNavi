@@ -25,6 +25,8 @@ export interface FsApi {
   pickFile(): Promise<string | null>;
   /** Speichern-unter-Fenster, gibt den gewählten Pfad zurück (oder null bei Abbruch) */
   saveFile(defaultName: string, bytes: Uint8Array, filterName: string, ext: string): Promise<string | null>;
+  /** Datei ohne Dialog an einen bekannten Pfad schreiben (z. B. in den gewählten Cloud-Ordner am PC) */
+  writeFile(path: string, bytes: Uint8Array): Promise<void>;
 }
 
 const real: FsApi = {
@@ -65,6 +67,10 @@ const real: FsApi = {
     if (isMobile) { const { writeFile } = await import("@tauri-apps/plugin-fs"); await writeFile(path, bytes); }   // content://-Adresse vom Android-Speicherdialog
     else await invoke("fs_write_file", { path, bytes: Array.from(bytes) });
     return path;
+  },
+  writeFile: async (path, bytes) => {
+    if (isMobile) { const { writeFile } = await import("@tauri-apps/plugin-fs"); await writeFile(path, bytes); }
+    else await invoke("fs_write_file", { path, bytes: Array.from(bytes) });
   },
 };
 

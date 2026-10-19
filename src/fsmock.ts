@@ -105,6 +105,9 @@ export const mockFs: FsApi = {
   async pickFiles() { return pickQueue.shift() ?? []; },
   async pickFolder() { return folderQueue.length ? folderQueue.shift()! : "C:\\Users\\Dev\\Persona"; },
   async pickFile() { return pickQueue.shift()?.[0] ?? null; },
+  async writeFile(path: string, bytes: Uint8Array) {
+    addFile(path, bytes.length); const n = files.get(key(path))!; n.bin = bytes; n.modified = Math.floor(Date.now() / 1000);
+  },
   async saveFile(defaultName, bytes) {
     const path = "C:\\Users\\Dev\\Documents\\" + defaultName;
     (window as any).__saved = (window as any).__saved || {};

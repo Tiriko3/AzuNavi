@@ -12,7 +12,7 @@ import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/Templ
 import { setQualsEnabled, useQualsEnabled } from "../report/quals";
 import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
 import { listQualifications, replaceQualifications } from "../db/repo";
-import { SyncPanel } from "../sync/SyncPanel";
+import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
 import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
@@ -175,7 +175,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
-          <div className="sysrow"><span>Cloud-Sicherung (Test)</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>
+          <div className="sysrow"><span>Sicherung in deiner Cloud</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>
           <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
           {inTauri && !isMobile && <div className="sysrow"><span>Desktop-Verknüpfung</span><button className="mini" disabled={busy} onClick={shortcut}>Anlegen</button></div>}
           <p className="small">Die Sicherung enthält Notizen, Kontakte, Projekte, Berichtshefte, Einstellungen, Anhänge, Porträts und deine Vorlage. Deine Ordner Arbeit/Schule kopierst du wie gewohnt selbst, auf dem neuen Laptop wählst du sie unter Dateien neu.</p>
@@ -208,8 +208,8 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
       {cloudOpen && (
         <div className="fmodal impmodal">
           <div className="impbox paperbox">
-            <h3>Cloud-Sicherung (Test)</h3>
-            <SyncPanel />
+            <h3>Sicherung in deiner Cloud</h3>
+            <CloudFolderPanel />
             <div className="actions static"><button className="btn ghost" onClick={() => setCloudOpen(false)}><span>Schließen</span></button></div>
           </div>
         </div>

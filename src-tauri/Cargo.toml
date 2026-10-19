@@ -1,6 +1,6 @@
 [package]
 name = "persona-app"
-version = "1.7.1"
+version = "1.8.0"
 description = "Persona App - lokale App für Schule und Arbeit"
 edition = "2021"
 
@@ -17,11 +17,6 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-# Cloud-Sicherung (Test): Verschlüsselung und Server-Verbindung, siehe ../sync-client
-azunavi-sync-client = { path = "../sync-client" }
-tokio = { version = "1", features = ["sync"] }
-base64 = "0.22"
-zeroize = "1"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -1,5 +1,5 @@
 // AzuNavi auf dem Handy (Hochformat): eigene, moderne Oberfläche mit unterer Navigation.
-// Daten, Berichtsheft-Export, Sicherung und Cloud-Sicherung sind dieselben wie am PC.
+// Daten, Berichtsheft-Export und Sicherung sind dieselben wie am PC.
 import { useEffect, useRef, useState } from "react";
 import "./mobile.css";
 import { getSetting, initDb, setSetting } from "../db/db";
@@ -13,7 +13,7 @@ import { isoWeek, weekDates } from "../report/types";
 import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/TemplateChooser";
 import { createBackup, restoreBackup } from "../backup";
 import { fsapi } from "../fsapi";
-import { SyncPanel } from "../sync/SyncPanel";
+import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
 import { todayStr } from "../util";
 import { APP_VERSION } from "../version";
 import { Field, Icon, Seg, Sheet, relDay, scopeLabel, useBackLayer } from "./ui";
@@ -159,7 +159,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       <div className="m-list">
         {row("people", "Profil", profile.vorname ? `${profile.vorname} ${profile.nachname} · ${profile.beruf || "Beruf fehlt"}` : "Name und Beruf eintragen", () => setSub("profil"))}
         {row("book", "Berichtsheft-Vorlage", "Standard-Vorlage oder eigene Datei", () => setSub("vorlage"))}
-        {row("cloud", "Cloud-Sicherung (Test)", "Verschlüsselt auf deinem Server", () => setSub("cloud"))}
+        {row("cloud", "Sicherung in deiner Cloud", "OneDrive, Google Drive …, verschlüsselt", () => setSub("cloud"))}
       </div>
       <div className="m-h">Darstellung</div>
       <Field label="Schriftgröße"><Seg value={String(prefs.font)} options={[["1", "Normal"], ["1.15", "Groß"], ["1.3", "Sehr groß"]]} onChange={(v) => setPrefs({ ...prefs, font: Number(v) })} /></Field>
@@ -171,7 +171,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
         <button className="m-btn sec" onClick={() => act(async () => { const b = await createBackup(APP_VERSION); const path = await (await fsapi()).saveFile(`AzuNavi-Sicherung_${todayStr()}.zip`, b.bytes, "Sicherung", "zip"); if (path) setMsg(`Sicherung gespeichert (${b.rows} Einträge, ${b.files} Dateien).`); })}>Sichern</button>
         <button className="m-btn sec" onClick={() => act(async () => { const fs = await fsapi(); const path = await fs.pickFile(); if (!path) return; const u = await fs.read(path, 500 * 1024 * 1024); const r = await restoreBackup(u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer); setMsg(`Eingespielt: ${r.rows} Einträge. Die App startet neu …`); setTimeout(() => location.reload(), 1500); })}>Einspielen</button>
       </div>
-      <p className="m-note">Alle Daten liegen nur auf diesem Handy, außer du nutzt die Cloud-Sicherung. AzuNavi {APP_VERSION}.</p>
+      <p className="m-note">Alle Daten liegen nur auf diesem Handy, außer du sicherst sie in deine Cloud. AzuNavi {APP_VERSION}.</p>
 
       <Sheet open={sub === "profil"} onClose={() => setSub("")} title="Profil" tall footer={<button className="m-btn" onClick={() => act(async () => { await saveProfile(p); setProfile(p); setSub(""); toast("Profil gespeichert"); })}><Icon n="check" />Speichern</button>}>
         <div className="m-btnrow"><Field label="Vorname"><input value={p.vorname} onChange={(e) => setP({ ...p, vorname: e.target.value })} /></Field><Field label="Nachname"><input value={p.nachname} onChange={(e) => setP({ ...p, nachname: e.target.value })} /></Field></div>
@@ -185,7 +185,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       <Sheet open={sub === "vorlage"} onClose={() => setSub("")} title="Berichtsheft-Vorlage" tall footer={<button className="m-btn" onClick={() => act(async () => { await applyTplChoice(tpl); setSub(""); toast("Vorlage übernommen"); })}><Icon n="check" />Übernehmen</button>}>
         <TemplateChooser prof={prof} value={tpl} onChange={setTpl} />
       </Sheet>
-      <Sheet open={sub === "cloud"} onClose={() => setSub("")} title="Cloud-Sicherung" tall><SyncPanel /></Sheet>
+      <Sheet open={sub === "cloud"} onClose={() => setSub("")} title="Deine Cloud" tall><CloudFolderPanel /></Sheet>
     </Sheet>
   );
 }
