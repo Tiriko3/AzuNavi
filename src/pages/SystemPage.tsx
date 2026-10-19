@@ -18,7 +18,7 @@ import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.3.1";
+export const APP_VERSION = "1.4.0";
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();
@@ -85,7 +85,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   const shortcut = () => act(async () => {
     const { invoke } = await import("@tauri-apps/api/core");
     const r = await invoke<string>("ensure_desktop_shortcut");
-    setMsg(r === "dev" ? "Im Entwicklungsmodus wird keine Verknüpfung angelegt (nur in der fertigen .exe)." : "Die Verknüpfung „AzuNavi“ liegt auf dem Desktop.");
+    setMsg(r === "dev" ? "Im Entwicklungsmodus wird keine Verknüpfung angelegt (nur in der fertigen .exe)." : r === "nicht-windows" ? "Auf Linux brauchst du keine Verknüpfung: .deb und AppImage legen selbst einen Starter im Menü an." : "Die Verknüpfung „AzuNavi“ liegt auf dem Desktop.");
   });
   const reset = () => act(async () => {
     if (resetText.trim().toUpperCase() !== "ZURÜCKSETZEN") return;
@@ -147,7 +147,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <div className="sysrow"><span className="ltdir" title={lt.dir}>{lt.dir || "kein Ordner gewählt"}</span>
             <span className="inl"><button className="mini" onClick={ltPick}>Ordner wählen</button>{lt.dir && <button className="mini" onClick={ltTest}>Testen</button>}</span></div>
           {lt.status && <p className="small ltstat">Status: {lt.status}</p>}
-          <p className="small">Einmalig: Java 17+ installieren (<code>winget install EclipseAdoptium.Temurin.21.JRE</code>) und „LanguageTool Desktop“ von languagetool.org herunterladen und entpacken. Dann hier den Ordner wählen. Ohne LanguageTool prüft die App mit Hunspell (nur Rechtschreibung und einfache Regeln).</p>
+          <p className="small">Einmalig: Java 17+ installieren (Windows: <code>winget install EclipseAdoptium.Temurin.21.JRE</code>, Linux: <code>sudo apt install openjdk-21-jre</code>) und „LanguageTool Desktop“ von languagetool.org herunterladen und entpacken. Dann hier den Ordner wählen. Ohne LanguageTool prüft die App mit Hunspell (nur Rechtschreibung und einfache Regeln).</p>
         </section>
 
         <section className="paperbox syscard">

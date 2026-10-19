@@ -222,6 +222,10 @@ pub async fn fs_write_file(path: String, bytes: Vec<u8>) -> Result<(), String> {
 #[tauri::command]
 pub async fn ensure_desktop_shortcut(app: tauri::AppHandle) -> Result<String, String> {
     use tauri::Manager;
+    // .lnk-Verknüpfungen gibt es nur unter Windows. Auf Linux legen .deb und AppImage selbst einen Starter an.
+    if !cfg!(windows) {
+        return Ok("nicht-windows".into());
+    }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     // Im Entwicklungsmodus (npm run tauri dev) keine Verknüpfung anlegen
     if cfg!(debug_assertions) {

@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.3.1-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.3.1.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.4.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.4.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -208,3 +208,13 @@ Die Figuren, das Maskottchen und das Icon sind für die Nutzung mit AzuNavi geda
 Das deutsche Wörterbuch stammt aus [dictionary-de](https://github.com/wooorm/dictionaries) – Lizenz siehe `src/assets/dict/LICENSE-dictionary-de.txt`.
 
 AzuNavi ist ein privates Fan-Projekt, inspiriert von japanischen Rollenspielen. Es steht in keiner Verbindung zu Atlus oder SEGA.
+
+## Linux
+
+AzuNavi gibt es auch für Linux (Debian, Ubuntu, Mint u. a.). Auf der Release-Seite:
+
+- **`.deb`**: `sudo apt install ./AzuNavi_<version>_amd64.deb`, danach im Menü starten.
+- **`.AppImage`**: `chmod +x AzuNavi_<version>_amd64.AppImage` und starten. Braucht `libfuse2` (`sudo apt install libfuse2`).
+- Selbst bauen: `./build-linux.sh` (installiert die nötigen Pakete und baut beide Formate).
+- Die optionale Grammatikprüfung (LanguageTool) braucht Java: `sudo apt install openjdk-21-jre`.
+- Deine Daten liegen unter `~/.local/share/com.local.personaapp/`. Sicherungen (System → Daten mitnehmen) laufen wie unter Windows und lassen sich zwischen Windows und Linux austauschen.

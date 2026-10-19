@@ -1,7 +1,7 @@
-# Baut bei jeder neuen Version (Tag wie v1.0.0) automatisch auf einem Windows-Rechner von GitHub:
-#   - AzuNavi_<version>-setup.exe  (Installer)
-#   - AzuNavi_<version>.exe        (portable, ohne Installation)
-# und hängt beides an das Release. Auslösen: git tag v1.0.0 && git push --tags
+# Baut bei jeder neuen Version (Tag wie v1.0.0) automatisch auf GitHub:
+#   Windows: AzuNavi_<version>-setup.exe (Installer) und AzuNavi_<version>.exe (portable)
+#   Linux:   AzuNavi_<version>_amd64.deb und AzuNavi_<version>_amd64.AppImage
+# und hängt alles an das Release. Auslösen: git tag v1.0.0 && git push --tags
 name: Release bauen
 
 on:
@@ -12,11 +12,25 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false          # schlägt Linux fehl, bekommt Windows trotzdem sein Release
+      matrix:
+        include:
+          - platform: windows-latest
+            plain: true
+          - platform: ubuntu-22.04   # älteres Ubuntu = läuft auf mehr Linux-Systemen
+            plain: false
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Code holen
         uses: actions/checkout@v7
+
+      - name: Linux-Pakete installieren
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - name: Node einrichten
         uses: actions/setup-node@v7
@@ -44,15 +58,17 @@ jobs:
           releaseName: "AzuNavi ${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          uploadPlainBinary: true
+          uploadPlainBinary: ${{ matrix.plain }}
           releaseAssetNamePattern: "[name]_[version][setup][ext]"
           releaseBody: |
             ## Welche Datei soll ich nehmen?
 
             | Datei | Für wen |
             |---|---|
-            | **AzuNavi_…-setup.exe** | **Installer** – installiert AzuNavi nur für dich (keine Adminrechte), mit Startmenü- und Desktop-Verknüpfung. Für die meisten die beste Wahl. |
-            | **AzuNavi_….exe** (ohne „setup“) | **Portable** – keine Installation, einfach starten, auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+            | **AzuNavi_…-setup.exe** | **Windows, Installer** – installiert AzuNavi nur für dich (keine Adminrechte), mit Startmenü- und Desktop-Verknüpfung. Für die meisten die beste Wahl. |
+            | **AzuNavi_….exe** (ohne „setup“) | **Windows, portable** – keine Installation, einfach starten, auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+            | **AzuNavi_….AppImage** | **Linux, portable** – ausführbar machen (`chmod +x`) und starten. Braucht `libfuse2` (Ubuntu 22.04+: `sudo apt install libfuse2`). |
+            | **AzuNavi_….deb** | **Linux (Debian, Ubuntu, Mint)** – `sudo apt install ./AzuNavi_….deb`. Legt einen Starter im Menü an. |
 
             Windows zeigt beim ersten Start evtl. **„Der Computer wurde durch Windows geschützt“** (SmartScreen), weil die App nicht kostenpflichtig signiert ist:
             **„Weitere Informationen“ → „Trotzdem ausführen“.**
