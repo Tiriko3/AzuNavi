@@ -10,9 +10,9 @@ import { buildPlaceholderDocx, loadActiveTemplate } from "../report/templates";
 import { PLACES, isoWeek, mondayOf, shortDate, weekDates, weekdayName, type WeekDraft } from "../report/types";
 import { buildWeekDocx, readTemplateMeta } from "../report/weekDocx";
 import { Icon } from "./ui";
-import katzeImg from "../assets/figuren/katze_zeigt.webp";
+import { MASCOTS, pose, type Who } from "./fx";
 
-export function ReportScreen({ toast, goProfile }: { toast: (t: string) => void; goProfile: () => void }) {
+export function ReportScreen({ toast, goProfile, celebrate }: { toast: (t: string, who?: Who, pose?: string) => void; goProfile: () => void; celebrate: () => void }) {
   const cur = isoWeek(new Date());
   const [yw, setYw] = useState(cur);
   const [draft, setDraft] = useState<WeekDraft | null>(null);
@@ -47,7 +47,7 @@ export function ReportScreen({ toast, goProfile }: { toast: (t: string) => void;
       setBusy("");
       if (!path) return;
       await saveWeek(draft); await markExported(yw.year, yw.week, path); setEdited(true);
-      toast(`KW ${yw.week} als Word gespeichert`);
+      celebrate(); toast(`Fertig! KW ${yw.week} liegt als Word-Datei bereit.`, "cara", "zeigt");
     } catch (e) { setBusy(""); setErr("Export fehlgeschlagen: " + String(e)); }
   };
 
@@ -61,12 +61,16 @@ export function ReportScreen({ toast, goProfile }: { toast: (t: string) => void;
       </div>
       {(yw.week !== cur.week || yw.year !== cur.year) && <button className="m-btn sec" style={{ height: 40, marginBottom: 8 }} onClick={() => setYw(cur)}>Zur aktuellen Woche</button>}
       {err && <div className="m-err">{err} {/Profil/.test(err) && <button className="m-btn sec" style={{ height: 40, marginTop: 8 }} onClick={goProfile}>Profil öffnen</button>}</div>}
-      {busy && <div className="m-hero"><img src={katzeImg} alt="" style={{ width: 70, height: 70 }} /><div><b style={{ fontSize: 17 }}>Caramella</b><p>{busy}</p></div></div>}
+      {(() => {
+        const empty = !!draft && draft.days.every((d) => d.entries.length === 0);
+        const [ps, txt] = busy ? ["sammelt", busy] : empty ? ["schlaeft", "Diese Woche ist noch leer … Schreib Notizen, dann sammle ich sie für dich ein."] : ["zeigt", edited ? "Deine Änderungen sind gespeichert. Wenn alles passt: ab nach Word!" : "Ich habe deine Notizen eingesammelt. Prüf die Tage, dann exportieren."];
+        return <div className="m-guide" style={{ ["--gc" as string]: MASCOTS.cara.color }}><img className="m-mascot" src={pose("cara", ps)} alt="" /><div><b>Caramella</b>{txt}</div></div>;
+      })()}
       {days.map((day) => {
         const i = draft!.days.indexOf(day);
         const setDay = (p: Partial<typeof day>) => change({ ...draft!, days: draft!.days.map((d, j) => (j === i ? { ...d, ...p } : d)) });
         return (
-          <article key={day.date} className="m-card">
+          <article key={day.date} className="m-card" style={{ ["--i" as string]: i }}>
             <div className="m-row"><div className="m-grow"><b>{weekdayName(day.date)}</b><div className="m-note" style={{ margin: 0 }}>{shortDate(day.date)}</div></div>
               <select value={day.place} onChange={(e) => setDay({ place: e.target.value })} style={{ border: "2px solid var(--m-line)", borderRadius: 10, padding: "6px 8px", background: "#fff", fontSize: 14 }}>
                 {PLACES.map((p) => <option key={p}>{p}</option>)}</select></div>

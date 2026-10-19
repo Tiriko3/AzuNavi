@@ -1,6 +1,7 @@
 // Bausteine der Handy-Oberfläche: Icons (eigene, schlichte SVG-Linien), Blätter von unten, Umschalter, Leerzustände
 // und die Zurück-Geste (Android): sie schließt immer die oberste offene Ebene.
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 const P: Record<string, string> = {
   home: "M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-5.5h3V20h5V9.5",
@@ -51,7 +52,9 @@ export function useBackLayer(active: boolean, close: () => void) {
 export function Sheet({ open, onClose, title, children, footer, tall }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; tall?: boolean }) {
   useBackLayer(open, onClose);
   if (!open) return null;
-  return (
+  // Über ein Portal in die eigene Ebene der App: so hängt das Blatt nie an einer animierten (transformierten) Seite
+  const layer = document.getElementById("m-layer") ?? document.body;
+  return createPortal(
     <div className="m-sheet-bg" onClick={onClose}>
       <div className={"m-sheet" + (tall ? " tall" : "")} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="m-sheet-grip" />
@@ -59,8 +62,7 @@ export function Sheet({ open, onClose, title, children, footer, tall }: { open: 
         <div className="m-sheet-body">{children}</div>
         {footer && <footer className="m-sheet-foot">{footer}</footer>}
       </div>
-    </div>
-  );
+    </div>, layer);
 }
 
 export function Seg<T extends string>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {

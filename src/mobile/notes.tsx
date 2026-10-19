@@ -5,17 +5,19 @@ import { fileUrl, pickAndStoreImages } from "../files";
 import { useQualsEnabled } from "../report/quals";
 import { todayStr } from "../util";
 import { Empty, Field, Icon, Seg, Sheet, relDay } from "./ui";
+import type { Who } from "./fx";
 import namiImg from "../assets/figuren/nami_schreibt.webp";
 
 type ScopeF = "alle" | Scope;
 const emptyNote = (scope: ScopeF): NoteInput => ({ date: todayStr(), scope: scope === "alle" ? "arbeit" : scope, text: "", projectId: null, qualIds: [], personIds: [], attachments: [] });
 
-export function NotesScreen({ scope, fabRef, toast, autoNew, onAutoNew }: { scope: ScopeF; fabRef: MutableRefObject<(() => void) | null>; toast: (t: string) => void; autoNew?: boolean; onAutoNew?: () => void }) {
+export function NotesScreen({ scope, fabRef, toast, autoNew, onAutoNew }: { scope: ScopeF; fabRef: MutableRefObject<(() => void) | null>; toast: (t: string, who?: Who, pose?: string) => void; autoNew?: boolean; onAutoNew?: () => void }) {
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
   const [q, setQ] = useState("");
   const [edit, setEdit] = useState<NoteInput | null>(null);
+  const [fresh, setFresh] = useState<number | null>(null), [leaving, setLeaving] = useState<number | null>(null);
   const load = async () => { const [n, p, ps] = await Promise.all([listNotes(), listProjects(), listPersons()]); setNotes(n); setProjects(p); setPersons(ps); };
   useEffect(() => { load(); }, []);
   useEffect(() => { if (autoNew) { setEdit(emptyNote(scope)); onAutoNew?.(); } }, [autoNew]);
@@ -39,7 +41,7 @@ export function NotesScreen({ scope, fabRef, toast, autoNew, onAutoNew }: { scop
           {list.map((n) => {
             const pr = projects.find((p) => p.id === n.projectId);
             return (
-              <article key={n.id} className="m-card tap" data-scope={n.scope} onClick={() => setEdit({ ...n })}>
+              <article key={n.id} className={"m-card tap" + (n.id === fresh ? " fresh" : "") + (n.id === leaving ? " leave" : "")} data-scope={n.scope} style={{ ["--i" as string]: Math.min(list.indexOf(n), 8) }} onClick={() => setEdit({ ...n })}>
                 <div className="m-clamp">{n.text || <i>(ohne Text)</i>}</div>
                 <div className="m-meta">
                   <span className="m-chip">{n.scope === "schule" ? "Schule" : "Arbeit"}</span>
@@ -52,12 +54,14 @@ export function NotesScreen({ scope, fabRef, toast, autoNew, onAutoNew }: { scop
           })}
         </section>
       ))}
-      <NoteEditor value={edit} onClose={() => setEdit(null)} projects={projects} persons={persons} onSaved={async (msg) => { setEdit(null); await load(); toast(msg); }} />
+      <NoteEditor value={edit} onClose={() => setEdit(null)} projects={projects} persons={persons}
+        onSaved={async (msg, id, isNew) => { setEdit(null); await load(); setFresh(id); setTimeout(() => setFresh(null), 1600); toast(msg, "nami", isNew ? "pinnt" : "schreibt"); }}
+        onDeleted={async (id) => { setEdit(null); setLeaving(id); toast("Weg damit! Die Notiz ist gelöscht.", "nami", "denkt"); setTimeout(async () => { await load(); setLeaving(null); }, 480); }} />
     </>
   );
 }
 
-export function NoteEditor({ value, onClose, projects, persons, onSaved }: { value: NoteInput | null; onClose: () => void; projects: Project[]; persons: Person[]; onSaved: (msg: string) => void }) {
+export function NoteEditor({ value, onClose, projects, persons, onSaved, onDeleted }: { value: NoteInput | null; onClose: () => void; projects: Project[]; persons: Person[]; onSaved: (msg: string, id: number, isNew: boolean) => void; onDeleted: (id: number) => void }) {
   const qualsOn = useQualsEnabled();
   const [d, setD] = useState<NoteInput | null>(value);
   const [quals, setQuals] = useState<Qualification[]>([]);
@@ -73,10 +77,10 @@ export function NoteEditor({ value, onClose, projects, persons, onSaved }: { val
   const save = async () => {
     if (!d.text.trim()) { setErr("Schreib kurz auf, was du gemacht hast."); return; }
     setBusy(true);
-    try { await saveNote(d); onSaved(d.id ? "Notiz gespeichert" : "Notiz angelegt"); } catch (e) { setErr(String(e)); }
+    try { const id = await saveNote(d); onSaved(d.id ? "Gespeichert! Alles aktuell." : "Angepinnt! Daraus wird dein Berichtsheft.", id, !d.id); } catch (e) { setErr(String(e)); }
     setBusy(false);
   };
-  const remove = async () => { if (!d.id) return; if (!arm) { setArm(true); return; } await deleteNote(d.id); onSaved("Notiz gelöscht"); };
+  const remove = async () => { if (!d.id) return; if (!arm) { setArm(true); return; } await deleteNote(d.id); onDeleted(d.id); };
   const addImages = async () => { try { const f = await pickAndStoreImages("attachments", true); set({ attachments: [...d.attachments, ...f.map((x) => ({ original_name: x.name, stored_path: x.path }))] }); } catch (e) { setErr("Bilder: " + String(e)); } };
   const projOpts = projects.filter((p) => p.scope === d.scope || p.id === d.projectId);
 

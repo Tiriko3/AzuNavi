@@ -21,6 +21,7 @@ import { NotesScreen } from "./notes";
 import { PeopleScreen } from "./people";
 import { ProjectsScreen } from "./projects";
 import { ReportScreen } from "./report";
+import { Backdrop, Confetti, MascotToast, Wipe, type Say, type Who } from "./fx";
 import namiGruss from "../assets/figuren/nami_gruss.webp";
 import namiJubelt from "../assets/figuren/nami_jubelt.webp";
 
@@ -39,7 +40,9 @@ export default function MobileApp() {
   const [moreSection, setMoreSection] = useState<"" | "profil">("");
   const [onboard, setOnboard] = useState(false);
   const [autoNew, setAutoNew] = useState(false);
-  const [toastText, setToastText] = useState("");
+  const [say, setSay] = useState<Say | null>(null);
+  const [confetti, setConfetti] = useState(0);
+  const [wipe, setWipe] = useState<{ n: number; dir: 1 | -1 }>({ n: 0, dir: 1 });
   const fabRef = useRef<(() => void) | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
@@ -56,35 +59,47 @@ export default function MobileApp() {
       } catch (e) { setReady(String(e)); }
     })();
   }, []);
-  useBackLayer(tab !== "heute", () => setTab("heute"));
+  const idx = (t: Tab) => TABS.findIndex((x) => x[0] === t);
+  const go = (t: Tab) => { if (t === tab) return; setWipe((w) => ({ n: w.n + 1, dir: idx(t) > idx(tab) ? 1 : -1 })); setTab(t); };
+  useBackLayer(tab !== "heute", () => go("heute"));
   const setScope = (s: ScopeF) => { setScopeState(s); setSetting("m_scope", s); };
-  const toast = (t: string) => { setToastText(t); window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToastText(""), 2600); };
-  const newNote = () => { setTab("notizen"); setAutoNew(true); };
+  // Meldungen kommen vom passenden Begleiter: Nami (Notizen, Kontakte), Eda (Projekte), Caramella (Berichtsheft)
+  const toast = (t: string, who?: Who, ps?: string) => {
+    const w: Who = who ?? (tab === "projekte" ? "eda" : tab === "bericht" ? "cara" : "nami");
+    setSay({ who: w, pose: ps ?? (w === "eda" ? "gruss" : w === "cara" ? "zeigt" : "gruss"), text: t, id: Date.now() });
+    window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setSay(null), 3100);
+  };
+  const celebrate = () => setConfetti((c) => c + 1);
+  const newNote = () => { go("notizen"); setAutoNew(true); };
 
   if (ready !== "ok") return <div className="m-app"><div className="m-main" style={{ display: "grid", placeItems: "center" }}>{ready ? <div className="m-err">{ready}</div> : <img src={namiGruss} alt="" style={{ width: 120, opacity: .8 }} />}</div></div>;
   if (onboard) return <Onboarding onDone={async (p) => { setProfile(p); const np = { ...prefs, tutorialDone: true }; setPrefs(np); await savePrefs(np); setOnboard(false); }} />;
 
   return (
     <div className="m-app" data-scope={scope}>
+      <Backdrop />
       <header className="m-top">
         <div className="m-toprow">
-          <h1 className="m-title"><small>{tab === "heute" ? `KW ${isoWeek(new Date()).week} · ${new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}` : "AzuNavi"}</small>{TITLES[tab]}</h1>
+          <h1 className="m-title" key={tab}><small>{tab === "heute" ? `KW ${isoWeek(new Date()).week} · ${new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" })}` : "AzuNavi"}</small>{TITLES[tab]}</h1>
           <button className="m-iconbtn" onClick={() => { setMoreSection(""); setMore(true); }} aria-label="Mehr und Einstellungen"><Icon n="gear" /></button>
         </div>
         <div className="m-scope" role="tablist" aria-label="Bereich">{(["alle", "schule", "arbeit"] as ScopeF[]).map((s) => <button key={s} className={scope === s ? "on" : ""} onClick={() => setScope(s)} role="tab" aria-selected={scope === s}>{scopeLabel(s)}</button>)}</div>
       </header>
 
-      <main className="m-main">
-        {tab === "heute" && <Today scope={scope} name={profile.vorname} go={setTab} newNote={newNote} />}
+      <main className="m-main"><div className={"m-page" + (wipe.dir < 0 ? " rev" : "")} key={tab}>
+        {tab === "heute" && <Today scope={scope} name={profile.vorname} go={go} newNote={newNote} celebrate={celebrate} />}
         {tab === "notizen" && <NotesScreen scope={scope} fabRef={fabRef} toast={toast} autoNew={autoNew} onAutoNew={() => setAutoNew(false)} />}
-        {tab === "projekte" && <ProjectsScreen scope={scope} fabRef={fabRef} toast={toast} />}
+        {tab === "projekte" && <ProjectsScreen scope={scope} fabRef={fabRef} toast={toast} celebrate={celebrate} />}
         {tab === "kontakte" && <PeopleScreen scope={scope} fabRef={fabRef} toast={toast} />}
-        {tab === "bericht" && <ReportScreen toast={toast} goProfile={() => { setMoreSection("profil"); setMore(true); }} />}
-      </main>
+        {tab === "bericht" && <ReportScreen toast={toast} celebrate={celebrate} goProfile={() => { setMoreSection("profil"); setMore(true); }} />}
+      </div></main>
 
       {tab !== "bericht" && <button className="m-fab" aria-label={tab === "projekte" ? "Neues Projekt" : tab === "kontakte" ? "Neuer Kontakt" : "Neue Notiz"} onClick={() => (tab === "heute" ? newNote() : fabRef.current?.())}><Icon n="plus" size={30} stroke={2.6} /></button>}
-      <nav className="m-nav" aria-label="Bereiche">{TABS.map(([t, l, ic]) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)} aria-current={tab === t ? "page" : undefined}><Icon n={ic} size={22} />{l}</button>)}</nav>
-      {toastText && <div className="m-toast" role="status">{toastText}</div>}
+      <nav className="m-nav" aria-label="Bereiche"><span className="m-nav-ind" style={{ transform: `translateX(${idx(tab) * 100}%)` }} />{TABS.map(([t, l, ic]) => <button key={t} className={tab === t ? "on" : ""} onClick={() => go(t)} aria-current={tab === t ? "page" : undefined}><Icon n={ic} size={22} />{l}</button>)}</nav>
+      <Wipe n={wipe.n} dir={wipe.dir} />
+      <MascotToast say={say} />
+      <Confetti fire={confetti} />
+      <div id="m-layer" />
 
       <MoreSheet open={more} section={moreSection} onClose={() => setMore(false)} prefs={prefs} setPrefs={async (p) => { setPrefs(p); applyPrefs(p); await savePrefs(p); }}
         profile={profile} setProfile={setProfile} toast={toast} />
@@ -93,7 +108,8 @@ export default function MobileApp() {
 }
 
 /* ---------- Heute ---------- */
-function Today({ scope, name, go, newNote }: { scope: ScopeF; name: string; go: (t: Tab) => void; newNote: () => void }) {
+let weekCheered = false;
+function Today({ scope, name, go, newNote, celebrate }: { scope: ScopeF; name: string; go: (t: Tab) => void; newNote: () => void; celebrate: () => void }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [projects, setProjects] = useState<BoardProject[]>([]);
   useEffect(() => { listNotes().then(setNotes); listBoard().then(setProjects); }, []);
@@ -102,23 +118,24 @@ function Today({ scope, name, go, newNote }: { scope: ScopeF; name: string; go: 
   const filled = new Set(mine.filter((n) => dates.includes(n.date)).map((n) => n.date));
   const active = projects.filter((p) => p.status === "aktiv" && (scope === "alle" || p.scope === scope)).slice(0, 3);
   const hour = new Date().getHours();
+  useEffect(() => { if (filled.size === 5 && !weekCheered) { weekCheered = true; setTimeout(celebrate, 500); } }, [filled.size]);
   return (
     <>
       <div className="m-hero"><img src={filled.has(today) ? namiJubelt : namiGruss} alt="" />
         <div><b>{hour < 11 ? "Guten Morgen" : hour < 18 ? "Hallo" : "Guten Abend"}{name ? `, ${name}` : ""}!</b>
           <p>{filled.has(today) ? "Heute ist schon etwas notiert. Stark!" : "Was hast du heute gemacht? Ein Satz reicht."}</p></div></div>
       <div className="m-card">
-        <div className="m-row"><b className="m-grow">Diese Woche</b><span className="m-note" style={{ margin: 0 }}>{filled.size} von 5 Tagen</span></div>
-        <div className="m-week">{dates.map((d) => <span key={d} className={(filled.has(d) ? "full " : "") + (d === today ? "today" : "")}>{["Mo", "Di", "Mi", "Do", "Fr"][dates.indexOf(d)]}</span>)}</div>
+        <div className="m-row"><b className="m-grow">Diese Woche</b><span className="m-note" style={{ margin: 0 }}>{filled.size === 5 ? "Volle Woche! 🎉" : `${filled.size} von 5 Tagen`}</span></div>
+        <div className="m-week">{dates.map((d) => <span key={d} style={{ ["--i" as string]: dates.indexOf(d) }} className={(filled.has(d) ? "full " : "") + (d === today ? "today" : "")}>{["Mo", "Di", "Mi", "Do", "Fr"][dates.indexOf(d)]}</span>)}</div>
         <div className="m-btnrow" style={{ marginTop: 12 }}>
           <button className="m-btn" onClick={newNote}><Icon n="plus" />Notiz</button>
           <button className="m-btn sec" onClick={() => go("bericht")}><Icon n="book" size={20} />KW {yw.week}</button>
         </div>
       </div>
       {mine.length > 0 && <><div className="m-h">Zuletzt notiert</div>
-        {mine.slice(0, 3).map((n) => <article key={n.id} className="m-card tap" data-scope={n.scope} onClick={() => go("notizen")}><div className="m-meta" style={{ marginTop: 0 }}>{relDay(n.date)}</div><div className="m-clamp">{n.text}</div></article>)}</>}
+        {mine.slice(0, 3).map((n, i) => <article key={n.id} style={{ ["--i" as string]: i + 1 }} className="m-card tap" data-scope={n.scope} onClick={() => go("notizen")}><div className="m-meta" style={{ marginTop: 0 }}>{relDay(n.date)}</div><div className="m-clamp">{n.text}</div></article>)}</>}
       {active.length > 0 && <><div className="m-h">Aktive Projekte</div>
-        {active.map((p) => <article key={p.id} className="m-card tap" data-scope={p.scope} onClick={() => go("projekte")}><div className="m-row"><b className="m-grow">{p.name}</b><span className="m-note" style={{ margin: 0 }}>{p.progress} %</span></div><div className="m-bar"><i style={{ width: `${p.progress}%` }} /></div></article>)}</>}
+        {active.map((p, i) => <article key={p.id} style={{ ["--i" as string]: i + 4 }} className="m-card tap" data-scope={p.scope} onClick={() => go("projekte")}><div className="m-row"><b className="m-grow">{p.name}</b><span className="m-note" style={{ margin: 0 }}>{p.progress} %</span></div><div className="m-bar"><i style={{ width: `${p.progress}%` }} /></div></article>)}</>}
     </>
   );
 }
@@ -146,6 +163,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       </div>
       <div className="m-h">Darstellung</div>
       <Field label="Schriftgröße"><Seg value={String(prefs.font)} options={[["1", "Normal"], ["1.15", "Groß"], ["1.3", "Sehr groß"]]} onChange={(v) => setPrefs({ ...prefs, font: Number(v) })} /></Field>
+      <Field label="Begleiter (Nami, Eda, Caramella)"><Seg value={prefs.mascot ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => setPrefs({ ...prefs, mascot: v === "an" })} /></Field>
       <Field label="Animationen"><Seg value={prefs.anim ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => setPrefs({ ...prefs, anim: v === "an" })} /></Field>
       <Field label="Qualifikationen"><Seg value={qualsOn ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => act(async () => { await setQualsEnabled(v === "an"); toast(v === "an" ? "Qualifikationen an" : "Qualifikationen aus"); })} /></Field>
       <div className="m-h">Daten</div>

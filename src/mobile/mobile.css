@@ -109,3 +109,88 @@
 /* Wiederverwendete PC-Bausteine (Cloud-Sicherung, Vorlagen) im Blatt etwas anpassen */
 .m-sheet .lab{display:block;margin-bottom:10px;font-weight:600} .m-sheet .field{width:100%;min-height:46px;border-radius:12px;border:2px solid var(--m-line);padding:8px 12px;font-size:16px;background:#fff}
 .m-sheet .sysrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0} .m-sheet .tplc{font-size:14px}
+
+/* ===================== Seele: Hintergrund, Bewegung, Begleiter ===================== */
+.m-app{background:linear-gradient(165deg,#e9efff 0%,#f4f0ff 55%,#e8f6ff 100%)}
+.m-backdrop{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.m-backdrop::before{content:"";position:absolute;inset:-20%;background:radial-gradient(60% 45% at 85% 20%,color-mix(in srgb,var(--m-acc) 28%,transparent),transparent 70%),
+  radial-gradient(50% 40% at 0% 85%,rgba(255,45,95,.13),transparent 70%);transition:background .6s}
+.m-dots{position:absolute;inset:0;background:radial-gradient(circle,rgba(4,16,107,.09) 1.3px,transparent 1.5px) 0 0/16px 16px;
+  -webkit-mask-image:linear-gradient(160deg,#000 0 30%,transparent 60%,#000 100%);mask-image:linear-gradient(160deg,#000 0 30%,transparent 60%,#000 100%)}
+.m-beam{position:absolute;top:-20%;bottom:-20%;width:90px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:m-beam 9s linear infinite}
+.m-beam.b2{width:40px;animation-delay:-4.5s;opacity:.7}
+@keyframes m-beam{from{left:-30%}to{left:130%}}
+.m-bubble{position:absolute;bottom:-40px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#fff,rgba(61,184,255,.35) 60%,rgba(61,184,255,.12));border:1px solid rgba(255,255,255,.7);
+  animation:m-rise var(--d) linear var(--w) infinite;opacity:.75}
+@keyframes m-rise{0%{transform:translate(0,0)}25%{transform:translate(12px,-26vh)}50%{transform:translate(-10px,-52vh)}75%{transform:translate(8px,-78vh)}100%{transform:translate(0,-110vh)}}
+.m-top,.m-main,.m-nav,.m-fab{position:relative;z-index:1} .m-nav,.m-fab{position:absolute}
+.m-main{background:transparent}
+
+/* App-Leiste: Glanzstreifen und „Aufschlag“ des Titels */
+.m-top::before{content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:skewX(-20deg);animation:m-sheen 6s ease-in-out infinite}
+@keyframes m-sheen{0%,70%{left:-80px}100%{left:110%}}
+.m-title{animation:m-slam .45s cubic-bezier(.2,1.4,.4,1)} @keyframes m-slam{from{transform:translateX(-24px) skewX(-12deg);opacity:0}}
+
+/* Reiterwechsel: Inhalt gleitet herein, Balken fegen drüber */
+.m-page{animation:m-pagein .42s cubic-bezier(.2,.9,.3,1) .12s backwards} .m-page.rev{animation-name:m-pagein-r}
+@keyframes m-pagein{from{transform:translateX(38px);opacity:0}} @keyframes m-pagein-r{from{transform:translateX(-38px);opacity:0}}
+.m-wipe{position:absolute;inset:0;z-index:40;pointer-events:none;overflow:hidden}
+.m-wipe i{position:absolute;top:-10%;bottom:-10%;width:75%;left:120%;transform:skewX(-18deg);animation:m-wipe .55s cubic-bezier(.6,0,.3,1) forwards}
+.m-wipe i:first-child{background:var(--m-navy)} .m-wipe i:last-child{background:var(--m-hot);width:22%;animation-delay:.06s}
+.m-wipe.rev i{left:auto;right:120%;animation-name:m-wipe-r}
+@keyframes m-wipe{to{left:-110%}} @keyframes m-wipe-r{to{right:-110%}}
+
+/* Karten erscheinen gestaffelt */
+.m-card{animation:m-cardin .38s cubic-bezier(.2,.9,.3,1) backwards;animation-delay:calc(var(--i,0) * 45ms)}
+@keyframes m-cardin{from{transform:translateY(14px) scale(.98);opacity:0}}
+.m-card.fresh{animation:m-pin .7s cubic-bezier(.2,1.5,.4,1) backwards;box-shadow:0 0 0 3px var(--m-hot),0 10px 28px rgba(255,45,95,.25)}
+@keyframes m-pin{0%{transform:translateY(-40px) rotate(-6deg) scale(1.1);opacity:0}60%{transform:translateY(4px) rotate(1deg) scale(.99);opacity:1}100%{transform:none}}
+.m-card.fresh::after{content:"";position:absolute;right:14px;top:-2px;width:14px;height:14px;border-radius:50%;background:var(--m-hot);box-shadow:0 2px 0 rgba(0,0,0,.2);animation:m-pinhead .5s .35s both}
+@keyframes m-pinhead{from{transform:translateY(-20px) scale(1.6);opacity:0}}
+.m-card.leave{animation:m-tear .5s ease-in forwards;pointer-events:none}
+@keyframes m-tear{30%{transform:rotate(-3deg) scale(1.02);clip-path:polygon(0 0,52% 0,47% 50%,54% 100%,0 100%,0 0,100% 0,100% 100%,54% 100%,47% 50%,52% 0)}
+  100%{transform:translateY(30px) rotate(8deg) scale(.9);opacity:0;clip-path:polygon(0 0,45% 0,40% 50%,47% 100%,0 100%,0 0,100% 0,100% 100%,60% 100%,53% 50%,58% 0)}}
+
+/* Navigation: wandernder Leuchtbalken, hüpfende Icons, atmender Plus-Knopf */
+.m-nav{overflow:hidden} .m-nav button{position:relative;z-index:1;background:transparent!important}
+.m-nav-ind{position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 12px) / 5);border-radius:16px;background:rgba(255,255,255,.14);transition:transform .38s cubic-bezier(.3,1.4,.5,1);z-index:0}
+.m-nav-ind::after{content:"";position:absolute;left:30%;right:30%;bottom:3px;height:3px;border-radius:3px;background:var(--m-hot)}
+.m-nav button.on .m-ic{animation:m-hop .45s cubic-bezier(.3,1.6,.5,1)} @keyframes m-hop{40%{transform:translateY(-6px) scale(1.15)}}
+.m-fab::after{content:"";position:absolute;inset:-4px;border-radius:24px;border:3px solid var(--m-hot);opacity:0;animation:m-breathe 2.8s ease-out infinite}
+@keyframes m-breathe{0%{transform:scale(.9);opacity:.6}100%{transform:scale(1.35);opacity:0}}
+.m-fab .m-ic{transition:transform .25s} .m-fab:active .m-ic{transform:rotate(90deg)}
+
+/* Häkchen, Fortschritt, Wochentage */
+.m-check.on{animation:m-pop .35s cubic-bezier(.3,1.8,.5,1)} @keyframes m-pop{50%{transform:scale(1.3)}}
+.m-bar i{transition:width .8s cubic-bezier(.2,.9,.3,1)}
+.m-week span.full{animation:m-fill .5s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--i,0) * 70ms)} @keyframes m-fill{from{transform:scale(.4);opacity:0}}
+
+/* Begleiter in Kopfkarten: schweben sanft */
+.m-hero img,.m-guide img{animation:m-float 3.6s ease-in-out infinite} @keyframes m-float{50%{transform:translateY(-7px) rotate(-2deg)}}
+.m-hero::after{content:"";position:absolute;right:-40px;top:-30px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%)}
+.m-guide{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px 10px 6px;border-radius:20px;background:rgba(255,255,255,.75);backdrop-filter:blur(6px);
+  border:2px solid color-mix(in srgb,var(--gc,#3db8ff) 40%,#fff);animation:m-cardin .4s both}
+.m-guide img{width:66px;height:66px;object-fit:contain;flex:none}
+.m-guide div{flex:1;font-size:14px} .m-guide b{display:block;font:italic 900 13px var(--display,"Montserrat");text-transform:uppercase;color:var(--gc,#3db8ff);letter-spacing:.04em}
+
+/* Sprechblasen-Meldung */
+.m-say{position:absolute;left:10px;right:90px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;align-items:flex-end;gap:2px;pointer-events:none;animation:m-sayin .5s cubic-bezier(.2,1.4,.4,1) both, m-sayout .4s ease-in 2.6s forwards}
+.m-say img{width:78px;height:78px;object-fit:contain;flex:none;filter:drop-shadow(0 6px 10px rgba(4,16,107,.35));animation:m-float 1.6s ease-in-out infinite}
+.m-bubble-say{background:#fff;color:var(--m-ink);border-radius:18px 18px 18px 4px;padding:9px 13px;font-size:14px;box-shadow:0 8px 24px rgba(4,16,107,.22);border:2px solid var(--mc);margin-bottom:26px;position:relative}
+.m-bubble-say b{display:block;font:italic 900 12px var(--display,"Montserrat");text-transform:uppercase;color:var(--mc);letter-spacing:.05em}
+@keyframes m-sayin{from{transform:translateY(60px) scale(.8);opacity:0}} @keyframes m-sayout{to{transform:translateY(40px);opacity:0}}
+.no-mascot .m-mascot,.no-mascot .m-hero img,.no-mascot .m-guide img,.no-mascot .m-empty img{display:none}
+
+/* Konfetti */
+.m-confetti{position:absolute;left:50%;top:42%;z-index:70;pointer-events:none}
+.m-confetti i{position:absolute;width:9px;height:14px;border-radius:2px;background:var(--c);animation:m-boom 1.3s cubic-bezier(.1,.8,.3,1) forwards}
+@keyframes m-boom{0%{transform:rotate(var(--a)) translateY(0) rotate(0);opacity:1}100%{transform:rotate(var(--a)) translateY(calc(var(--r) * -1)) rotate(var(--t)) translateY(60px);opacity:0}}
+
+/* Blätter: weicher Hintergrund */
+.m-sheet-bg{backdrop-filter:blur(3px)} .m-sheet{animation:m-up .4s cubic-bezier(.2,1.2,.35,1)}
+
+/* Wer keine Bewegung möchte, bekommt keine */
+.no-anim .m-app *,.no-anim .m-app *::before,.no-anim .m-app *::after{animation:none!important;transition:none!important}
+.no-anim .m-wipe,.no-anim .m-bubble,.no-anim .m-beam{display:none}
+@media (prefers-reduced-motion:reduce){.m-app *,.m-app *::before,.m-app *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}.m-bubble,.m-beam,.m-wipe{display:none}}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { deletePerson, listPersons, savePerson, type Person, type PersonInput, type Scope } from "../db/repo";
 import { fileUrl, pickAndStoreImages } from "../files";
 import { Empty, Field, Icon, Seg, Sheet } from "./ui";
+import type { Who } from "./fx";
 import namiImg from "../assets/figuren/nami_gruss.webp";
 
 type ScopeF = "alle" | Scope;
@@ -13,12 +14,13 @@ function Avatar({ p }: { p: { name: string; portrait_path: string | null; scope:
   return <div className="m-avatar" style={{ background: p.scope === "schule" ? "var(--m-schule)" : "var(--m-arbeit)" }}>{u ? <img src={u} alt="" /> : initials(p.name) || "?"}</div>;
 }
 
-export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: MutableRefObject<(() => void) | null>; toast: (t: string) => void }) {
+export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: MutableRefObject<(() => void) | null>; toast: (t: string, who?: Who, pose?: string) => void }) {
   const [list, setList] = useState<Person[] | null>(null);
   const [q, setQ] = useState("");
   const [view, setView] = useState<Person | null>(null);
   const [edit, setEdit] = useState<PersonInput | null>(null);
   const [arm, setArm] = useState(false), [err, setErr] = useState("");
+  const [fresh, setFresh] = useState<number | null>(null), [leaving, setLeaving] = useState<number | null>(null);
   const load = () => listPersons().then(setList);
   useEffect(() => { load(); }, []);
   const blank = (): PersonInput => ({ name: "", role: "", scope: scope === "alle" ? "arbeit" : scope, parent_id: null, phone: "", email: "", info: "", portrait_path: null });
@@ -27,9 +29,10 @@ export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: 
   const save = async () => {
     if (!edit) return;
     if (!edit.name.trim()) { setErr("Ein Name fehlt."); return; }
-    await savePerson(edit); setEdit(null); setView(null); await load(); toast("Kontakt gespeichert");
+    const isNew = !edit.id; const id = await savePerson(edit); setEdit(null); setView(null); await load();
+    setFresh(id); setTimeout(() => setFresh(null), 1600); toast(isNew ? `${edit.name.split(" ")[0]} ist jetzt in deinem Team!` : "Kontakt aktualisiert.", "nami", isNew ? "jubelt" : "schreibt");
   };
-  const remove = async () => { if (!view) return; if (!arm) { setArm(true); return; } await deletePerson(view.id); setView(null); setArm(false); await load(); toast("Kontakt gelöscht"); };
+  const remove = async () => { if (!view) return; if (!arm) { setArm(true); return; } const id = view.id; await deletePerson(id); setView(null); setArm(false); setLeaving(id); toast("Kontakt entfernt.", "nami", "denkt"); setTimeout(async () => { await load(); setLeaving(null); }, 480); };
   const toInput = (p: Person): PersonInput => ({ id: p.id, name: p.name, role: p.role ?? "", scope: p.scope, parent_id: p.parent_id, phone: p.phone ?? "", email: p.email ?? "", info: p.info ?? "", portrait_path: p.portrait_path });
 
   return (
@@ -37,7 +40,7 @@ export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: 
       <div className="m-search"><Icon n="search" size={20} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name oder Rolle" aria-label="Kontakte durchsuchen" /></div>
       {list && shown.length === 0 && <Empty img={namiImg} title={q ? "Nichts gefunden" : "Noch keine Kontakte"} text="Ausbilder, Lehrer, Kollegen: wer hilft dir in der Ausbildung?">{!q && <button className="m-btn" onClick={() => setEdit(blank())}><Icon n="plus" />Kontakt anlegen</button>}</Empty>}
       {shown.map((p) => (
-        <article key={p.id} className="m-card tap" onClick={() => { setArm(false); setView(p); }}>
+        <article key={p.id} className={"m-card tap" + (p.id === fresh ? " fresh" : "") + (p.id === leaving ? " leave" : "")} style={{ ["--i" as string]: Math.min(shown.indexOf(p), 8) }} onClick={() => { setArm(false); setView(p); }}>
           <div className="m-row"><Avatar p={p} /><div className="m-grow"><b>{p.name}</b><div className="m-meta" style={{ marginTop: 0 }}>{p.role || (p.scope === "schule" ? "Schule" : "Arbeit")}</div></div><Icon n="right" size={20} /></div>
         </article>
       ))}
