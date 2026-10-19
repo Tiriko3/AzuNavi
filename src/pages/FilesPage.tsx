@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MutableRefObject } from "react";
-import { baseName, extOf, fsapi, isInside, join, parentDir, relParts, samePath, type DirNode, type Entry } from "../fsapi";
+import { baseName, extOf, fsapi, isInside, join, parentDir, relParts, samePath, type DirNode, type Entry, pathKey } from "../fsapi";
 import {
   folderProject, getRoots, listFolderProjects, listMoves, listTracked, scopeOfPath, setFileProject,
   setFilePath, setFolderProject, setRoot, untrackFile, type MoveRow, type Roots, type TrackedFile,
@@ -11,6 +11,7 @@ import { undoMove } from "../mover";
 import { Assistant, DialogBox, prettyFolder } from "./Assistant";
 import { suggestProject } from "../util";
 import type { ScopeId } from "../items";
+import { isMobile } from "../platform";
 
 const SCOPE_LABEL: Record<Scope, string> = { arbeit: "Arbeit", schule: "Schule" };
 const IMG = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
@@ -41,7 +42,18 @@ function typeBadge(name: string, dir: boolean) {
 type Modal = null | "setup" | "history" | "missing" | "newfolder";
 interface Preview { kind: "img" | "pdf" | "text" | "none" | "big" | "loading" | "error"; url?: string; text?: string; msg?: string }
 
-export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
+/** Auf dem Handy gibt es keine freien Ordner wie am PC (Android erlaubt Apps keinen direkten Zugriff) */
+export function FilesPage(props: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
+  if (isMobile) return (
+    <div className="work"><div className="paperbox mobnote">
+      <b>Dateien gibt es nur am PC.</b>
+      <p>Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal.</p>
+    </div></div>
+  );
+  return <FilesPageDesktop {...props} />;
+}
+
+function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
   const [roots, setRoots] = useState<Roots | null>(null);
   const [trees, setTrees] = useState<Partial<Record<Scope, DirNode>>>({});
   const [treeErr, setTreeErr] = useState<Partial<Record<Scope, string>>>({});
@@ -109,7 +121,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
       if (!target || !(await fs.exists(target)) || !scopeOfPath(r, target)) target = t.arbeit?.path ?? t.schule?.path ?? null;
       if (target) {
         await openFolder(target);
-        setExpanded((x) => { const n = new Set(x); let p = parentDir(target!); while (scopeOfPath(r, p)) { n.add(p.toLowerCase()); const q = parentDir(p); if (q === p) break; p = q; } return n; });
+        setExpanded((x) => { const n = new Set(x); let p = parentDir(target!); while (scopeOfPath(r, p)) { n.add(pathKey(p)); const q = parentDir(p); if (q === p) break; p = q; } return n; });
       }
     } catch (e) { setErr(String(e)); }
   }, [current, loadMeta, loadTrees, openFolder]);
@@ -160,7 +172,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
 
   /* ---------- Vorschau ---------- */
   const selectEntry = async (e: Entry) => {
-    if (e.is_dir) { openFolder(e.path); setExpanded((x) => new Set(x).add(current!.toLowerCase())); return; }
+    if (e.is_dir) { openFolder(e.path); setExpanded((x) => new Set(x).add(pathKey(current!))); return; }
     setSelected(e);
     const ext = extOf(e.name);
     const kind = IMG.includes(ext) ? "img" : ext === "pdf" ? "pdf" : TEXT.includes(ext) ? "text" : "none";
@@ -222,7 +234,7 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
     if (await fs.exists(p)) { setErr(`„${clean}“ gibt es hier schon.`); return; }
     await fs.mkdir(p);
     setNewFolderName(""); setModal(null);
-    setExpanded((x) => new Set(x).add(current.toLowerCase()));
+    setExpanded((x) => new Set(x).add(pathKey(current)));
     await loadTrees(roots!); await openFolder(current);
     flash(`Ordner „${clean}“ angelegt`);
   });
@@ -253,9 +265,9 @@ export function FilesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
   const forget = (f: TrackedFile) => act(async () => { await untrackFile(f.id); await loadMeta(); });
 
   /* ---------- Darstellung: Baum ---------- */
-  const toggle = (p: string) => setExpanded((x) => { const n = new Set(x); const k = p.toLowerCase(); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const toggle = (p: string) => setExpanded((x) => { const n = new Set(x); const k = pathKey(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const renderNode = (n: DirNode, depth: number) => {
-    const open = expanded.has(n.path.toLowerCase()) || depth === 0;
+    const open = expanded.has(pathKey(n.path)) || depth === 0;
     const isCur = !!current && samePath(current, n.path);
     const link = folderLinks.find((l) => samePath(l.path, n.path));
     const proj = link ? projects.find((p) => p.id === link.projectId) : null;

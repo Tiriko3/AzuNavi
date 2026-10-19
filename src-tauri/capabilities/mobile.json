@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile-files",
+  "description": "Nur Handy: Dateien, die der Nutzer im Android-Dialog wählt (content://), lesen und schreiben. Gilt nicht am PC.",
+  "platforms": [
+    "android",
+    "iOS"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "fs:allow-read-file",
+    "fs:allow-write-file"
+  ]
+}

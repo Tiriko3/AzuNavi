@@ -1,6 +1,7 @@
 // AzuNavi: das Rust-Gerüst ist bewusst klein.
 mod files;
 mod lt;
+mod sync;
 
 // Datenbank (SQLite) läuft über das offizielle Tauri-SQL-Plugin,
 // Tabellen und Migrationen liegen im Frontend (src/db/migrations.ts).
@@ -10,6 +11,7 @@ mod lt;
 pub fn run() {
     tauri::Builder::default()
         .manage(lt::LtState(std::sync::Mutex::new(None)))
+        .manage(sync::SyncState::default())
         .plugin(tauri_plugin_sql::Builder::default().build())
         // Dateien: Bilder werden in den App-Ordner kopiert und von dort gelesen
         .plugin(tauri_plugin_fs::init())
@@ -30,7 +32,15 @@ pub fn run() {
             files::fs_write_file,
             files::ensure_desktop_shortcut,
             lt::lt_start,
-            lt::lt_stop
+            lt::lt_stop,
+            sync::sync_status,
+            sync::sync_register,
+            sync::sync_login,
+            sync::sync_recover,
+            sync::sync_logout,
+            sync::sync_upload,
+            sync::sync_download,
+            sync::sync_delete_account
         ])
         .build(tauri::generate_context!())
         .expect("Fehler beim Starten von AzuNavi")

@@ -1,0 +1,37 @@
+[package]
+name = "azunavi-sync-client"
+version = "0.1.0"
+edition = "2021"
+description = "AzuNavi: Verschlüsselung auf dem Gerät und Verbindung zum Sync-Server (ENTWURF)"
+license = "MIT"
+publish = false
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+rand = "0.8"
+argon2 = "0.5"
+hkdf = "0.12"
+sha2 = "0.10"
+chacha20poly1305 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+data-encoding = "2"
+thiserror = "1"
+tokio = { version = "1", features = ["rt"] }
+
+[dev-dependencies]
+azunavi-server = { path = "../server" }
+axum = { version = "0.7", default-features = false, features = ["tokio", "http1"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+rcgen = "0.13"
+axum-server = { version = "0.7", features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+
+# Argon2 ist im Debug-Build sehr langsam; für schnelle Tests optimieren
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

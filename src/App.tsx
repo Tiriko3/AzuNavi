@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { charById } from "./chars";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
+import { isMobile } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
 import { getSetting as getSet } from "./db/db";
 import { ITEMS, SCOPES, type ItemId, type ScopeId } from "./items";
@@ -28,6 +29,17 @@ export default function App() {
   const [tutorial, setTutorial] = useState(false);
   const [dispMode, setDispMode] = useState<DisplayMode>("vollbild");
   const [askQuit, setAskQuit] = useState(false);
+  // Android: die Zurück-Taste/-Geste wirkt wie Esc (Seite schließen, Fenster zu). Ohne das würde sie die App beenden.
+  useEffect(() => {
+    if (!isMobile) return;
+    window.history.pushState({ azunavi: true }, "");
+    const onPop = () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      window.history.pushState({ azunavi: true }, "");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   useEffect(() => {
     getDisplayMode().then(setDispMode);
     const on = (e: Event) => setDispMode((e as CustomEvent<DisplayMode>).detail);
@@ -67,7 +79,7 @@ export default function App() {
       setReady(true);
       // Portable App: Verknüpfung auf dem Desktop anlegen bzw. nach einem Umzug aktualisieren
       if (inTauri) {
-        import("@tauri-apps/api/core").then(({ invoke }) => invoke("ensure_desktop_shortcut").catch(() => {}));
+        if (!isMobile) import("@tauri-apps/api/core").then(({ invoke }) => invoke("ensure_desktop_shortcut").catch(() => {}));
       }
     })();
   }, []);
@@ -225,11 +237,30 @@ export default function App() {
       lastWheel.current = Date.now();
       move((sel + (e.deltaY > 0 ? 1 : -1) + ITEMS.length) % ITEMS.length);
     };
+    // Handy: über das Menü wischen dreht das Rad (hoch = nächster Punkt, wie Mausrad nach unten)
+    let touch: { x: number; y: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.target as Element | null;
+      if (st.current.page || document.querySelector(".tut:not(.showpage)") || t?.closest?.(".tutblock, .tutcard, #scope, #quit")) { touch = null; return; }
+      touch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!touch) return;
+      const t = e.changedTouches[0], dy = t.clientY - touch.y, dx = t.clientX - touch.x;
+      touch = null;
+      if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx)) return;
+      const { sel } = st.current;
+      move((sel + (dy < 0 ? 1 : -1) + ITEMS.length) % ITEMS.length);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, [move, openPage, closePage, changeScope, toggleMute]);
 
@@ -331,7 +362,7 @@ export default function App() {
           onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} onHelp={() => setHelp((h) => !h)} escRef={escRef} />
       )}
 
-      {dispMode !== "fenster" && (
+      {dispMode !== "fenster" && !isMobile && (
         <div id="quit">
           {askQuit ? (
             <span className="quitask">AzuNavi beenden?

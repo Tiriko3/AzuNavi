@@ -2,7 +2,17 @@
 // Die Auswahl wird IMMER in den App-Ordner kopiert (%APPDATA%\com.local.personaapp\...),
 // das Original bleibt unberührt liegen.
 import { open } from "@tauri-apps/plugin-dialog";
-import { BaseDirectory, copyFile, mkdir, readFile } from "@tauri-apps/plugin-fs";
+import { BaseDirectory, copyFile, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { isMobile } from "./platform";
+
+/** Android-Bilder kommen als content://…/image%3A123 ohne Endung: Typ an den ersten Bytes erkennen */
+function sniffExt(b: Uint8Array): string {
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return ".png";
+  if (b[0] === 0xff && b[1] === 0xd8) return ".jpg";
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return ".gif";
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return ".webp";
+  return ".jpg";
+}
 import { inTauri } from "./db/db";
 
 export interface StoredFile { name: string; path: string } // path = relativ zum App-Ordner
@@ -48,7 +58,16 @@ export async function pickAndStoreImages(folder: "attachments" | "portraits", mu
   const out: StoredFile[] = [];
   for (let i = 0; i < sources.length; i++) {
     const src = sources[i];
-    const name = base(src);
+    let name = base(src);
+    if (isMobile) {
+      // Handy: content://-Adresse lesen und als Kopie im App-Ordner ablegen
+      const bytes = await readFile(src);
+      if (!/\.[a-z0-9]{2,5}$/i.test(name)) name = "Bild_" + (i + 1) + sniffExt(bytes);
+      const path = `${folder}/${stamp}_${i}_${safe(name)}`;
+      await writeFile(path, bytes, { baseDir: BaseDirectory.AppData });
+      out.push({ name, path });
+      continue;
+    }
     const path = `${folder}/${stamp}_${i}_${safe(name)}`;
     await copyFile(src, path, { toPathBaseDir: BaseDirectory.AppData });
     out.push({ name, path });

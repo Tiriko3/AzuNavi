@@ -12,13 +12,15 @@ import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/Templ
 import { setQualsEnabled, useQualsEnabled } from "../report/quals";
 import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
 import { listQualifications, replaceQualifications } from "../db/repo";
+import { SyncPanel } from "../sync/SyncPanel";
 import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
+import { isMobile } from "../platform";
 import { CHARACTERS } from "../chars";
 
-export const APP_VERSION = "1.4.0";
+export const APP_VERSION = "1.6.0";
 
 export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus | null; muted: boolean; onToggleMute: () => void; escRef: MutableRefObject<(() => boolean) | null> }) {
   const { prefs, setPrefs, openTutorial } = usePrefs();
@@ -29,6 +31,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   const qualsOn = useQualsEnabled();
   const [qualCount, setQualCount] = useState(0);
   const [armLoad, setArmLoad] = useState(false);
+  const [cloudOpen, setCloudOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [msg, setMsg] = useState("");
@@ -63,9 +66,9 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   const refreshQuals = () => listQualifications().then((q) => setQualCount(q.length));
   useEffect(() => { loadProfile().then(setProfile); refreshTpl().catch(() => {}); refreshQuals(); }, [qualsOn]);
   useEffect(() => {
-    escRef.current = () => { if (tplOpen) { setTplOpen(false); return true; } if (importOpen) { setImportOpen(false); return true; } return false; };
+    escRef.current = () => { if (cloudOpen) { setCloudOpen(false); return true; } if (tplOpen) { setTplOpen(false); return true; } if (importOpen) { setImportOpen(false); return true; } return false; };
     return () => { escRef.current = null; };
-  }, [escRef, importOpen, tplOpen]);
+  }, [escRef, importOpen, tplOpen, cloudOpen]);
   const act = async (f: () => Promise<void>) => { setErr(""); setMsg(""); setBusy(true); try { await f(); } catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); } finally { setBusy(false); } };
 
   const backup = () => act(async () => {
@@ -120,6 +123,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <div className="seg">{[[1, "Normal"], [1.15, "Groß"], [1.3, "Sehr groß"]].map(([v, l]) => (
               <button key={String(v)} className={"segb" + (prefs.font === v ? " on schule" : "")} onClick={() => setPrefs({ font: v as number })}><span>{l}</span></button>))}</div>
           </div>
+          {!isMobile && <>
           <div className="sysrow"><span>Anzeige</span>
             <div className="seg">{([["fenster", "Fenster"], ["randlos", "Randlos"], ["vollbild", "Vollbild"]] as [DisplayMode, string][]).map(([v, l]) => (
               <button key={v} className={"segb" + (display === v ? " on schule" : "")} onClick={() => pickDisplay(v)}><span>{l}</span></button>))}</div>
@@ -129,6 +133,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
               <button key={w} className="mini" onClick={() => act(async () => { await setWindowSize(w, h); setDisplay("fenster"); })}>{w}×{h}</button>))}</span>
           </div>
           <p className="small">Im Fenstermodus kannst du das Fenster auch frei ziehen, der Inhalt skaliert mit. F11 schaltet jederzeit Vollbild ein und aus.</p>
+          </>}
           <div className="sysrow"><span>Figur</span>
             <select className="field mini-select" value={charId} onChange={(e) => pickChar(e.target.value)}>
               {CHARACTERS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -141,6 +146,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <div className="sysrow"><span>Ton</span>
             <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>
           <div className="sysrow"><span>Tutorial</span><button className="mini hot" onClick={openTutorial}>Tutorial wiederholen</button></div>
+          {!isMobile ? <>
           <h3 className="sysh">Grammatik (LanguageTool)</h3>
           <div className="sysrow"><span>LanguageTool nutzen</span>
             <button className={"toggle" + (lt.on ? " on" : "")} onClick={ltToggle}><i />{lt.on ? "an" : "aus"}</button></div>
@@ -148,6 +154,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <span className="inl"><button className="mini" onClick={ltPick}>Ordner wählen</button>{lt.dir && <button className="mini" onClick={ltTest}>Testen</button>}</span></div>
           {lt.status && <p className="small ltstat">Status: {lt.status}</p>}
           <p className="small">Einmalig: Java 17+ installieren (Windows: <code>winget install EclipseAdoptium.Temurin.21.JRE</code>, Linux: <code>sudo apt install openjdk-21-jre</code>) und „LanguageTool Desktop“ von languagetool.org herunterladen und entpacken. Dann hier den Ordner wählen. Ohne LanguageTool prüft die App mit Hunspell (nur Rechtschreibung und einfache Regeln).</p>
+          </> : <p className="small">Die Grammatikprüfung mit LanguageTool braucht Java und geht nur am PC. Die Rechtschreibprüfung funktioniert auch hier.</p>}
         </section>
 
         <section className="paperbox syscard">
@@ -167,8 +174,9 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
+          <div className="sysrow"><span>Cloud-Sicherung (Test)</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>
           <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
-          {inTauri && <div className="sysrow"><span>Desktop-Verknüpfung</span><button className="mini" disabled={busy} onClick={shortcut}>Anlegen</button></div>}
+          {inTauri && !isMobile && <div className="sysrow"><span>Desktop-Verknüpfung</span><button className="mini" disabled={busy} onClick={shortcut}>Anlegen</button></div>}
           <p className="small">Die Sicherung enthält Notizen, Kontakte, Projekte, Berichtshefte, Einstellungen, Anhänge, Porträts und deine Vorlage. Deine Ordner Arbeit/Schule kopierst du wie gewohnt selbst, auf dem neuen Laptop wählst du sie unter Dateien neu.</p>
           {msg && <div className="flash">{msg}</div>}
           {err && <div className="errbox">{err}</div>}
@@ -196,6 +204,15 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
         </section>
       </div>
       {importOpen && <ImportDialog onClose={() => { setImportOpen(false); refreshTpl().catch(() => {}); }} />}
+      {cloudOpen && (
+        <div className="fmodal impmodal">
+          <div className="impbox paperbox">
+            <h3>Cloud-Sicherung (Test)</h3>
+            <SyncPanel />
+            <div className="actions static"><button className="btn ghost" onClick={() => setCloudOpen(false)}><span>Schließen</span></button></div>
+          </div>
+        </div>
+      )}
       {tplOpen && (
         <div className="fmodal impmodal">
           <div className="impbox paperbox">

@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { inTauri } from "./db/db";
+import { isMobile } from "./platform";
 
 export interface DirNode { name: string; path: string; children: DirNode[] }
 export interface Entry { name: string; path: string; is_dir: boolean; size: number; modified: number }
@@ -34,7 +35,16 @@ const real: FsApi = {
   mkdir: (path) => invoke<void>("fs_mkdir", { path }),
   uniqueName: (dir, name) => invoke<string>("fs_unique_name", { dir, name }),
   move: (src, destDir, newName) => invoke<MoveResult>("fs_move", { src, destDir, newName: newName ?? null }),
-  read: async (path, max) => new Uint8Array(await invoke<ArrayBuffer>("fs_read", { path, max })),
+  read: async (path, max) => {
+    // Handy: Android liefert aus dem Dialog content://-Adressen, die nur das Fs-Plugin lesen kann
+    if (isMobile) {
+      const { readFile } = await import("@tauri-apps/plugin-fs");
+      const u = await readFile(path);
+      if (u.byteLength > max) throw new Error("Die Datei ist zu groß.");
+      return u;
+    }
+    return new Uint8Array(await invoke<ArrayBuffer>("fs_read", { path, max }));
+  },
   open: (path) => invoke<void>("fs_open", { path }),
   reveal: (path) => invoke<void>("fs_reveal", { path }),
   pickFiles: async () => {
@@ -52,7 +62,8 @@ const real: FsApi = {
   saveFile: async (defaultName, bytes, filterName, ext) => {
     const path = await save({ defaultPath: defaultName, filters: [{ name: filterName, extensions: [ext] }], title: "Speichern unter" });
     if (!path) return null;
-    await invoke("fs_write_file", { path, bytes: Array.from(bytes) });
+    if (isMobile) { const { writeFile } = await import("@tauri-apps/plugin-fs"); await writeFile(path, bytes); }   // content://-Adresse vom Android-Speicherdialog
+    else await invoke("fs_write_file", { path, bytes: Array.from(bytes) });
     return path;
   },
 };
@@ -85,7 +96,9 @@ export const extOf = (name: string) => {
   const i = b.lastIndexOf(".");
   return i > 0 ? b.slice(i + 1).toLowerCase() : "";
 };
-const norm = (p: string) => p.replace(/[\\/]+/g, "/").replace(/\/$/, "").toLowerCase();
+/** Vergleichsschlüssel für Pfade: Windows unterscheidet keine Groß-/Kleinschreibung, Linux schon */
+export const pathKey = (p: string) => (/^[a-zA-Z]:|\\/.test(p) ? p.toLowerCase() : p);
+const norm = (p: string) => pathKey(p.replace(/[\\/]+/g, "/").replace(/\/$/, ""));
 export const samePath = (a: string, b: string) => norm(a) === norm(b);
 /** Liegt `p` in (oder ist) `dir`? */
 export const isInside = (p: string, dir: string) => {

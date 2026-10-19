@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.4.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.4.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.6.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.6.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -217,4 +217,20 @@ AzuNavi gibt es auch für Linux (Debian, Ubuntu, Mint u. a.). Auf der Release-Se
 - **`.AppImage`**: `chmod +x AzuNavi_<version>_amd64.AppImage` und starten. Braucht `libfuse2` (`sudo apt install libfuse2`).
 - Selbst bauen: `./build-linux.sh` (installiert die nötigen Pakete und baut beide Formate).
 - Die optionale Grammatikprüfung (LanguageTool) braucht Java: `sudo apt install openjdk-21-jre`.
-- Deine Daten liegen unter `~/.local/share/com.local.personaapp/`. Sicherungen (System → Daten mitnehmen) laufen wie unter Windows und lassen sich zwischen Windows und Linux austauschen.
+- Deine Datenbank liegt unter `~/.config/com.local.personaapp/`, Anhänge und Porträts unter `~/.local/share/com.local.personaapp/`. Sicherungen (System → Daten mitnehmen) laufen wie unter Windows und lassen sich zwischen Windows und Linux austauschen.
+
+## Android (Test)
+
+AzuNavi läuft als Test auch auf Android-Handys (arm64, Querformat). Gebaut wird auf GitHub: **Actions → „Android bauen“ → „Run workflow“**. Die APK hängt danach an einem Vorab-Release „android-test-…“.
+
+- Installation: APK aufs Handy laden, „Installation aus dieser Quelle erlauben“, öffnen.
+- Die Android-Zurück-Geste wirkt wie Esc. Über das Menü-Rad wischen dreht es.
+- Nur am PC: Dateien (echte Ordner), LanguageTool (Java), Anzeige-/Fenstereinstellungen, Desktop-Verknüpfung.
+- Für Updates ohne Datenverlust einen eigenen Signaturschlüssel als GitHub-Secret hinterlegen (siehe `.github/workflows/android.yml`).
+
+## Cloud-Sicherung (Test)
+
+**Nur mit erfundenen Daten**, bis Server, Datenschutz und Review freigegeben sind. Unter System → „Cloud-Sicherung (Test)“:
+Konto auf dem eigenen AzuNavi-Server (nur per Einladung), Sicherung verschlüsselt hochladen und auf einem anderen Gerät holen.
+Der Server sieht nie Passwort, Schlüssel oder Inhalte. Server: `server/README.md`, Verschlüsselung: `sync-client/README.md`.
+Es wird immer die ganze Sicherung übertragen (kein Zusammenführen): vor dem Gerätewechsel hochladen. Eine neuere Sicherung eines anderen Geräts wird nie unbemerkt überschrieben.

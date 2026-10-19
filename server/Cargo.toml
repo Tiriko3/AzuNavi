@@ -1,0 +1,45 @@
+[package]
+name = "azunavi-server"
+version = "0.2.0"
+edition = "2021"
+description = "AzuNavi Sync-Server: Konten per Einladung, Ende-zu-Ende-verschlüsselter Abgleich (ENTWURF, nur mit Testdaten)"
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "query", "tokio", "tower-log", "matched-path"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
+tower = { version = "0.5", features = ["limit", "timeout"] }
+tower-http = { version = "0.6", features = ["limit", "timeout", "set-header"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+argon2 = "0.5"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+subtle = "2"
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+anyhow = "1"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Passwort-Hashing ist in Debug-Builds sehr langsam; für schnelle Tests optimieren
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
