@@ -61,6 +61,10 @@ jobs:
           print("Hochformat gesetzt")
           PY
 
+      - name: App-Symbol übernehmen (dasselbe wie am PC)
+        # Erzeugt aus src-tauri/icons/android-icon.json alle Android-Größen und das „adaptive“ Symbol (rund/eckig je nach Handy)
+        run: npm run tauri -- icon src-tauri/icons/android-icon.json
+
       - name: App bauen (arm64)
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
