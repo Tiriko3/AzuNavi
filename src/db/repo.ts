@@ -130,28 +130,41 @@ export interface PersonInput {
   phone: string; email: string; info: string; portrait_path: string | null;
   /** mehrere Übergeordnete und Untergeordnete (Netzplan) */
   parentIds?: number[]; childIds?: number[];
+  /** gleichrangige Kontakte/Beziehungen (ohne Richtung) */
+  relIds?: number[];
 }
 
 /* ---------- Beziehungen zwischen Personen (mehrfach möglich) ---------- */
-export interface PersonLink { id: number; a_id: number; b_id: number; label: string | null }
+/** kind: "leitung" = a ist b übergeordnet (Pfeil), "kontakt" = gleichrangige Beziehung (ohne Richtung, a_id < b_id) */
+export interface PersonLink { id: number; a_id: number; b_id: number; label: string | null; kind: string }
 export const listPersonLinks = () =>
-  select<PersonLink>("SELECT id, a_id, b_id, label FROM person_links ORDER BY id");
+  select<PersonLink>("SELECT id, a_id, b_id, label, kind FROM person_links ORDER BY id");
 
 export async function setPersonLinks(personId: number, parentIds: number[], childIds: number[]) {
-  await execute("DELETE FROM person_links WHERE b_id = $1", [personId]);
-  await execute("DELETE FROM person_links WHERE a_id = $1", [personId]);
+  // nur Leitungs-Verbindungen ersetzen; Kontakte/Beziehungen bleiben unberührt
+  await execute("DELETE FROM person_links WHERE (a_id = $1 OR b_id = $1) AND kind = 'leitung'", [personId]);
   for (const a of new Set(parentIds.filter((x) => x && x !== personId)))
-    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [a, personId]);
+    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id, kind) VALUES ($1, $2, 'leitung')", [a, personId]);
   for (const b of new Set(childIds.filter((x) => x && x !== personId)))
-    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [personId, b]);
+    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id, kind) VALUES ($1, $2, 'leitung')", [personId, b]);
+}
+/** Gleichrangige Kontakte/Beziehungen einer Person setzen (ohne Richtung) */
+export async function setPersonRelations(personId: number, relIds: number[]) {
+  await execute("DELETE FROM person_links WHERE (a_id = $1 OR b_id = $1) AND kind = 'kontakt'", [personId]);
+  for (const o of new Set(relIds.filter((x) => x && x !== personId))) {
+    const ex = await select<{ id: number }>("SELECT id FROM person_links WHERE (a_id = $1 AND b_id = $2) OR (a_id = $2 AND b_id = $1)", [personId, o]);
+    if (ex[0]) continue;   // es gibt schon eine Leitungs-Verbindung zwischen beiden
+    await execute("INSERT OR IGNORE INTO person_links (a_id, b_id, kind) VALUES ($1, $2, 'kontakt')", [Math.min(personId, o), Math.max(personId, o)]);
+  }
 }
 /** Eine einzelne Verbindung setzen oder lösen (Netzplan: „Linie ziehen“) */
-export async function togglePersonLink(aId: number, bId: number): Promise<boolean> {
+export async function togglePersonLink(aId: number, bId: number, kind: "leitung" | "kontakt" = "leitung"): Promise<boolean> {
   if (aId === bId) return false;
   const ex = await select<{ id: number }>(
     "SELECT id FROM person_links WHERE (a_id = $1 AND b_id = $2) OR (a_id = $2 AND b_id = $1)", [aId, bId]);
   if (ex[0]) { await execute("DELETE FROM person_links WHERE id = $1", [ex[0].id]); return false; }
-  await execute("INSERT OR IGNORE INTO person_links (a_id, b_id) VALUES ($1, $2)", [aId, bId]);
+  if (kind === "kontakt") await execute("INSERT OR IGNORE INTO person_links (a_id, b_id, kind) VALUES ($1, $2, 'kontakt')", [Math.min(aId, bId), Math.max(aId, bId)]);
+  else await execute("INSERT OR IGNORE INTO person_links (a_id, b_id, kind) VALUES ($1, $2, 'leitung')", [aId, bId]);
   return true;
 }
 
@@ -179,6 +192,7 @@ export async function savePerson(p: PersonInput): Promise<number> {
       [...vals, p.id]
     );
     if (p.parentIds || p.childIds) await setPersonLinks(p.id, p.parentIds ?? [], p.childIds ?? []);
+    if (p.relIds) await setPersonRelations(p.id, p.relIds);
     return p.id;
   }
   const r = await execute(
@@ -187,6 +201,7 @@ export async function savePerson(p: PersonInput): Promise<number> {
     vals
   );
   if (p.parentIds || p.childIds) await setPersonLinks(r.lastInsertId, p.parentIds ?? [], p.childIds ?? []);
+  if (p.relIds) await setPersonRelations(r.lastInsertId, p.relIds);
   return r.lastInsertId;
 }
 

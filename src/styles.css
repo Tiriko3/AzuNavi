@@ -909,3 +909,18 @@ button,.item{-webkit-user-select:none;user-select:none}
 .gpick .gnew{width:200px;min-height:34px;padding:4px 10px}
 .grpmgr{width:620px;max-width:92vw}
 .grprow{display:grid;grid-template-columns:24px 1fr 100px 150px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #e1e9ff}
+
+/* Netzplan: ganze Bereiche und Auswahl verschieben */
+.netzone .netzone-grip{pointer-events:auto;cursor:grab;user-select:none;padding:0 6px;border-radius:6px}
+.netzone .netzone-grip:hover{background:color-mix(in srgb,var(--zc) 22%,transparent)}
+.netzone .netzone-grip:active{cursor:grabbing}
+.gnode.msel{filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 10px #ffd23f)}
+.gnode.msel::after{content:"";position:absolute;left:50%;top:-6px;width:84px;height:84px;margin-left:-42px;border:3px dashed #ffd23f;border-radius:50%;pointer-events:none;animation:mselSpin 6s linear infinite}
+@keyframes mselSpin{to{transform:rotate(360deg)}}
+.netlasso{position:absolute;border:2px dashed #ffd23f;background:rgba(255,210,63,.12);pointer-events:none;z-index:5}
+.netmulti{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#ffd23f;color:var(--abyss);padding:6px 10px 6px 14px;border-radius:99px;font:600 calc(14px * var(--fs)) var(--text);display:flex;gap:8px;align-items:center;z-index:6;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.nethelp{position:absolute;right:14px;bottom:12px;color:rgba(255,255,255,.72);font:600 12px var(--text);background:rgba(4,16,107,.55);padding:4px 10px;border-radius:99px;z-index:4}
+.chip.rel{border-color:#ffd23f;background:#fff7d6}
+.okline{color:#0a7a4c;font-weight:700}
+.markgrp{max-width:190px}
+.netedges line.rel{stroke-width:3}

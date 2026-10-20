@@ -63,9 +63,14 @@ export function ProjectNet({ projects, threads, persons, scope, onOpen, onEdit, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, scope]);
 
+  const pendingPos = useRef(new Map<string, Pos>());
   const move = (key: string, p: Pos) => {
+    pendingPos.current.set(key, p);
     setPos((m) => { const n = new Map(m); n.set(key, p); return n; });
-    saveBoardPos([{ id: Number(key), ...p }]).catch(() => {});
+  };
+  const moveEnd = () => {
+    const list = [...pendingPos.current].map(([k, p]) => ({ id: Number(k), ...p })); pendingPos.current.clear();
+    if (list.length) saveBoardPos(list).catch(() => {});
   };
   const rearrange = async () => {
     await clearBoardPos();
@@ -86,7 +91,7 @@ export function ProjectNet({ projects, threads, persons, scope, onOpen, onEdit, 
   return (
     <NetGraph nodes={graph.nodes} edges={graph.edges} pos={pos} className={"pjnet" + (connectMode ? " connecting" : "")}
       fitKey={scope + "-" + graph.nodes.length}
-      onMove={move}
+      onMove={move} onMoveEnd={moveEnd}
       onClick={(k) => {
         if (!k) { setSel(null); return; }
         if (connectMode && onConnect) { onConnect(Number(k)); return; }

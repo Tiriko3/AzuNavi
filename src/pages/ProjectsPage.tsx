@@ -4,7 +4,7 @@ import {
   connect, createBoardProject, deleteProject, disconnect, listBoard, listThreads, setPos, setProjectPeople, updateProject,
   type BoardProject, type ProjectInput, type Status,
 } from "../db/boardRepo";
-import { listPersons, type Person, type Scope } from "../db/repo";
+import { listPersons, type Person, type Scope, listGroups, listGroupMembers, type ContactGroup } from "../db/repo";
 import { getSetting, setSetting } from "../db/db";
 import { Avatar } from "../Avatar";
 import { torn } from "../util";
@@ -38,6 +38,10 @@ const stageScale = () => {
 };
 
 export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
+  const [gMembers, setGMembers] = useState<Map<number, number[]>>(new Map());
+  const [groupNote, setGroupNote] = useState("");
+
   const [projects, setProjects] = useState<BoardProject[]>([]);
   const [threads, setThreads] = useState<[number, number][]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
@@ -241,6 +245,7 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
     setConfirmDel(false); setErr("");
     setDraft({ id: p.id, name: p.name, scope: p.scope, description: p.description ?? "", status: p.status, progress: p.progress, leadId: p.leadId, memberIds: [...p.memberIds] });
   };
+  useEffect(() => { listGroups().then(setGroups).catch(() => {}); listGroupMembers().then(setGMembers).catch(() => {}); }, [draft?.id, !!draft]);   // eslint-disable-line react-hooks/exhaustive-deps
   const patch = (x: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...x } : d));
   const save = async () => {
     if (!draft) return;
@@ -484,13 +489,24 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                 ) : null;
               })}
               {persons.filter((pe) => pe.id !== draft.leadId && !draft.memberIds.includes(pe.id)).length > 0 ? (
-                <select className="field mini-select" value="" onChange={(e) => e.target.value && patch({ memberIds: [...draft.memberIds, Number(e.target.value)] })}>
+                <select className="field mini-select" value="" onChange={(e) => {
+                  const v = e.target.value; if (!v) return;
+                  if (v.startsWith("g:")) {   // ganze Gruppe auf einmal
+                    const gid = Number(v.slice(2));
+                    const add = persons.filter((pe) => (gMembers.get(pe.id) ?? []).includes(gid) && pe.id !== draft.leadId && !draft.memberIds.includes(pe.id)).map((pe) => pe.id);
+                    patch({ memberIds: [...draft.memberIds, ...add] });
+                    setGroupNote(add.length ? `${add.length} ${add.length === 1 ? "Person" : "Personen"} aus „${groups.find((g) => g.id === gid)?.name}“ hinzugefügt` : "Alle aus der Gruppe sind schon dabei");
+                    setTimeout(() => setGroupNote(""), 3000);
+                  } else patch({ memberIds: [...draft.memberIds, Number(v)] });
+                }}>
                   <option value="">+ Person</option>
                   {persons.filter((pe) => pe.id !== draft.leadId && !draft.memberIds.includes(pe.id)).map((pe) => (
                     <option key={pe.id} value={pe.id}>{pe.name}{pe.role ? ` (${pe.role})` : ""}</option>
                   ))}
+                  {groups.length > 0 && <optgroup label="Ganze Gruppe">{groups.map((g) => <option key={"g" + g.id} value={"g:" + g.id}>👥 {g.name} ({[...gMembers.values()].filter((x) => x.includes(g.id)).length})</option>)}</optgroup>}
                 </select>
               ) : persons.length === 0 ? <span className="small">Noch keine Kontakte angelegt.</span> : null}
+              {groupNote && <span className="small okline">{groupNote}</span>}
             </div>
           </div>
           <label className="lab">Beschreibung

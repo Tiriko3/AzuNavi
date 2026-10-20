@@ -286,4 +286,9 @@ export const MIGRATIONS: Migration[] = [
        )`,
     ],
   },
+  {
+    version: 12,
+    name: "Etappe 12: Verbindungsart zwischen Personen (Leitung oder Kontakt/Beziehung)",
+    statements: [`ALTER TABLE person_links ADD COLUMN kind TEXT NOT NULL DEFAULT 'leitung'`],
+  },
 ];

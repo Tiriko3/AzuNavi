@@ -10,7 +10,7 @@ import type { ScopeId } from "../items";
 interface Draft {
   id?: number; name: string; role: string; scope: Scope; parent_id: number | null;
   phone: string; email: string; info: string; portrait_path: string | null;
-  parentIds: number[]; childIds: number[]; groupIds: number[];
+  parentIds: number[]; childIds: number[]; groupIds: number[]; relIds: number[];
 }
 // Zonen im Netzplan: Schule links, Arbeit rechts
 const ZONES = [
@@ -65,7 +65,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
     const ids = new Set(shown.map((p) => p.id));
     const nodes: GNode[] = shown.map((p) => ({ key: String(p.id), zone: p.scope }));
     const edges: GEdge[] = links.filter((l) => ids.has(l.a_id) && ids.has(l.b_id))
-      .map((l) => ({ a: String(l.a_id), b: String(l.b_id), kind: "hier" }));
+      .map((l) => ({ a: String(l.a_id), b: String(l.b_id), kind: l.kind === "kontakt" ? "kontakt" : "hier" }));
     return { nodes, edges };
   }, [shown, links]);
 
@@ -98,18 +98,26 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, scope]);
 
+  // Beim Ziehen nur anzeigen, gespeichert wird beim Loslassen (auch wenn viele auf einmal bewegt werden)
+  const pendingPos = useRef(new Map<string, Pos>());
   const moveNode = (key: string, p: Pos) => {
+    pendingPos.current.set(key, p);
     setPos((m) => { const n = new Map(m); n.set(key, p); return n; });
-    savePersonPos([{ id: Number(key), ...p }]).catch(() => {});
   };
+  const moveEnd = () => {
+    const list = [...pendingPos.current].map(([k, p]) => ({ id: Number(k), ...p })); pendingPos.current.clear();
+    if (list.length) savePersonPos(list).catch(() => {});
+  };
+  const [multi, setMulti] = useState<Set<string>>(new Set());
+  const [connectKind, setConnectKind] = useState<"leitung" | "kontakt">("leitung");
   const clickNode = async (key: string) => {
     if (!key) { setNetSel(null); setConnectFrom(null); return; }
     const id = Number(key);
     if (connectFrom) {
       if (connectFrom !== id) {
-        const now = await togglePersonLink(connectFrom, id);
+        const now = await togglePersonLink(connectFrom, id, connectKind);
         setLinks(await listPersonLinks());
-        flash(now ? "Verbindung gesetzt" : "Verbindung gelöst");
+        flash(now ? (connectKind === "kontakt" ? "Kontakt verbunden" : "Leitung gesetzt") : "Verbindung gelöst");
       }
       setConnectFrom(null); return;
     }
@@ -147,15 +155,16 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const blank = (parent: number | null = null): Draft => ({
     name: "", role: "", scope: scope === "schule" ? "schule" : "arbeit", parent_id: parent,
     phone: "", email: "", info: "", portrait_path: null,
-    parentIds: parent ? [parent] : [], childIds: [], groupIds: groupFilter ? [groupFilter] : [],
+    parentIds: parent ? [parent] : [], childIds: [], groupIds: groupFilter ? [groupFilter] : [], relIds: [],
   });
   const startEdit = (p: Person) => {
     setConfirmDel(false); setErr("");
     setDraft({
       id: p.id, name: p.name, role: p.role ?? "", scope: p.scope, parent_id: p.parent_id,
       phone: p.phone ?? "", email: p.email ?? "", info: p.info ?? "", portrait_path: p.portrait_path,
-      parentIds: links.filter((l) => l.b_id === p.id).map((l) => l.a_id),
-      childIds: links.filter((l) => l.a_id === p.id).map((l) => l.b_id),
+      parentIds: links.filter((l) => l.kind !== "kontakt" && l.b_id === p.id).map((l) => l.a_id),
+      childIds: links.filter((l) => l.kind !== "kontakt" && l.a_id === p.id).map((l) => l.b_id),
+      relIds: links.filter((l) => l.kind === "kontakt" && (l.a_id === p.id || l.b_id === p.id)).map((l) => (l.a_id === p.id ? l.b_id : l.a_id)),
       groupIds: members.get(p.id) ?? [],
     });
   };
@@ -178,6 +187,17 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
     try { const id = await createGroup(name); setGroups(await listGroups()); setDraft((d) => (d && !d.groupIds.includes(id) ? { ...d, groupIds: [...d.groupIds, id] } : d)); }
     catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); }
   };
+  /** Person oder ganze Gruppe („g:ID“) zu Über-/Untergeordnet/Kontakte hinzufügen */
+  const addIds = (field: "parentIds" | "childIds" | "relIds", v: string, blockedIds?: Set<number>) => {
+    if (!draft || !v) return;
+    const ids = v.startsWith("g:") ? persons.filter((p) => (members.get(p.id) ?? []).includes(Number(v.slice(2)))).map((p) => p.id) : [Number(v)];
+    const taken = new Set([draft.id ?? -1, ...draft.parentIds, ...draft.childIds, ...draft.relIds]);
+    const add = ids.filter((i) => !taken.has(i) && !blockedIds?.has(i));
+    patch({ [field]: [...draft[field], ...add] } as Partial<Draft>);
+    if (v.startsWith("g:")) flash(add.length ? `${add.length} ${add.length === 1 ? "Person" : "Personen"} aus der Gruppe hinzugefügt` : "Alle aus der Gruppe sind schon zugeordnet");
+  };
+  const groupOptions = () => groups.length > 0 && (
+    <optgroup label="Ganze Gruppe">{groups.map((g) => <option key={"g" + g.id} value={"g:" + g.id}>👥 {g.name} ({[...members.values()].filter((x) => x.includes(g.id)).length})</option>)}</optgroup>);
   const onDelete = async () => {
     if (!draft?.id) return;
     if (!confirmDel) { setConfirmDel(true); return; }
@@ -215,6 +235,9 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
             ))}
           </span>
           <button className="mini" onClick={() => { setNewGroup(""); setGroupMgr(true); }}>Gruppen …</button>
+          {groups.length > 0 && <select className="field mini-select markgrp" value="" title="Alle Mitglieder einer Gruppe markieren, dann zusammen verschieben"
+            onChange={(e) => { const gid = Number(e.target.value); if (!gid) return; setMulti(new Set(shown.filter((p) => (members.get(p.id) ?? []).includes(gid)).map((p) => String(p.id)))); }}>
+            <option value="">Gruppe markieren …</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
           <button className="mini" onClick={rearrange}>Neu anordnen</button>
           <span className="small grow">{shown.length} {shown.length === 1 ? "Person" : "Personen"}</span>
         </div>
@@ -228,7 +251,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
             </div>
           ) : (
             <NetGraph nodes={graph.nodes} edges={graph.edges} pos={pos} fitKey={scope + "-" + groupFilter + "-" + graph.nodes.length + "-" + (draft ? 1 : 0)}
-              onMove={moveNode} onClick={clickNode} onDoubleClick={(k) => { const p = byId.get(Number(k)); if (p) startEdit(p); }}
+              onMove={moveNode} onMoveEnd={moveEnd} multi={multi} onMultiChange={setMulti} onClick={clickNode} onDoubleClick={(k) => { const p = byId.get(Number(k)); if (p) startEdit(p); }}
               selected={netSel ? String(netSel) : null}
               className={"pnet" + (connectFrom ? " connecting" : "")}
               zones={scope === "alle" ? ZONES : undefined}
@@ -236,11 +259,12 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                 const pa = byId.get(Number(e.a)), pb = byId.get(Number(e.b));
                 const mixed = pa && pb && pa.scope !== pb.scope;
                 const col = mixed ? "#9b6bff" : pa?.scope === "schule" ? "#38b6ff" : "#e8263f";
+                if (e.kind === "kontakt") return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#ffd23f" strokeDasharray="10 8" className={"rel" + (hi ? " hi" : "")} />;
                 return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={col} className={hi ? "hi" : ""} markerEnd="url(#parrow)" />;
               }}
               renderNode={(k) => {
                 const p = byId.get(Number(k)); if (!p) return null;
-                const lead = links.some((l) => l.a_id === p.id);
+                const lead = links.some((l) => l.kind !== "kontakt" && l.a_id === p.id);
                 return (
                   <div className={"pnode" + (connectFrom === p.id ? " from" : "") + (born === p.id ? " born" : "")}>
                     <Avatar name={p.name} path={p.portrait_path} size={lead ? 84 : 72} />
@@ -268,7 +292,8 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                     {oben.length > 0 && <p className="small">Übergeordnet: {oben.join(", ")}</p>}
                     {unten.length > 0 && <p className="small">Untergeordnet: {unten.join(", ")}</p>}
                     <div className="inl">
-                      <button className="mini" onClick={() => setConnectFrom(p.id)}>Verbindung ziehen</button>
+                      <button className="mini" onClick={() => { setConnectKind("leitung"); setConnectFrom(p.id); }} title="Diese Person ist der nächsten übergeordnet">Leitung ziehen →</button>
+                      <button className="mini" onClick={() => { setConnectKind("kontakt"); setConnectFrom(p.id); }} title="Gleichrangiger Kontakt oder Beziehung">Kontakt ziehen ↔</button>
                       <button className="mini hot" onClick={() => startEdit(p)}>Bearbeiten</button>
                     </div>
                   </div>
@@ -323,11 +348,12 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                     <span key={id} className="chip sel">{byId.get(id)?.name ?? "?"}
                       <button type="button" aria-label="entfernen" onClick={() => patch({ parentIds: draft.parentIds.filter((x) => x !== id) })}>×</button></span>
                   ))}
-                  <select className="field mini-select" value="" onChange={(e) => e.target.value && patch({ parentIds: [...draft.parentIds, Number(e.target.value)] })}>
+                  <select className="field mini-select" value="" onChange={(e) => addIds("parentIds", e.target.value, blocked)}>
                     <option value="">+ hinzufügen</option>
                     {persons.filter((p) => !blocked.has(p.id) && !draft.parentIds.includes(p.id) && !draft.childIds.includes(p.id)).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}{p.role ? ` (${p.role})` : ""}</option>
                     ))}
+                    {groupOptions()}
                   </select>
                 </div>
               </label>
@@ -337,15 +363,31 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                     <span key={id} className="chip sel">{byId.get(id)?.name ?? "?"}
                       <button type="button" aria-label="entfernen" onClick={() => patch({ childIds: draft.childIds.filter((x) => x !== id) })}>×</button></span>
                   ))}
-                  <select className="field mini-select" value="" onChange={(e) => e.target.value && patch({ childIds: [...draft.childIds, Number(e.target.value)] })}>
+                  <select className="field mini-select" value="" onChange={(e) => addIds("childIds", e.target.value)}>
                     <option value="">+ hinzufügen</option>
                     {persons.filter((p) => p.id !== draft.id && !draft.childIds.includes(p.id) && !draft.parentIds.includes(p.id)).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}{p.role ? ` (${p.role})` : ""}</option>
                     ))}
+                    {groupOptions()}
                   </select>
                 </div>
               </label>
             </div>
+            <label className="lab">Kontakte &amp; Beziehungen (gleichrangig, ohne Über-/Unterordnung)
+              <div className="chips">
+                {draft.relIds.map((id) => (
+                  <span key={id} className="chip sel rel">{byId.get(id)?.name ?? "?"}
+                    <button type="button" aria-label="entfernen" onClick={() => patch({ relIds: draft.relIds.filter((x) => x !== id) })}>×</button></span>
+                ))}
+                <select className="field mini-select" value="" onChange={(e) => addIds("relIds", e.target.value)}>
+                  <option value="">+ hinzufügen</option>
+                  {persons.filter((p) => p.id !== draft.id && !draft.relIds.includes(p.id) && !draft.parentIds.includes(p.id) && !draft.childIds.includes(p.id)).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.role ? ` (${p.role})` : ""}</option>
+                  ))}
+                  {groupOptions()}
+                </select>
+              </div>
+            </label>
             <div className="row2">
             <div className="lab">Gruppen (mehrere möglich)
               <div className="gpick">
