@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getSetting, inTauri, setSetting } from "../db/db";
 import { createBackup, restoreBackup } from "../backup";
 import { fsapi, join } from "../fsapi";
-import { isMobile } from "../platform";
+import { isMobile, isWebApp, noDesktop } from "../platform";
 import { APP_VERSION } from "../version";
 import { CLOUD_PREFIX, backupName, decryptBackup, encryptBackup, isEncrypted } from "./cloudBackup";
 
@@ -31,7 +31,7 @@ export function CloudFolderPanel() {
     const bytes = noCrypt ? b.bytes : await encryptBackup(b.bytes, pw);
     const name = backupName(!noCrypt), fs = await fsapi();
     let where: string | null;
-    if (isMobile) where = await fs.saveFile(name, bytes, "AzuNavi-Sicherung", noCrypt ? "zip" : "azb");   // im Dialog OneDrive wählen
+    if (noDesktop) where = await fs.saveFile(name, bytes, "AzuNavi-Sicherung", noCrypt ? "zip" : "azb");   // im Dialog OneDrive wählen
     else { if (!dir) throw new Error("Bitte zuerst den Cloud-Ordner wählen."); where = join(dir, name); await fs.writeFile(where, bytes); }
     if (!where) return;
     await setSetting("cloud_pw", remember && !noCrypt ? pw : "");
@@ -40,7 +40,7 @@ export function CloudFolderPanel() {
   });
   const loadNewest = () => run("Suche die neueste Sicherung …", async () => {
     const fs = await fsapi();
-    if (isMobile || !dir) {
+    if (noDesktop || !dir) {
       const p = await fs.pickFile(); if (!p) return;
       setPending({ name: p.split(/[\\/]/).pop() ?? p, bytes: await fs.read(p, 500 * 1024 * 1024) }); return;
     }
@@ -60,8 +60,9 @@ export function CloudFolderPanel() {
   return (
     <div className="cloudp">
       <p className="small">Deine Sicherung landet in deinem eigenen Cloud-Speicher (OneDrive, Google Drive, Nextcloud …). Auf dem anderen Gerät holst du sie von dort. AzuNavi betreibt dafür keinen Server.</p>
-      {!isMobile && <div className="sysrow"><span>Cloud-Ordner</span><span className="inl"><span className="small" style={{ wordBreak: "break-all" }}>{dir || "noch nicht gewählt"}</span><button className="mini" onClick={pickDir} disabled={!inTauri && false}>Wählen</button></span></div>}
-      {!isMobile && !dir && <p className="small">Tipp: Unter Windows liegt OneDrive meist unter <code>C:\Users\DEIN-NAME\OneDrive</code>. Leg dort einen Ordner „AzuNavi“ an und wähl ihn hier.</p>}
+      {!noDesktop && <div className="sysrow"><span>Cloud-Ordner</span><span className="inl"><span className="small" style={{ wordBreak: "break-all" }}>{dir || "noch nicht gewählt"}</span><button className="mini" onClick={pickDir} disabled={!inTauri && false}>Wählen</button></span></div>}
+      {!noDesktop && !dir && <p className="small">Tipp: Unter Windows liegt OneDrive meist unter <code>C:\Users\DEIN-NAME\OneDrive</code>. Leg dort einen Ordner „AzuNavi“ an und wähl ihn hier.</p>}
+      {isWebApp && <p className="small">Im Browser wird die Sicherung als Datei gespeichert. Wähl im Dialog z. B. deinen OneDrive-Ordner. Liegt dein <b>Datenordner</b> schon in OneDrive, sind deine Daten ohnehin in deiner Cloud.</p>}
       {isMobile && <p className="small">Beim Sichern öffnet Android den Speicherdialog. Wähl dort links im Menü <b>OneDrive</b> (die OneDrive-App muss installiert sein) und einen Ordner.</p>}
 
       <label className="lab chk"><input type="checkbox" checked={!noCrypt} onChange={(e) => setNoCrypt(!e.target.checked)} /> Mit Passwort verschlüsseln (empfohlen)</label>
@@ -75,8 +76,8 @@ export function CloudFolderPanel() {
 
       {err && <div className="errbox">{err}</div>}{msg && <div className="tutnote ok">{msg}</div>}{busy && <p className="small">{busy}</p>}
       <div className="actions static">
-        <button className="btn" disabled={!!busy} onClick={backup}><span>{isMobile ? "In die Cloud sichern" : "Jetzt in den Cloud-Ordner sichern"}</span></button>
-        <button className="btn ghost" disabled={!!busy} onClick={loadNewest}><span>{isMobile || !dir ? "Sicherung holen …" : "Neueste Sicherung holen"}</span></button>
+        <button className="btn" disabled={!!busy} onClick={backup}><span>{noDesktop ? "In die Cloud sichern" : "Jetzt in den Cloud-Ordner sichern"}</span></button>
+        <button className="btn ghost" disabled={!!busy} onClick={loadNewest}><span>{noDesktop || !dir ? "Sicherung holen …" : "Neueste Sicherung holen"}</span></button>
       </div>
       {last && <p className="small">Zuletzt gesichert: {last}</p>}
       {pending && (

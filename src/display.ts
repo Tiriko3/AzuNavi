@@ -1,6 +1,6 @@
 // Anzeige (System → Darstellung): Fenster, randlos oder Vollbild; Fenstergröße frei oder per Schnellwahl
 import { getSetting, inTauri, setSetting } from "./db/db";
-import { isMobile } from "./platform";
+import { noDesktop } from "./platform";
 
 export type DisplayMode = "fenster" | "randlos" | "vollbild";
 
@@ -17,7 +17,7 @@ export async function getDisplayMode(): Promise<DisplayMode> {
 export async function applyDisplay(mode: DisplayMode) {
   await setSetting("pref_display", mode);
   window.dispatchEvent(new CustomEvent("azunavi-display", { detail: mode })); // der Beenden-Knopf blendet sich je nach Modus ein/aus
-  if (!inTauri || isMobile) return;   // Handy: die App läuft immer bildschirmfüllend
+  if (!inTauri || noDesktop) return;   // Handy: die App läuft immer bildschirmfüllend
   const w = await win();
   if (mode === "vollbild") {
     await w.setDecorations(true);
@@ -35,7 +35,7 @@ export async function applyDisplay(mode: DisplayMode) {
 
 /** Fenstergröße für den Fenstermodus (der Inhalt skaliert immer mit) */
 export async function setWindowSize(width: number, height: number) {
-  if (isMobile) return;
+  if (noDesktop) return;
   if (!inTauri) return;
   const { LogicalSize } = await import("@tauri-apps/api/dpi");
   const w = await win();
@@ -46,7 +46,7 @@ export async function setWindowSize(width: number, height: number) {
 
 /** F11: zwischen Vollbild und Fenster wechseln */
 export async function toggleFullscreen(): Promise<DisplayMode> {
-  if (isMobile) return "vollbild";
+  if (noDesktop) return "vollbild";
   const next: DisplayMode = (await getDisplayMode()) === "vollbild" ? "fenster" : "vollbild";
   await applyDisplay(next);
   return next;
@@ -54,7 +54,7 @@ export async function toggleFullscreen(): Promise<DisplayMode> {
 
 /** Programm beenden (Knopf oben rechts im Vollbild) */
 export async function quitApp() {
-  if (!inTauri || isMobile) return;
+  if (!inTauri || noDesktop) return;
   const w = await win();
   await w.close();
 }

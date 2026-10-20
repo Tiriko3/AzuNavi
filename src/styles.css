@@ -924,3 +924,23 @@ button,.item{-webkit-user-select:none;user-select:none}
 .okline{color:#0a7a4c;font-weight:700}
 .markgrp{max-width:190px}
 .netedges line.rel{stroke-width:3}
+
+/* Web-App: Startbildschirm (Datenordner) und Speicher-Anzeige */
+.webgate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;overflow:auto;
+  background:radial-gradient(60% 50% at 80% 10%,rgba(61,184,255,.35),transparent 70%),linear-gradient(150deg,#04106b,#0a1a8c 55%,#1f5bff);color:#fff;font-family:var(--text)}
+.wg-card{width:min(560px,100%);background:rgba(4,16,107,.72);border:2px solid rgba(255,255,255,.18);border-radius:22px;padding:26px 28px 18px;backdrop-filter:blur(6px);box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center}
+.wg-nami{width:120px;height:120px;object-fit:contain;animation:namiFloat 3s ease-in-out infinite alternate;filter:drop-shadow(0 0 18px rgba(61,184,255,.7))}
+.wg-card h1{margin:4px 0 10px;font:italic 900 40px/1 var(--display);text-transform:uppercase}
+.wg-card h1 small{display:block;font:700 14px var(--text);letter-spacing:.2em;color:#ff2d5f;margin-top:4px}
+.wg-card p{font-size:16px;line-height:1.5;margin:10px 0}
+.wg-small{font-size:13.5px!important;opacity:.82;text-align:left}
+.wg-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;margin:14px 0 4px;border:0;border-radius:14px;background:#ff2d5f;color:#fff;font:italic 900 18px var(--display);text-transform:uppercase;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.wg-btn span{font:700 11px var(--text);background:#fff;color:#ff2d5f;border-radius:99px;padding:3px 8px;text-transform:uppercase;letter-spacing:.06em}
+.wg-btn.sec{background:#fff;color:#04106b}
+.wg-btn:hover{filter:brightness(1.07)}
+.wg-link{background:none;border:0;color:#bfe6ff;text-decoration:underline;cursor:pointer;font-size:14px;margin-top:6px}
+.wg-warn{background:rgba(255,45,95,.18);border:1px solid #ff2d5f;border-radius:12px;padding:10px 12px;text-align:left}
+.wg-foot{font-size:12px!important;opacity:.55;margin-top:16px!important}
+.wg-card code{background:rgba(255,255,255,.14);padding:1px 6px;border-radius:5px}
+.websave{position:fixed;left:10px;bottom:10px;z-index:9000;font:600 12px var(--text);padding:5px 10px;border-radius:99px;background:rgba(4,16,107,.8);color:#bff5d9;pointer-events:none;transition:opacity .4s}
+.websave.speichert{color:#ffe08a} .websave.fehler{background:#ff2d5f;color:#fff}

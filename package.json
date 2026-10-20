@@ -1,11 +1,12 @@
 {
   "name": "azunavi",
   "private": true,
-  "version": "1.11.0",
+  "version": "1.12.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:web": "tsc && vite build --mode web",
     "tauri": "tauri",
     "release": "tauri build"
   },

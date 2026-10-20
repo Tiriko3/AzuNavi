@@ -17,7 +17,7 @@ import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
-import { isMobile } from "../platform";
+import { isMobile, isWebApp, noDesktop } from "../platform";
 import { CHARACTERS } from "../chars";
 
 import { APP_VERSION } from "../version";
@@ -124,7 +124,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <div className="seg">{[[1, "Normal"], [1.15, "Groß"], [1.3, "Sehr groß"]].map(([v, l]) => (
               <button key={String(v)} className={"segb" + (prefs.font === v ? " on schule" : "")} onClick={() => setPrefs({ font: v as number })}><span>{l}</span></button>))}</div>
           </div>
-          {!isMobile && <>
+          {!noDesktop && <>
           <div className="sysrow"><span>Anzeige</span>
             <div className="seg">{([["fenster", "Fenster"], ["randlos", "Randlos"], ["vollbild", "Vollbild"]] as [DisplayMode, string][]).map(([v, l]) => (
               <button key={v} className={"segb" + (display === v ? " on schule" : "")} onClick={() => pickDisplay(v)}><span>{l}</span></button>))}</div>
@@ -147,7 +147,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <div className="sysrow"><span>Ton</span>
             <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>
           <div className="sysrow"><span>Tutorial</span><button className="mini hot" onClick={openTutorial}>Tutorial wiederholen</button></div>
-          {!isMobile ? <>
+          {!noDesktop ? <>
           <h3 className="sysh">Grammatik (LanguageTool)</h3>
           <div className="sysrow"><span>LanguageTool nutzen</span>
             <button className={"toggle" + (lt.on ? " on" : "")} onClick={ltToggle}><i />{lt.on ? "an" : "aus"}</button></div>
@@ -174,6 +174,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <button className={"mini" + (armLoad ? " hot" : "")} disabled={busy} onClick={loadQualList}>{armLoad ? "Wirklich laden?" : "Liste für meinen Beruf laden"}</button></div>}
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
+          {isWebApp && <WebDataRow />}
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
           <div className="sysrow"><span>Sicherung in deiner Cloud</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>
           <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
@@ -229,5 +230,17 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
         </div>
       )}
     </div>
+  );
+}
+
+/** Web-App: wo liegen die Daten, und anderen Ort wählen */
+function WebDataRow() {
+  const [info, setInfo] = useState<{ kind: string | null; name: string }>({ kind: null, name: "" });
+  useEffect(() => { import("../web/dataStore").then((m) => setInfo(m.locationInfo())); }, []);
+  return (
+    <div className="sysrow"><span>Datenordner</span><span className="inl">
+      <span className="small">{info.kind === "folder" ? `Ordner „${info.name}“` : "Dieser Browser"}</span>
+      <button className="mini" onClick={async () => { const m = await import("../web/dataStore"); await m.forgetLocation(); location.reload(); }}>Wechseln</button>
+    </span></div>
   );
 }

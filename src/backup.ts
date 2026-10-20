@@ -1,6 +1,7 @@
 // „Daten mitnehmen“ (Etappe 9): komplette Sicherung als eine ZIP-Datei für einen anderen Laptop
 import JSZip from "jszip";
-import { BaseDirectory, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { appRead, appWrite } from "./storage/appFiles";
+import { isWebApp } from "./platform";
 import { execute, getSetting, inTauri, select } from "./db/db";
 
 const APP = "persona-app"; // interne Kennung bleibt, damit alte Sicherungen passen
@@ -24,9 +25,9 @@ export async function createBackup(version: string): Promise<{ bytes: Uint8Array
   (data.persons as { portrait_path: string | null }[] | undefined)?.forEach((p) => p.portrait_path && paths.add(p.portrait_path));
   if ((await getSetting("custom_template")) === "1") paths.add("templates/vorlage.docx");
   let files = 0;
-  if (inTauri) {
+  if (inTauri || isWebApp) {
     for (const p of paths) {
-      try { zip.file("dateien/" + p, await readFile(p, { baseDir: BaseDirectory.AppData })); files++; } catch { /* fehlende Datei überspringen */ }
+      try { zip.file("dateien/" + p, await appRead(p)); files++; } catch { /* fehlende Datei überspringen */ }
     }
   }
   return { bytes: await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }), rows, files };
@@ -55,12 +56,10 @@ export async function restoreBackup(bytes: ArrayBuffer): Promise<{ rows: number;
     }
   }
   let files = 0;
-  if (inTauri) {
+  if (inTauri || isWebApp) {
     for (const name of Object.keys(zip.files).filter((n) => n.startsWith("dateien/") && !zip.files[n].dir)) {
       const rel = name.slice("dateien/".length);
-      const dir = rel.split("/").slice(0, -1).join("/");
-      if (dir) await mkdir(dir, { baseDir: BaseDirectory.AppData, recursive: true });
-      await writeFile(rel, await zip.file(name)!.async("uint8array"), { baseDir: BaseDirectory.AppData });
+      await appWrite(rel, await zip.file(name)!.async("uint8array"));
       files++;
     }
   }

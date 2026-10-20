@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { charById } from "./chars";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
-import { isMobile } from "./platform";
+import { isMobile, noDesktop } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
 import { getSetting as getSet } from "./db/db";
 import { ITEMS, SCOPES, type ItemId, type ScopeId } from "./items";
@@ -362,7 +362,7 @@ export default function App() {
           onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} onHelp={() => setHelp((h) => !h)} escRef={escRef} />
       )}
 
-      {dispMode !== "fenster" && !isMobile && (
+      {dispMode !== "fenster" && !noDesktop && (
         <div id="quit">
           {askQuit ? (
             <span className="quitask">AzuNavi beenden?

@@ -2,7 +2,8 @@
 import JSZip from "jszip";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import bundledUrl from "../assets/berichtsheft-vorlage.docx?url";
-import { BaseDirectory, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { appRead, appWrite } from "../storage/appFiles";
+import { isWebApp } from "../platform";
 import { getSetting, inTauri, setSetting } from "../db/db";
 import { W, all, kids, setT, textOf } from "./weekDocx";
 import { ABSENT_PLACES, shortDate, weekDates, weekdayName, type ReportMeta, type WeekDraft } from "./types";
@@ -38,10 +39,8 @@ export async function analyzeTemplate(bytes: ArrayBuffer): Promise<TemplateInfo>
 }
 
 export async function saveCustomTemplate(bytes: ArrayBuffer) {
-  if (inTauri) {
-    await mkdir("templates", { baseDir: BaseDirectory.AppData, recursive: true });
-    await writeFile(CUSTOM, new Uint8Array(bytes), { baseDir: BaseDirectory.AppData });
-  } else memCustom = bytes;
+  if (inTauri || isWebApp) await appWrite(CUSTOM, new Uint8Array(bytes));
+  else memCustom = bytes;
   await setSetting("custom_template", "1");
 }
 export async function useBundledTemplate() { await setSetting("custom_template", "0"); }
@@ -62,7 +61,7 @@ export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom
   let bytes: ArrayBuffer | null = null;
   if ((await getSetting("custom_template")) === "1") {
     try {
-      if (inTauri) { const u = await readFile(CUSTOM, { baseDir: BaseDirectory.AppData }); bytes = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer; }
+      if (inTauri || isWebApp) { const u = await appRead(CUSTOM); bytes = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer; }
       else bytes = memCustom;
     } catch { bytes = null; }
   }

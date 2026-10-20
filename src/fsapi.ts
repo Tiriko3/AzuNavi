@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { inTauri } from "./db/db";
-import { isMobile } from "./platform";
+import { isMobile, isWebApp } from "./platform";
 
 export interface DirNode { name: string; path: string; children: DirNode[] }
 export interface Entry { name: string; path: string; is_dir: boolean; size: number; modified: number }
@@ -80,6 +80,7 @@ if (import.meta.env.DEV && !inTauri) import("./fsmock").then((m) => { api = api 
 
 export async function fsapi(): Promise<FsApi> {
   if (api) return api;
+  if (isWebApp) { const m = await import("./web/webFs"); api = m.webFs; return api; }
   if (import.meta.env.DEV) {
     const m = await import("./fsmock");
     api = m.mockFs;

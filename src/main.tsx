@@ -6,13 +6,21 @@ import "@fontsource/poppins/500.css";
 import "@fontsource/poppins/600.css";
 import "./styles.css";
 import App from "./App";
-import { isMobile } from "./platform";
+import { isMobile, isWebApp } from "./platform";
+import { WebGate } from "./web/WebGate";
+import { APP_VERSION } from "./version";
 
 // Handy: eigene Oberfläche im Hochformat (src/mobile). PC: die gewohnte Oberfläche.
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
 
+const app = isMobile ? <Suspense fallback={null}><MobileApp /></Suspense> : <App />;
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {isMobile ? <Suspense fallback={null}><MobileApp /></Suspense> : <App />}
+    {isWebApp ? <WebGate>{app}</WebGate> : app}
   </React.StrictMode>
 );
+
+// Web-App: installierbar und offline nutzbar (Service Worker), nur im fertigen Build
+if (isWebApp && import.meta.env.PROD && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register(import.meta.env.BASE_URL + "sw.js?v=" + APP_VERSION).catch(() => {});
+}

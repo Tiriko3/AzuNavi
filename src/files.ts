@@ -3,7 +3,8 @@
 // das Original bleibt unberührt liegen.
 import { open } from "@tauri-apps/plugin-dialog";
 import { BaseDirectory, copyFile, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
-import { isMobile } from "./platform";
+import { isMobile, isWebApp } from "./platform";
+import { appRead, appWrite } from "./storage/appFiles";
 
 /** Android-Bilder kommen als content://…/image%3A123 ohne Endung: Typ an den ersten Bytes erkennen */
 function sniffExt(b: Uint8Array): string {
@@ -43,6 +44,14 @@ function pickInBrowser(multiple: boolean): Promise<File[]> {
 
 export async function pickAndStoreImages(folder: "attachments" | "portraits", multiple: boolean): Promise<StoredFile[]> {
   const stamp = Date.now();
+  if (isWebApp) {   // Web-App: Bild in den Datenordner kopieren
+    const files = await pickInBrowser(multiple); const out: StoredFile[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const path = `${folder}/${stamp}_${i}_${safe(files[i].name)}`;
+      await appWrite(path, new Uint8Array(await files[i].arrayBuffer())); out.push({ name: files[i].name, path });
+    }
+    return out;
+  }
   if (!inTauri) {
     const files = await pickInBrowser(multiple);
     return files.map((f, i) => {
@@ -81,7 +90,10 @@ export async function fileUrl(path: string): Promise<string | null> {
   if (cached) return cached;
   try {
     let blob: Blob | undefined;
-    if (!inTauri) {
+    if (isWebApp) {
+      const bytes = await appRead(path);
+      blob = new Blob([bytes as BlobPart], { type: MIME[extOf(path)] ?? "application/octet-stream" });
+    } else if (!inTauri) {
       blob = memory.get(path);
     } else {
       const bytes = await readFile(path, { baseDir: BaseDirectory.AppData });

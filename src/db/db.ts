@@ -1,5 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { MIGRATIONS } from "./migrations";
+import { isWebApp } from "../platform";
 
 // Läuft die App im Tauri-Fenster (echte SQLite-Datei) oder nur im normalen Browser (Entwicklung)?
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -39,6 +40,11 @@ async function doInit(): Promise<DbStatus> {
         },
         select: <T,>(sql: string, params: unknown[] = []) => db.select<T[]>(sql, params),
       };
+    } else if (isWebApp) {
+      // Web-App: SQLite als WebAssembly, gespeichert im gewählten Datenordner (azunavi.db)
+      mode = "browser";
+      const { openWebDb } = await import("../web/webDb");
+      backend = await openWebDb();
     } else if (import.meta.env.DEV) {
       mode = "browser";
       const { openBrowserDb } = await import("./browserDb");

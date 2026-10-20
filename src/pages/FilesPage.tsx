@@ -11,7 +11,7 @@ import { undoMove } from "../mover";
 import { Assistant, DialogBox, prettyFolder } from "./Assistant";
 import { suggestProject } from "../util";
 import type { ScopeId } from "../items";
-import { isMobile } from "../platform";
+import { isWebApp, noDesktop } from "../platform";
 
 const SCOPE_LABEL: Record<Scope, string> = { arbeit: "Arbeit", schule: "Schule" };
 const IMG = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
@@ -44,10 +44,10 @@ interface Preview { kind: "img" | "pdf" | "text" | "none" | "big" | "loading" | 
 
 /** Auf dem Handy gibt es keine freien Ordner wie am PC (Android erlaubt Apps keinen direkten Zugriff) */
 export function FilesPage(props: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
-  if (isMobile) return (
+  if (noDesktop) return (
     <div className="work"><div className="paperbox mobnote">
-      <b>Dateien gibt es nur am PC.</b>
-      <p>Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal.</p>
+      <b>{isWebApp ? "Dateien kommt bald auch im Browser." : "Dateien gibt es nur am PC."}</b>
+      <p>{isWebApp ? "Browser dürfen nur auf Ordner zugreifen, die du einzeln freigibst. Diese Lösung ist in Arbeit. Bis dahin sortierst du Dateien mit dem PC-Programm." : "Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal."}</p>
     </div></div>
   );
   return <FilesPageDesktop {...props} />;

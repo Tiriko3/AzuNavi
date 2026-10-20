@@ -22,10 +22,12 @@ const fixPlugin = {
   transform(code: string, id: string) { return fixNamespaceImports(code, id); },
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Web-App (GitHub Pages): liegt unter https://<name>.github.io/AzuNavi/
+  base: mode === "web" ? (process.env.AZ_BASE ?? "/AzuNavi/") : "/",
   plugins: [react(), fixPlugin],
   clearScreen: false,
-  build: { chunkSizeWarningLimit: 1600 },
+  build: { chunkSizeWarningLimit: 1600, outDir: mode === "web" ? "dist-web" : "dist" },
   optimizeDeps: {
     esbuildOptions: {
       plugins: [{
@@ -46,4 +48,4 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ["**/src-tauri/**"] },
   },
-});
+}));

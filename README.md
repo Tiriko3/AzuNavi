@@ -24,8 +24,8 @@ Es gibt zwei Varianten – du entscheidest:
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.11.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.11.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_1.12.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_1.12.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -235,3 +235,14 @@ AzuNavi läuft komplett lokal. Wer PC und Handy nutzen will, sichert in den **ei
 - **Handy:** beim Sichern im Android-Speicherdialog **OneDrive** wählen. Zum Holen die Datei dort auswählen.
 - Die Sicherung wird mit deinem Passwort verschlüsselt (AES-256-GCM). Ohne Passwort kann sie niemand öffnen, auch der Cloud-Anbieter nicht.
 - Es wird immer die ganze Sicherung übertragen: vor dem Gerätewechsel sichern, auf dem anderen Gerät holen.
+
+## Web-App (Browser, ohne Installation)
+
+AzuNavi läuft auch im Browser: **https://<dein-github-name>.github.io/AzuNavi/**. Es gibt keinen Server, deine Daten bleiben bei dir.
+- **Datenordner (empfohlen, Chrome/Edge am PC):** Beim ersten Start einen Ordner wählen, z. B. `OneDrive\AzuNavi`. Darin liegen `azunavi.db` (Datenbank), `dateien/` (Anhänge, Vorlage) und `azunavi.lock`. Auf einem anderen PC öffnest du denselben Ordner und arbeitest weiter.
+- **Nur im Browser speichern:** für Handy-Browser, Firefox oder zum Ausprobieren. Übertragen geht über System → „Daten mitnehmen“.
+- **Installieren ohne Admin-Rechte:** In Edge/Chrome oben in der Adressleiste auf „App installieren“. Dann hat AzuNavi ein eigenes Fenster und läuft auch offline.
+- **Gleichzeitig auf zwei Geräten:** AzuNavi warnt, wenn der Ordner woanders gerade offen ist. Das zuletzt speichernde Gerät gewinnt.
+- **Noch nicht im Browser:** Dateien-Seite (kommt über freigegebene Ordner) und Grammatikprüfung (LanguageTool braucht Java).
+
+**Veröffentlichen:** Bei jedem Versions-Tag baut GitHub die Web-App (`.github/workflows/web.yml`) in den Zweig `gh-pages`. Einmalig unter *Settings → Pages* die Quelle „Deploy from a branch“, Zweig `gh-pages`, Ordner `/ (root)` einstellen. Lokal bauen: `npm run build:web` (Ergebnis in `dist-web/`).
