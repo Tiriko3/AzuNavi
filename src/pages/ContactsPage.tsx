@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
-import { clearPersonPos, deletePerson, listNotes, listPersonLinks, listPersonPos, listPersons, savePerson, savePersonPos, togglePersonLink, type Note, type Person, type PersonLink, type Scope } from "../db/repo";
+import { clearPersonPos, deletePerson, listNotes, listPersonLinks, listPersonPos, listPersons, savePerson, savePersonPos, togglePersonLink, type Note, type Person, type PersonLink, type Scope, listGroups, createGroup, renameGroup, deleteGroup, listGroupMembers, setPersonGroups, type ContactGroup } from "../db/repo";
 import { NetGraph, layout, type GEdge, type GNode, type Pos } from "./NetGraph";
 import { pickAndStoreImages } from "../files";
 import { Avatar } from "../Avatar";
@@ -10,7 +10,7 @@ import type { ScopeId } from "../items";
 interface Draft {
   id?: number; name: string; role: string; scope: Scope; parent_id: number | null;
   phone: string; email: string; info: string; portrait_path: string | null;
-  parentIds: number[]; childIds: number[];
+  parentIds: number[]; childIds: number[]; groupIds: number[];
 }
 // Zonen im Netzplan: Schule links, Arbeit rechts
 const ZONES = [
@@ -19,47 +19,15 @@ const ZONES = [
 ];
 const SCOPE_LABEL: Record<Scope, string> = { schule: "Schule", arbeit: "Arbeit" };
 
-/* ---------- Baum-Layout ---------- */
-const NODE_W = 168, GAP = 22, LEVEL_H = 204, PAD = 24;
-interface TNode { p: Person; kids: TNode[]; x: number; depth: number }
-
-function buildTree(persons: Person[]) {
-  const ids = new Set(persons.map((p) => p.id));
-  const kidsOf = new Map<number, Person[]>();
-  const roots: Person[] = [];
-  for (const p of persons) {
-    if (p.parent_id && ids.has(p.parent_id)) {
-      const arr = kidsOf.get(p.parent_id) ?? [];
-      arr.push(p); kidsOf.set(p.parent_id, arr);
-    } else roots.push(p);
-  }
-  const seen = new Set<number>();
-  let cursor = PAD;
-  let maxDepth = 0;
-  const all: TNode[] = [];
-  const place = (p: Person, depth: number): TNode => {
-    seen.add(p.id);
-    maxDepth = Math.max(maxDepth, depth);
-    const kids = (kidsOf.get(p.id) ?? []).filter((k) => !seen.has(k.id)).map((k) => place(k, depth + 1));
-    const node: TNode = { p, kids, x: 0, depth };
-    if (kids.length === 0) { node.x = cursor + NODE_W / 2; cursor += NODE_W + GAP; }
-    else node.x = (kids[0].x + kids[kids.length - 1].x) / 2;
-    all.push(node);
-    return node;
-  };
-  roots.forEach((r) => place(r, 0));
-  // Falls durch einen Kreis Personen übrig bleiben, als eigene Wurzeln zeigen
-  persons.filter((p) => !seen.has(p.id)).forEach((p) => place(p, 0));
-  const edges: [TNode, TNode][] = [];
-  all.forEach((n) => n.kids.forEach((k) => edges.push([n, k])));
-  return { nodes: all, edges, width: Math.max(cursor + PAD - GAP, 400), height: (maxDepth + 1) * LEVEL_H + PAD };
-}
-
 export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
   const [persons, setPersons] = useState<Person[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [view, setView] = useState<"baum" | "netz">("netz");
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
+  const [members, setMembers] = useState<Map<number, number[]>>(new Map());
+  const [groupFilter, setGroupFilter] = useState<number | null>(null);
+  const [groupMgr, setGroupMgr] = useState(false);
+  const [newGroup, setNewGroup] = useState("");
   const [links, setLinks] = useState<PersonLink[]>([]);
   const [pos, setPos] = useState<Map<string, Pos>>(new Map());
   const [connectFrom, setConnectFrom] = useState<number | null>(null);
@@ -71,25 +39,26 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
 
   const reload = useCallback(async () => {
     try {
-      const [p, n, l] = await Promise.all([listPersons(), listNotes(), listPersonLinks()]);
-      setPersons(p); setNotes(n); setLinks(l); setErr("");
+      const [p, n, l, g, m] = await Promise.all([listPersons(), listNotes(), listPersonLinks(), listGroups(), listGroupMembers()]);
+      setPersons(p); setNotes(n); setLinks(l); setGroups(g); setMembers(m); setErr("");
+      setGroupFilter((f) => (f && !g.some((x) => x.id === f) ? null : f));
     } catch (e) { setErr(String(e)); }
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
     escRef.current = () => {
+      if (groupMgr) { setGroupMgr(false); return true; }
       if (connectFrom) { setConnectFrom(null); return true; }
       if (draft) { setDraft(null); setConfirmDel(false); return true; }
       if (netSel) { setNetSel(null); return true; }
       return false;
     };
     return () => { escRef.current = null; };
-  }, [escRef, draft, connectFrom, netSel]);
+  }, [escRef, draft, connectFrom, netSel, groupMgr]);
 
   const flash = (t: string) => { setMsg(t); setTimeout(() => setMsg(""), 2600); };
-  const shown = useMemo(() => persons.filter((p) => scope === "alle" || p.scope === scope), [persons, scope]);
-  const tree = useMemo(() => buildTree(shown), [shown]);
+  const shown = useMemo(() => persons.filter((p) => (scope === "alle" || p.scope === scope) && (groupFilter === null || (members.get(p.id) ?? []).includes(groupFilter))), [persons, scope, groupFilter, members]);
 
   /* ---------- Netzplan ---------- */
   const graph = useMemo(() => {
@@ -102,7 +71,6 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
 
   const layoutRun = useRef(0);
   useEffect(() => {
-    if (view !== "netz") return;
     const run = ++layoutRun.current;
     (async () => {
       const saved = await listPersonPos();
@@ -128,7 +96,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
       await savePersonPos(missing.map((k) => ({ id: Number(k), ...out.get(k)! })));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph, view, scope]);
+  }, [graph, scope]);
 
   const moveNode = (key: string, p: Pos) => {
     setPos((m) => { const n = new Map(m); n.set(key, p); return n; });
@@ -179,7 +147,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const blank = (parent: number | null = null): Draft => ({
     name: "", role: "", scope: scope === "schule" ? "schule" : "arbeit", parent_id: parent,
     phone: "", email: "", info: "", portrait_path: null,
-    parentIds: parent ? [parent] : [], childIds: [],
+    parentIds: parent ? [parent] : [], childIds: [], groupIds: groupFilter ? [groupFilter] : [],
   });
   const startEdit = (p: Person) => {
     setConfirmDel(false); setErr("");
@@ -188,6 +156,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
       phone: p.phone ?? "", email: p.email ?? "", info: p.info ?? "", portrait_path: p.portrait_path,
       parentIds: links.filter((l) => l.b_id === p.id).map((l) => l.a_id),
       childIds: links.filter((l) => l.a_id === p.id).map((l) => l.b_id),
+      groupIds: members.get(p.id) ?? [],
     });
   };
   const patch = (x: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...x } : d));
@@ -198,11 +167,16 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
     try {
       const isNew = !draft.id;
       const id = await savePerson(draft);
+      await setPersonGroups(id, draft.groupIds);
       setDraft(null); setErr("");
       await reload();
       if (isNew) { setBorn(id); setTimeout(() => setBorn(null), 1400); }
       flash(isNew ? "Neue Person ist da" : "Person gespeichert");
     } catch (e) { setErr("Speichern fehlgeschlagen: " + String(e)); }
+  };
+  const addGroupToDraft = async (name: string) => {
+    try { const id = await createGroup(name); setGroups(await listGroups()); setDraft((d) => (d && !d.groupIds.includes(id) ? { ...d, groupIds: [...d.groupIds, id] } : d)); }
+    catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); }
   };
   const onDelete = async () => {
     if (!draft?.id) return;
@@ -224,32 +198,36 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
   const selectedId = draft?.id ?? null;
 
   return (
-    <div className="work">
+    <div className={"work kontakte" + (draft ? "" : " nodraft")}>
       <section className="wcol wlist">
         <div className="wtools">
           <button className="btn" onClick={() => { setErr(""); setConfirmDel(false); setDraft(blank()); }}><span>+ Neue Person</span></button>
           {selectedId && (
             <button className="btn ghost" onClick={() => { setErr(""); setConfirmDel(false); setDraft(blank(selectedId)); }}>
-              <span>+ Unterperson</span>
+              <span>+ Verbundene Person</span>
             </button>
           )}
-          <span className="pvtabs">
-            <button className={"pvtab" + (view === "netz" ? " on" : "")} onClick={() => setView("netz")}><span>Netzplan</span></button>
-            <button className={"pvtab" + (view === "baum" ? " on" : "")} onClick={() => setView("baum")}><span>Baum</span></button>
+          <span className="pvtabs grptabs" title="Nach Gruppe filtern">
+            <button className={"pvtab" + (groupFilter === null ? " on" : "")} onClick={() => setGroupFilter(null)}><span>Alle</span></button>
+            {groups.map((g) => (
+              <button key={g.id} className={"pvtab" + (groupFilter === g.id ? " on" : "")} onClick={() => setGroupFilter(g.id)}>
+                <span><i className="gdot" style={{ background: g.color }} />{g.name}</span></button>
+            ))}
           </span>
-          {view === "netz" && <button className="mini" onClick={rearrange}>Neu anordnen</button>}
+          <button className="mini" onClick={() => { setNewGroup(""); setGroupMgr(true); }}>Gruppen …</button>
+          <button className="mini" onClick={rearrange}>Neu anordnen</button>
           <span className="small grow">{shown.length} {shown.length === 1 ? "Person" : "Personen"}</span>
         </div>
         {msg && <div className="flash">{msg}</div>}
         {!draft && err && <div className="errbox">{err}</div>}
-        {view === "netz" ? (
+        {(
           shown.length === 0 ? (
             <div className="empty paperbox">
-              <b>Noch keine Kontakte.</b>
-              <p>Lege Personen an und verbinde sie miteinander: Ausbilder, Abteilungsleitung, Kolleginnen, Lehrkräfte. Daraus entsteht dein Netzplan.</p>
+              <b>{groupFilter !== null && persons.length > 0 ? "In dieser Gruppe ist noch niemand." : "Noch keine Kontakte."}</b>
+              <p>{groupFilter !== null && persons.length > 0 ? "Öffne eine Person und hak die Gruppe an, oder leg eine neue Person an." : "Lege Personen an und verbinde sie miteinander: Ausbilder, Abteilungsleitung, Kolleginnen, Lehrkräfte. Daraus entsteht dein Netzplan."}</p>
             </div>
           ) : (
-            <NetGraph nodes={graph.nodes} edges={graph.edges} pos={pos} fitKey={scope + "-" + view + "-" + graph.nodes.length}
+            <NetGraph nodes={graph.nodes} edges={graph.edges} pos={pos} fitKey={scope + "-" + groupFilter + "-" + graph.nodes.length + "-" + (draft ? 1 : 0)}
               onMove={moveNode} onClick={clickNode} onDoubleClick={(k) => { const p = byId.get(Number(k)); if (p) startEdit(p); }}
               selected={netSel ? String(netSel) : null}
               className={"pnet" + (connectFrom ? " connecting" : "")}
@@ -269,6 +247,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
                     <b>{p.name}</b>
                     <small>{p.role || SCOPE_LABEL[p.scope]}</small>
                     <i className={"dot " + p.scope} />
+                    {(members.get(p.id) ?? []).length > 0 && <span className="gdots">{(members.get(p.id) ?? []).map((gid) => { const g = groups.find((x) => x.id === gid); return g ? <i key={gid} className="gdot" style={{ background: g.color }} title={g.name} /> : null; })}</span>}
                   </div>
                 );
               }}>
@@ -297,35 +276,6 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
               })()}
             </NetGraph>
           )
-        ) : (
-        <div className="scroll tree">
-          {shown.length === 0 ? (
-            <div className="empty paperbox">
-              <b>Noch keine Kontakte.</b>
-              <p>Lege Personen an und ordne sie einander zu, zum Beispiel Ausbilder, Abteilungsleiter und Kollegen. Daraus entsteht dein Personenbaum.</p>
-            </div>
-          ) : (
-            <div className="treecanvas" style={{ width: tree.width, height: tree.height }}>
-              <svg className="treelines" width={tree.width} height={tree.height}>
-                {tree.edges.map(([a, b]) => {
-                  const x1 = a.x, y1 = PAD + a.depth * LEVEL_H + 150, x2 = b.x, y2 = PAD + b.depth * LEVEL_H + 8;
-                  const my = (y1 + y2) / 2;
-                  return <path key={a.p.id + "-" + b.p.id} d={`M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`} />;
-                })}
-              </svg>
-              {tree.nodes.map((n) => (
-                <button key={n.p.id} className={"tnode" + (selectedId === n.p.id ? " sel" : "") + (born === n.p.id ? " born" : "")}
-                  style={{ left: n.x - NODE_W / 2, top: PAD + n.depth * LEVEL_H, width: NODE_W }}
-                  onClick={() => startEdit(n.p)}>
-                  <Avatar name={n.p.name} path={n.p.portrait_path} size={88} />
-                  <b>{n.p.name}</b>
-                  <small>{n.p.role || SCOPE_LABEL[n.p.scope]}</small>
-                  <i className={"dot " + n.p.scope} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
         )}
 
       </section>
@@ -334,7 +284,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
         {!draft ? (
           <div className="paperbox hintcard">
             <h3>Kontakte</h3>
-            <p>Klicke eine Person im Baum an, um sie zu bearbeiten. Unter einer markierten Person legst du mit „+ Unterperson“ jemanden an, der ihr zugeordnet ist.</p>
+            <p>Doppelklicke eine Person im Netzplan, um sie zu bearbeiten. Mit „Gruppen …“ teilst du Menschen in Gruppen ein, eine Person kann in mehreren sein.</p>
             <p className="small">Telefon, E-Mail und Porträt bleiben nur in der lokalen Datenbank auf diesem Rechner.</p>
           </div>
         ) : (
@@ -397,6 +347,15 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
               </label>
             </div>
             <div className="row2">
+            <div className="lab">Gruppen (mehrere möglich)
+              <div className="gpick">
+                {groups.map((g) => { const on = draft.groupIds.includes(g.id); return (
+                  <button type="button" key={g.id} className={"gchip" + (on ? " on" : "")} style={{ ["--gc" as string]: g.color }}
+                    onClick={() => patch({ groupIds: on ? draft.groupIds.filter((x) => x !== g.id) : [...draft.groupIds, g.id] })}>{on ? "✓ " : ""}{g.name}</button>); })}
+                <input className="field gnew" placeholder="+ neue Gruppe, Enter" maxLength={60}
+                  onKeyDown={(e) => { if (e.key === "Enter") { const v = (e.target as HTMLInputElement).value; if (v.trim()) { addGroupToDraft(v); (e.target as HTMLInputElement).value = ""; } e.preventDefault(); } }} />
+              </div>
+            </div>
               <label className="lab">Telefon
                 <input className="field" value={draft.phone} onChange={(e) => patch({ phone: e.target.value })} />
               </label>
@@ -433,6 +392,42 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
           </div>
         )}
       </section>
+      {groupMgr && (
+        <div className="fmodal impmodal" onClick={() => setGroupMgr(false)}>
+          <div className="impbox paperbox grpmgr" onClick={(e) => e.stopPropagation()}>
+            <h3>Gruppen</h3>
+            <p className="small">Teile Menschen in Gruppen ein, z. B. Abteilung, Klasse, Projektteam. Eine Person kann in mehreren Gruppen sein. Löschen entfernt nur die Gruppe, nicht die Personen.</p>
+            {err && <div className="errbox">{err}</div>}
+            {groups.length === 0 && <p className="small"><i>Noch keine Gruppen.</i></p>}
+            {groups.map((g) => (
+              <GroupRow key={g.id} g={g} count={[...members.values()].filter((ids) => ids.includes(g.id)).length}
+                onRename={async (n) => { try { await renameGroup(g.id, n); setErr(""); await reload(); } catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); } }}
+                onDelete={async () => { await deleteGroup(g.id); await reload(); flash(`Gruppe „${g.name}“ gelöscht`); }} />
+            ))}
+            <div className="inl" style={{ marginTop: 10 }}>
+              <input className="field" placeholder="Neue Gruppe" value={newGroup} maxLength={60} onChange={(e) => setNewGroup(e.target.value)}
+                onKeyDown={async (e) => { if (e.key === "Enter" && newGroup.trim()) { await createGroup(newGroup); setNewGroup(""); await reload(); } }} />
+              <button className="mini hot" disabled={!newGroup.trim()} onClick={async () => { await createGroup(newGroup); setNewGroup(""); await reload(); }}>Anlegen</button>
+            </div>
+            <div className="actions static"><button className="btn ghost" onClick={() => setGroupMgr(false)}><span>Fertig</span></button></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Eine Zeile in der Gruppenverwaltung: umbenennen (Enter oder Feld verlassen), löschen mit Rückfrage */
+function GroupRow({ g, count, onRename, onDelete }: { g: ContactGroup; count: number; onRename: (n: string) => void; onDelete: () => void }) {
+  const [name, setName] = useState(g.name), [arm, setArm] = useState(false);
+  useEffect(() => setName(g.name), [g.name]);
+  return (
+    <div className="grprow">
+      <i className="gdot big" style={{ background: g.color }} />
+      <input className="field" value={name} maxLength={60} onChange={(e) => setName(e.target.value)}
+        onBlur={() => { if (name.trim() && name !== g.name) onRename(name); }} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+      <span className="small">{count} {count === 1 ? "Person" : "Personen"}</span>
+      <button className={"mini" + (arm ? " hot" : "")} onClick={() => (arm ? onDelete() : setArm(true))}>{arm ? "Wirklich löschen?" : "Löschen"}</button>
     </div>
   );
 }

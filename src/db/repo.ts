@@ -194,6 +194,7 @@ export async function deletePerson(id: number): Promise<void> {
   await execute("UPDATE persons SET parent_id = NULL WHERE parent_id = $1", [id]);
   await execute("DELETE FROM person_links WHERE a_id = $1 OR b_id = $1", [id]);
   await execute("DELETE FROM person_pos WHERE person_id = $1", [id]);
+  await execute("DELETE FROM contact_group_members WHERE person_id = $1", [id]);
   await execute("DELETE FROM links WHERE (a_type = 'person' AND a_id = $1) OR (b_type = 'person' AND b_id = $1)", [id]);
   await execute("DELETE FROM persons WHERE id = $1", [id]);
 }
@@ -216,4 +217,44 @@ export async function replaceQualifications(input: (string | { name: string; kin
     sort++;
   }
   return clean.length;
+}
+
+/* ---------- Kontakt-Gruppen: eine Person kann in keiner, einer oder mehreren Gruppen sein ---------- */
+export interface ContactGroup { id: number; name: string; color: string }
+const GROUP_COLORS = ["#38b6ff", "#ff2d5f", "#7b5cff", "#0fa9a2", "#ffb020", "#2ecc71", "#e056fd", "#ff7a3d"];
+
+export async function listGroups(): Promise<ContactGroup[]> {
+  return select<ContactGroup>("SELECT id, name, color FROM contact_groups ORDER BY name COLLATE NOCASE");
+}
+export async function createGroup(name: string): Promise<number> {
+  const n = name.trim().slice(0, 60);
+  if (!n) throw new Error("Die Gruppe braucht einen Namen.");
+  const exists = await select<{ id: number }>("SELECT id FROM contact_groups WHERE name = $1 COLLATE NOCASE", [n]);
+  if (exists[0]) return exists[0].id;   // gibt es schon: einfach diese nehmen
+  const used = (await listGroups()).map((g) => g.color);
+  const color = GROUP_COLORS.find((c) => !used.includes(c)) ?? GROUP_COLORS[used.length % GROUP_COLORS.length];
+  const r = await execute("INSERT INTO contact_groups (name, color) VALUES ($1, $2)", [n, color]);
+  return r.lastInsertId;
+}
+export async function renameGroup(id: number, name: string): Promise<void> {
+  const n = name.trim().slice(0, 60);
+  if (!n) throw new Error("Die Gruppe braucht einen Namen.");
+  const clash = await select<{ id: number }>("SELECT id FROM contact_groups WHERE name = $1 COLLATE NOCASE AND id != $2", [n, id]);
+  if (clash[0]) throw new Error(`Eine Gruppe „${n}“ gibt es schon.`);
+  await execute("UPDATE contact_groups SET name = $1 WHERE id = $2", [n, id]);
+}
+export async function deleteGroup(id: number): Promise<void> {
+  await execute("DELETE FROM contact_group_members WHERE group_id = $1", [id]);   // Personen bleiben, nur die Zuordnung geht
+  await execute("DELETE FROM contact_groups WHERE id = $1", [id]);
+}
+/** Person-ID → Gruppen-IDs */
+export async function listGroupMembers(): Promise<Map<number, number[]>> {
+  const rows = await select<{ person_id: number; group_id: number }>("SELECT person_id, group_id FROM contact_group_members");
+  const m = new Map<number, number[]>();
+  for (const r of rows) m.set(r.person_id, [...(m.get(r.person_id) ?? []), r.group_id]);
+  return m;
+}
+export async function setPersonGroups(personId: number, groupIds: number[]): Promise<void> {
+  await execute("DELETE FROM contact_group_members WHERE person_id = $1", [personId]);
+  for (const g of [...new Set(groupIds)]) await execute("INSERT OR IGNORE INTO contact_group_members (person_id, group_id) VALUES ($1, $2)", [personId, g]);
 }

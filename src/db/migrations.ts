@@ -269,4 +269,21 @@ export const MIGRATIONS: Migration[] = [
        )`,
     ],
   },
+  {
+    version: 11,
+    name: "Etappe 11: Kontakt-Gruppen (eine Person kann in mehreren Gruppen sein)",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS contact_groups (
+         id         INTEGER PRIMARY KEY AUTOINCREMENT,
+         name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+         color      TEXT NOT NULL DEFAULT '#38b6ff',
+         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+       )`,
+      `CREATE TABLE IF NOT EXISTS contact_group_members (
+         person_id INTEGER NOT NULL,
+         group_id  INTEGER NOT NULL,
+         PRIMARY KEY (person_id, group_id)
+       )`,
+    ],
+  },
 ];

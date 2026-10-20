@@ -199,3 +199,4 @@
 .m-sheet .cloudp .btn{width:100%;height:50px;border:0;border-radius:14px;background:var(--m-hot);color:#fff;font:italic 900 15px var(--display,"Montserrat");text-transform:uppercase;box-shadow:none;transform:none;clip-path:none}
 .m-sheet .cloudp .btn span{transform:none} .m-sheet .cloudp .btn.ghost{background:#fff;color:var(--m-ink);border:2px solid var(--m-line);font-style:normal;text-transform:none;font-family:var(--text,"Poppins");font-weight:700}
 .m-sheet .cloudp .errbox,.m-sheet .cloudp .tutnote{border-radius:14px}
+.m-gdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;flex:none}

@@ -892,3 +892,19 @@ button,.item{-webkit-user-select:none;user-select:none}
 /* Sicherung in deiner Cloud: Häkchen-Zeilen */
 .cloudp .chk{display:flex!important;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-weight:600;margin:6px 0}
 .cloudp .chk input{width:20px;height:20px;margin:0;flex:none}
+
+/* Kontakte: großer Netzplan (Bearbeiten-Spalte nur beim Bearbeiten) und Gruppen */
+.work.kontakte .wedit{flex:0 0 520px}
+.work.kontakte.nodraft .wedit{display:none}
+.grptabs{display:inline-flex;max-width:640px;overflow-x:auto;scrollbar-width:thin}
+.grptabs .pvtab{flex:none}
+.gdot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px;box-shadow:0 0 0 2px rgba(255,255,255,.85)}
+.gdot.big{width:18px;height:18px;margin:0}
+.gdots{display:flex;gap:3px;justify-content:center;margin-top:3px}
+.gdots .gdot{width:9px;height:9px;margin:0}
+.gpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.gchip{border:2px solid var(--gc);background:#fff;color:var(--ink);border-radius:999px;padding:4px 12px;font-weight:700;cursor:pointer}
+.gchip.on{background:var(--gc);color:#fff}
+.gpick .gnew{width:200px;min-height:34px;padding:4px 10px}
+.grpmgr{width:620px;max-width:92vw}
+.grprow{display:grid;grid-template-columns:24px 1fr 100px 150px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #e1e9ff}
