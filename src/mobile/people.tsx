@@ -72,7 +72,7 @@ export function PeopleScreen({ scope, fabRef, toast }: { scope: ScopeF; fabRef: 
           <Field label="Bereich"><Seg value={edit.scope} options={[["arbeit", "Arbeit"], ["schule", "Schule"]]} onChange={(v) => setEdit({ ...edit, scope: v })} /></Field>
           <Field label="Telefon"><input type="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field>
           <Field label="E-Mail"><input type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} /></Field>
-          <Field label="Notizen zur Person"><textarea value={edit.info} onChange={(e) => setEdit({ ...edit, info: e.target.value })} style={{ minHeight: 90 }} /></Field>
+          <Field label="Notizen zur Person"><textarea value={edit.info} placeholder="Was für die Ausbildung wichtig ist, z. B. zuständig für Netzwerk. Keine Bewertungen, nichts Privates." onChange={(e) => setEdit({ ...edit, info: e.target.value })} style={{ minHeight: 90 }} /></Field>
           <Field label="Gruppen (mehrere möglich)"><div className="m-pick">
             {groups.map((g) => { const on = editGroups.includes(g.id); return <button key={g.id} className={on ? "on" : ""} onClick={() => setEditGroups(on ? editGroups.filter((x) => x !== g.id) : [...editGroups, g.id])}><i className="m-gdot" style={{ background: g.color }} />{g.name}{on && <Icon n="check" size={14} />}</button>; })}
           </div>

@@ -13,6 +13,7 @@ import { setQualsEnabled, useQualsEnabled } from "../report/quals";
 import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
 import { listQualifications, replaceQualifications } from "../db/repo";
 import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
+import { PrivacyInfo } from "../PrivacyInfo";
 import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
@@ -33,6 +34,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   const [qualCount, setQualCount] = useState(0);
   const [armLoad, setArmLoad] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
+  const [privOpen, setPrivOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [msg, setMsg] = useState("");
@@ -67,9 +69,9 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   const refreshQuals = () => listQualifications().then((q) => setQualCount(q.length));
   useEffect(() => { loadProfile().then(setProfile); refreshTpl().catch(() => {}); refreshQuals(); }, [qualsOn]);
   useEffect(() => {
-    escRef.current = () => { if (cloudOpen) { setCloudOpen(false); return true; } if (tplOpen) { setTplOpen(false); return true; } if (importOpen) { setImportOpen(false); return true; } return false; };
+    escRef.current = () => { if (privOpen) { setPrivOpen(false); return true; } if (cloudOpen) { setCloudOpen(false); return true; } if (tplOpen) { setTplOpen(false); return true; } if (importOpen) { setImportOpen(false); return true; } return false; };
     return () => { escRef.current = null; };
-  }, [escRef, importOpen, tplOpen, cloudOpen]);
+  }, [escRef, importOpen, tplOpen, cloudOpen, privOpen]);
   const act = async (f: () => Promise<void>) => { setErr(""); setMsg(""); setBusy(true); try { await f(); } catch (e) { setErr(String(e).replace(/^Error:\s*/, "")); } finally { setBusy(false); } };
 
   const backup = () => act(async () => {
@@ -176,6 +178,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           {isWebApp && <WebDataRow />}
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
+          <div className="sysrow"><span>Datenschutz &amp; Speicherorte</span><button className="mini" onClick={() => setPrivOpen(true)}>Ansehen</button></div>
           <div className="sysrow"><span>Sicherung in deiner Cloud</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>
           <div className="sysrow"><span>Auf neuem Laptop</span><button className="mini" disabled={busy} onClick={restore}>Sicherung einspielen</button></div>
           {inTauri && !isMobile && <div className="sysrow"><span>Desktop-Verknüpfung</span><button className="mini" disabled={busy} onClick={shortcut}>Anlegen</button></div>}
@@ -206,6 +209,15 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
         </section>
       </div>
       {importOpen && <ImportDialog onClose={() => { setImportOpen(false); refreshTpl().catch(() => {}); }} />}
+      {privOpen && (
+        <div className="fmodal impmodal" onClick={() => setPrivOpen(false)}>
+          <div className="impbox paperbox" onClick={(e) => e.stopPropagation()}>
+            <h3>Datenschutz &amp; Speicherorte</h3>
+            <PrivacyInfo />
+            <div className="actions static"><button className="btn ghost" onClick={() => setPrivOpen(false)}><span>Schließen</span></button></div>
+          </div>
+        </div>
+      )}
       {cloudOpen && (
         <div className="fmodal impmodal">
           <div className="impbox paperbox">
@@ -236,11 +248,15 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
 /** Web-App: wo liegen die Daten, und anderen Ort wählen */
 function WebDataRow() {
   const [info, setInfo] = useState<{ kind: string | null; name: string }>({ kind: null, name: "" });
+  const [arm, setArm] = useState(false);
   useEffect(() => { import("../web/dataStore").then((m) => setInfo(m.locationInfo())); }, []);
   return (
     <div className="sysrow"><span>Datenordner</span><span className="inl">
       <span className="small">{info.kind === "folder" ? `Ordner „${info.name}“` : "Dieser Browser"}</span>
       <button className="mini" onClick={async () => { const m = await import("../web/dataStore"); await m.forgetLocation(); location.reload(); }}>Wechseln</button>
+      <button className={"mini" + (arm ? " hot" : "")} title="Datenbank, Anhänge und gemerkten Ordner aus diesem Browser entfernen"
+        onClick={async () => { if (!arm) { setArm(true); return; } const m = await import("../web/dataStore"); await m.wipeBrowser(); location.reload(); }}>
+        {arm ? (info.kind === "folder" ? "Wirklich? (Ordner bleibt)" : "Wirklich? Alles weg!") : "Aus diesem Browser entfernen"}</button>
     </span></div>
   );
 }

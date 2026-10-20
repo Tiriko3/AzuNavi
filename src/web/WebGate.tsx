@@ -54,7 +54,7 @@ export function WebGate({ children }: { children: ReactNode }) {
             <p className="wg-small">Zum Beispiel <b>OneDrive\AzuNavi</b>. Dann sind deine Daten automatisch in deiner Cloud, und du kannst auf jedem PC weitermachen, auf dem du denselben Ordner öffnest. Im Ordner liegen deine Datenbank (<code>azunavi.db</code>) und deine Anhänge.</p>
           </> : <p className="wg-small">Dieser Browser kann keine Ordner öffnen (das geht in Chrome und Edge am PC). Du kannst trotzdem loslegen:</p>}
           <button className={canPickFolder ? "wg-btn sec" : "wg-btn"} onClick={browser}>Nur in diesem Browser speichern</button>
-          <p className="wg-small">Gut fürs Handy oder zum Ausprobieren. Deine Daten bleiben in diesem Browser. Zum Übertragen nutzt du System → „Daten mitnehmen“.</p>
+          <p className="wg-small">Gut fürs eigene Handy oder zum Ausprobieren. Deine Daten bleiben in diesem Browser. Zum Übertragen nutzt du System → „Daten mitnehmen“. <b>Nicht auf PCs, die auch andere benutzen</b> (Schule, Schulungsraum).</p>
         </>}
         {step === "sperre" && lock && <>
           <p className="wg-warn">Dieser Datenordner ist gerade auf einem anderen Gerät geöffnet: <b>{lock.device}</b> (zuletzt aktiv vor {Math.max(1, Math.round((Date.now() - lock.ts) / 60000))} Min.).</p>
