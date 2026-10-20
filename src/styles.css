@@ -312,7 +312,8 @@ select.field{padding-right:6px}
 .asst{position:absolute;left:0;right:0;bottom:-30px;display:flex;align-items:flex-end;gap:0;z-index:45;animation:asstIn .28s cubic-bezier(.2,.9,.3,1.1)}
 @keyframes asstIn{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
 .asst-fig{position:relative;width:250px;height:150px;flex:none;margin-right:-40px;z-index:2}
-.asst-fig img{position:absolute;left:0;bottom:-20px;height:470px;filter:drop-shadow(0 0 10px rgba(25,227,177,.55)) drop-shadow(6px 8px 0 rgba(0,0,0,.3));animation:figIn .3s cubic-bezier(.2,.9,.3,1.1)}
+.asst-fig img{position:absolute;left:0;bottom:-20px;height:470px;filter:drop-shadow(0 0 10px rgba(25,227,177,.55)) drop-shadow(6px 8px 0 rgba(0,0,0,.3));transform-origin:50% 100%;animation:figIn .3s cubic-bezier(.2,.9,.3,1.1),edaBreath 3.8s ease-in-out .3s infinite alternate}
+@keyframes edaBreath{from{transform:none}to{transform:translateY(-6px) rotate(.8deg) scale(1.008,.996)}}
 @keyframes figIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 .asst-badge{position:absolute;left:200px;bottom:300px;width:56px;height:56px;border-radius:50%;background:#19e3b1;color:var(--abyss);font:900 32px/56px var(--display);text-align:center;box-shadow:0 0 18px rgba(25,227,177,.8),4px 4px 0 var(--abyss);animation:badgePop .35s cubic-bezier(.2,1.4,.4,1) both,bob 2.4s ease-in-out .35s infinite alternate}
 @keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}

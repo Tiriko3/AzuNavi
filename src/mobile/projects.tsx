@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { addTask, createBoardProject, deleteProject, deleteTask, listBoard, listTasks, setTaskDone, updateProject, type BoardProject, type ProjectInput, type Status, type Task } from "../db/boardRepo";
 import { listNotes, type Note, type Scope } from "../db/repo";
 import { Empty, Field, Icon, Seg, Sheet, relDay } from "./ui";
-import { MASCOTS, pose, type Who } from "./fx";
+import { MASCOTS, Mascot, pose, type Who } from "./fx";
 
 type ScopeF = "alle" | Scope;
 const STATUS: [Status, string][] = [["aktiv", "Aktiv"], ["idee", "Idee"], ["pausiert", "Pausiert"], ["fertig", "Fertig"]];
@@ -31,7 +31,7 @@ export function ProjectsScreen({ scope, fabRef, toast, celebrate }: { scope: Sco
 
   return (
     <>
-      {list && list.length > 0 && <div className="m-guide" style={{ ["--gc" as string]: MASCOTS.eda.color }}><img className="m-mascot" src={pose("eda", activeN ? "denkt" : "gruss")} alt="" />
+      {list && list.length > 0 && <div className="m-guide" style={{ ["--gc" as string]: MASCOTS.eda.color }}><Mascot who="eda" pose={activeN ? "denkt" : "gruss"} size={96} />
         <div><b>Eda</b>{activeN ? `${activeN} aktive${activeN === 1 ? "s" : ""} Projekt${activeN === 1 ? "" : "e"}. Hak Aufgaben ab, ich zähle mit!` : "Gerade nichts aktiv. Zeit für ein neues Projekt?"}</div></div>}
       <div className="m-filter">{([["alle", "Alle"], ...STATUS] as ["alle" | Status, string][]).map(([v, l]) => <button key={v} className={filter === v ? "on" : ""} onClick={() => setFilter(v)}>{l}</button>)}</div>
       {list && shown.length === 0 && <Empty img={pose("eda", "gruss")} title="Keine Projekte" text="Projekte bündeln Notizen, Aufgaben und Fortschritt. Leg eins an mit dem Plus.">

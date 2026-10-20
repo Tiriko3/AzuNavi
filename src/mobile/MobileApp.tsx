@@ -21,7 +21,7 @@ import { NotesScreen } from "./notes";
 import { PeopleScreen } from "./people";
 import { ProjectsScreen } from "./projects";
 import { ReportScreen } from "./report";
-import { Backdrop, Confetti, MascotToast, Wipe, type Say, type Who } from "./fx";
+import { Backdrop, Confetti, Mascot, MascotToast, Wipe, type Say, type Who } from "./fx";
 import namiGruss from "../assets/figuren/nami_gruss.webp";
 import namiJubelt from "../assets/figuren/nami_jubelt.webp";
 
@@ -121,7 +121,7 @@ function Today({ scope, name, go, newNote, celebrate }: { scope: ScopeF; name: s
   useEffect(() => { if (filled.size === 5 && !weekCheered) { weekCheered = true; setTimeout(celebrate, 500); } }, [filled.size]);
   return (
     <>
-      <div className="m-hero"><img src={filled.has(today) ? namiJubelt : namiGruss} alt="" />
+      <div className="m-hero"><Mascot who="nami" pose={filled.has(today) ? "jubelt" : "gruss"} size={98} />
         <div><b>{hour < 11 ? "Guten Morgen" : hour < 18 ? "Hallo" : "Guten Abend"}{name ? `, ${name}` : ""}!</b>
           <p>{filled.has(today) ? "Heute ist schon etwas notiert. Stark!" : "Was hast du heute gemacht? Ein Satz reicht."}</p></div></div>
       <div className="m-card">
@@ -224,7 +224,7 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
       <main className="m-main" style={{ paddingBottom: 30 }}>
         {err && <div className="m-err">{err}</div>}
         {step === 0 && <>
-          <div className="m-hero"><img src={namiGruss} alt="" /><div><b>Hallo, ich bin Nami!</b><p>Ich begleite dich durch die Ausbildung.</p></div></div>
+          <div className="m-hero"><Mascot who="nami" pose="gruss" size={98} /><div><b>Hallo, ich bin Nami!</b><p>Ich begleite dich durch die Ausbildung.</p></div></div>
           <div className="m-card"><p style={{ margin: 0 }}>Mit AzuNavi hältst du fest, was du in Betrieb und Schule machst. Daraus entsteht dein <b>Berichtsheft</b>, dazu Projekte und deine Kontakte.</p>
             <p className="m-note">Alles bleibt auf diesem Handy. Es gibt kein Konto und keine Werbung.</p></div>
           <button className="m-btn" onClick={() => setStep(1)}>Los geht’s</button>

@@ -10,7 +10,7 @@ import { buildPlaceholderDocx, loadActiveTemplate } from "../report/templates";
 import { PLACES, isoWeek, mondayOf, shortDate, weekDates, weekdayName, type WeekDraft } from "../report/types";
 import { buildWeekDocx, readTemplateMeta } from "../report/weekDocx";
 import { Icon } from "./ui";
-import { MASCOTS, pose, type Who } from "./fx";
+import { MASCOTS, Mascot, type Who } from "./fx";
 
 export function ReportScreen({ toast, goProfile, celebrate }: { toast: (t: string, who?: Who, pose?: string) => void; goProfile: () => void; celebrate: () => void }) {
   const cur = isoWeek(new Date());
@@ -64,7 +64,7 @@ export function ReportScreen({ toast, goProfile, celebrate }: { toast: (t: strin
       {(() => {
         const empty = !!draft && draft.days.every((d) => d.entries.length === 0);
         const [ps, txt] = busy ? ["sammelt", busy] : empty ? ["schlaeft", "Diese Woche ist noch leer … Schreib Notizen, dann sammle ich sie für dich ein."] : ["zeigt", edited ? "Deine Änderungen sind gespeichert. Wenn alles passt: ab nach Word!" : "Ich habe deine Notizen eingesammelt. Prüf die Tage, dann exportieren."];
-        return <div className="m-guide" style={{ ["--gc" as string]: MASCOTS.cara.color }}><img className="m-mascot" src={pose("cara", ps)} alt="" /><div><b>Caramella</b>{txt}</div></div>;
+        return <div className="m-guide" style={{ ["--gc" as string]: MASCOTS.cara.color }}><Mascot who="cara" pose={ps} size={74} /><div><b>Caramella</b>{txt}</div></div>;
       })()}
       {days.map((day) => {
         const i = draft!.days.indexOf(day);

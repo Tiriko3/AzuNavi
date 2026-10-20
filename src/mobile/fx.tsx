@@ -64,3 +64,31 @@ export function Wipe({ n, dir }: { n: number; dir: 1 | -1 }) {
   if (!n) return null;
   return <div className={"m-wipe" + (dir < 0 ? " rev" : "")} key={n} aria-hidden="true"><i /><i /></div>;
 }
+
+/** Lebendiger Begleiter: atmet/schwebt, reagiert auf Antippen (hüpft + fröhliche Pose), blendet Posen weich über, eigene Effekte */
+const HAPPY: Record<Who, string> = { nami: "jubelt", cara: "zeigt", eda: "fertig" };
+const PARTICLE: Record<Who, string> = { nami: "", cara: "✦", eda: "✓" };
+export function Mascot({ who, pose: p, size, react = true }: { who: Who; pose: string; size: number; react?: boolean }) {
+  const [cur, setCur] = useState(p);
+  const [prev, setPrev] = useState<string | null>(null);
+  const [temp, setTemp] = useState<string | null>(null);
+  const [boing, setBoing] = useState(0);
+  useEffect(() => {
+    if (p === cur) return;
+    setPrev(cur); setCur(p);
+    const t = setTimeout(() => setPrev(null), 420); return () => clearTimeout(t);
+  }, [p]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!temp) return; const t = setTimeout(() => setTemp(null), 1500); return () => clearTimeout(t); }, [temp, boing]);
+  const shown = temp ?? cur;
+  const tap = () => { if (!react) return; setBoing((b) => b + 1); setTemp(HAPPY[who]); };
+  return (
+    <div className={"m-masc m-masc-" + who} style={{ ["--ms" as string]: size + "px" }} onClick={tap} role="img" aria-label={MASCOTS[who].name}>
+      <span className="m-masc-shadow" />
+      <span className="m-masc-fx" aria-hidden="true">{[0, 1, 2, 3].map((i) => <i key={i} style={{ ["--k" as string]: i }}>{PARTICLE[who]}</i>)}</span>
+      <div className="m-masc-body" key={boing} data-boing={boing > 0 ? "1" : undefined}>
+        {prev && <img className="m-mascot m-masc-prev" src={pose(who, prev)} alt="" draggable={false} />}
+        <img className="m-mascot m-masc-cur" key={shown} src={pose(who, shown)} alt="" draggable={false} />
+      </div>
+    </div>
+  );
+}
