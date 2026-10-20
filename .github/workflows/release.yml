@@ -1,6 +1,5 @@
 # Baut bei jeder neuen Version (Tag wie v1.0.0) automatisch auf GitHub:
 #   Windows: AzuNavi_<version>-setup.exe (Installer) und AzuNavi_<version>.exe (portable)
-#   Linux:   AzuNavi_<version>_amd64.deb und AzuNavi_<version>_amd64.AppImage
 # und hängt alles an das Release. Auslösen: git tag v1.0.0 && git push --tags
 name: Release bauen
 
@@ -13,36 +12,30 @@ permissions:
 
 jobs:
   build:
+    # Nur Windows. Linux-Nutzer verwenden die Web-App (Browser), Android hat einen eigenen Ablauf.
     strategy:
-      fail-fast: false          # schlägt Linux fehl, bekommt Windows trotzdem sein Release
       matrix:
         include:
           - platform: windows-latest
             plain: true
-          - platform: ubuntu-22.04   # älteres Ubuntu = läuft auf mehr Linux-Systemen
-            plain: false
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Code holen
-        uses: actions/checkout@v7
-
-      - name: Linux-Pakete installieren
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Node einrichten
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
           cache: npm
 
       - name: Rust einrichten
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
 
       - name: Rust-Zwischenstand wiederverwenden (schnellere Builds)
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: src-tauri -> target
 
@@ -50,7 +43,7 @@ jobs:
         run: npm ci
 
       - name: App bauen und Release erstellen
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -67,10 +60,10 @@ jobs:
             |---|---|
             | **AzuNavi_…-setup.exe** | **Windows, Installer** – installiert AzuNavi nur für dich (keine Adminrechte), mit Startmenü- und Desktop-Verknüpfung. Für die meisten die beste Wahl. |
             | **AzuNavi_….exe** (ohne „setup“) | **Windows, portable** – keine Installation, einfach starten, auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
-            | **AzuNavi_….AppImage** | **Linux, portable** – ausführbar machen (`chmod +x`) und starten. Braucht `libfuse2` (Ubuntu 22.04+: `sudo apt install libfuse2`). |
-            | **AzuNavi_….deb** | **Linux (Debian, Ubuntu, Mint)** – `sudo apt install ./AzuNavi_….deb`. Legt einen Starter im Menü an. |
 
             Windows zeigt beim ersten Start evtl. **„Der Computer wurde durch Windows geschützt“** (SmartScreen), weil die App nicht kostenpflichtig signiert ist:
             **„Weitere Informationen“ → „Trotzdem ausführen“.**
+
+            **Linux, Mac und andere:** einfach die Web-App im Browser nutzen: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
 
             Ausführliche Anleitung: siehe README im Repository.
