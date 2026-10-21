@@ -1,0 +1,15 @@
+# Dependabot prüft wöchentlich, ob Pakete veraltet oder unsicher sind, und schlägt Updates als Pull Request vor.
+# Sicherheitswarnungen erscheinen unter Security -> Dependabot alerts (dort einmalig aktivieren).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: cargo
+    directory: "/src-tauri"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }

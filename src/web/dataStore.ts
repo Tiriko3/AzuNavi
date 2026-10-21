@@ -101,3 +101,13 @@ export function holdLock() {
   const beat = () => writeData(LOCK, new TextEncoder().encode(JSON.stringify({ id: myId, device: deviceName(), ts: Date.now() }))).catch(() => {});
   beat(); window.clearInterval(lockTimer); lockTimer = window.setInterval(beat, 60_000);
 }
+
+/** Alles, was AzuNavi in diesem Browser gespeichert hat, entfernen: Datenbank und Anhänge (Modus „Browser“),
+ *  gemerkter Ordner und Sperre. Dateien in einem gewählten Datenordner bleiben dort (das ist dein Ordner). */
+export async function wipeBrowser(): Promise<void> {
+  window.clearInterval(lockTimer);
+  if (kind === "folder" && root) { try { await root.removeEntry(LOCK); } catch { /* schon weg */ } }
+  kind = null; root = null;
+  await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(IDB); r.onsuccess = r.onerror = r.onblocked = () => res(); });
+  try { localStorage.clear(); sessionStorage.clear(); } catch { /* egal */ }
+}

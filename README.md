@@ -18,14 +18,16 @@
 
 ## Download
 
-👉 **[Neueste Version herunterladen](../../releases/latest)** (Seite „Releases“, unten bei „Assets“)
+AzuNavi liegt auf unserem internen GitLab:
 
-Es gibt zwei Varianten – du entscheidest:
+- **Web-App (ohne Installation):** GitLab → *Deploy → Pages*. Läuft in Edge/Chrome, auch auf Linux und Mac, und lässt sich als App installieren.
+- **Windows-Programm und Android-App:** GitLab → *Deploy → Package Registry → azunavi* → neueste Version.
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
-| **`AzuNavi_1.12.0-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
-| **`AzuNavi_1.12.0.exe`** | **Portable** (ohne „setup“) | Keine Installation. Einfach starten – auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_<version>_x64-setup.exe`** | **Installer** | Für die meisten die beste Wahl. Installiert AzuNavi nur für dich (keine Adminrechte nötig), legt Startmenü- und Desktop-Verknüpfung an, lässt sich normal deinstallieren. |
+| **`AzuNavi_<version>_x64_portable.exe`** | **Portable** | Keine Installation. Einfach starten, auch vom USB-Stick. Legt beim ersten Start selbst eine Desktop-Verknüpfung an. |
+| **`AzuNavi_<version>_android_arm64.apk`** | **Android** | Aufs Handy laden, Installation aus dieser Quelle erlauben, öffnen. |
 
 **Voraussetzung:** Windows 10 oder 11 (64 Bit). Mehr brauchst du nicht.
 
@@ -211,13 +213,7 @@ AzuNavi ist ein privates Fan-Projekt, inspiriert von japanischen Rollenspielen. 
 
 ## Linux
 
-AzuNavi gibt es auch für Linux (Debian, Ubuntu, Mint u. a.). Auf der Release-Seite:
-
-- **`.deb`**: `sudo apt install ./AzuNavi_<version>_amd64.deb`, danach im Menü starten.
-- **`.AppImage`**: `chmod +x AzuNavi_<version>_amd64.AppImage` und starten. Braucht `libfuse2` (`sudo apt install libfuse2`).
-- Selbst bauen: `./build-linux.sh` (installiert die nötigen Pakete und baut beide Formate).
-- Die optionale Grammatikprüfung (LanguageTool) braucht Java: `sudo apt install openjdk-21-jre`.
-- Deine Datenbank liegt unter `~/.config/com.local.personaapp/`, Anhänge und Porträts unter `~/.local/share/com.local.personaapp/`. Sicherungen (System → Daten mitnehmen) laufen wie unter Windows und lassen sich zwischen Windows und Linux austauschen.
+Für Linux gibt es kein eigenes Programm mehr: Nutze die **Web-App** im Browser (siehe unten), am besten in Chrome, Chromium oder Edge. Dort kannst du einen Datenordner wählen und AzuNavi wie ein Programm installieren. Sicherungen (System → Daten mitnehmen) lassen sich zwischen Windows, Web-App und Handy austauschen.
 
 ## Android (Test)
 
@@ -238,11 +234,11 @@ AzuNavi läuft komplett lokal. Wer PC und Handy nutzen will, sichert in den **ei
 
 ## Web-App (Browser, ohne Installation)
 
-AzuNavi läuft auch im Browser: **https://<dein-github-name>.github.io/AzuNavi/**. Es gibt keinen Server, deine Daten bleiben bei dir.
-- **Datenordner (empfohlen, Chrome/Edge am PC):** Beim ersten Start einen Ordner wählen, z. B. `OneDrive\AzuNavi`. Darin liegen `azunavi.db` (Datenbank), `dateien/` (Anhänge, Vorlage) und `azunavi.lock`. Auf einem anderen PC öffnest du denselben Ordner und arbeitest weiter.
+AzuNavi läuft auch im Browser, bereitgestellt über **GitLab Pages** auf dem internen GitLab (Adresse: GitLab → Deploy → Pages). Es gibt keinen Server für Daten, deine Daten bleiben bei dir.
+- **Datenordner (empfohlen, Chrome/Edge am PC):** Beim ersten Start einen Ordner wählen, z. B. `OneDrive\AzuNavi` (privat oder Firma) oder `Dokumente\AzuNavi`. Darin liegen `azunavi.db` (Datenbank), `dateien/` (Anhänge, Vorlage) und `azunavi.lock`. Auf einem anderen PC öffnest du denselben Ordner und arbeitest weiter.
 - **Nur im Browser speichern:** für Handy-Browser, Firefox oder zum Ausprobieren. Übertragen geht über System → „Daten mitnehmen“.
-- **Installieren ohne Admin-Rechte:** In Edge/Chrome oben in der Adressleiste auf „App installieren“. Dann hat AzuNavi ein eigenes Fenster und läuft auch offline.
+- **Installieren ohne Admin-Rechte:** In Edge/Chrome in der Adressleiste auf „App installieren“. Einmal installiert, läuft AzuNavi auch offline, z. B. zu Hause außerhalb des Firmennetzes. Neue Versionen kommen, sobald du wieder im Firmennetz bist.
 - **Gleichzeitig auf zwei Geräten:** AzuNavi warnt, wenn der Ordner woanders gerade offen ist. Das zuletzt speichernde Gerät gewinnt.
-- **Noch nicht im Browser:** Dateien-Seite (kommt über freigegebene Ordner) und Grammatikprüfung (LanguageTool braucht Java).
+- **Noch nicht im Browser:** Dateien-Seite und Grammatikprüfung (LanguageTool braucht Java).
 
-**Veröffentlichen:** Bei jedem Versions-Tag baut GitHub die Web-App (`.github/workflows/web.yml`) in den Zweig `gh-pages`. Einmalig unter *Settings → Pages* die Quelle „Deploy from a branch“, Zweig `gh-pages`, Ordner `/ (root)` einstellen. Lokal bauen: `npm run build:web` (Ergebnis in `dist-web/`).
+**Bauen und veröffentlichen:** Die Pipeline (`.gitlab-ci.yml`) baut bei jedem Versions-Tag `v…` die Web-App (GitLab Pages), die Android-APK und auf Wunsch das Windows-Programm. Die Dateien liegen danach unter *Deploy → Package Registry → azunavi*. Einrichtung: `docs/GITLAB-UMZUG.md`. Lokal bauen: `npm run build:web` (Ergebnis in `dist-web/`, läuft unter jeder Adresse).

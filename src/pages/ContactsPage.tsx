@@ -406,7 +406,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
               </label>
             </div>
             <label className="lab">Info
-              <textarea className="field" rows={3} value={draft.info} onChange={(e) => patch({ info: e.target.value })} />
+              <textarea placeholder="Was für die Ausbildung wichtig ist. Keine Bewertungen, keine Gesundheitsdaten, nichts Privates." className="field" rows={3} value={draft.info} onChange={(e) => patch({ info: e.target.value })} />
             </label>
 
             {draft.id && (

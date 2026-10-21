@@ -1,0 +1,151 @@
+# AzuNavi auf dem internen GitLab
+# - Web-App: GitLab Pages (bei Versions-Tags automatisch, auf main per Knopf)
+# - Android-APK: signiert mit dem Schlüssel aus den CI-Variablen
+# - Windows-Programm: nur mit einem Windows-Runner (Tag "windows"), sonst wird der Schritt übersprungen
+# - Sicherheitsprüfung der Pakete
+# Ablage der Versionen: Deploy -> Package Registry -> "azunavi". Ist die Registry auf dem Server aus, bleiben die Dateien als Job-Artefakte (90 Tage).
+# Einrichtung: siehe docs/GITLAB-UMZUG.md
+
+stages: [pruefen, bauen, veroeffentlichen]
+
+variables:
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.cache/npm"
+  CARGO_HOME: "$CI_PROJECT_DIR/.cache/cargo"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.cache/gradle"
+  ANDROID_HOME: "$CI_PROJECT_DIR/.cache/android-sdk"
+  PKG_URL: "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/azunavi"
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ---------- Prüfen ----------
+pakete-pruefen:
+  stage: pruefen
+  image: node:22-bookworm
+  cache: { key: npm, paths: [.cache/npm] }
+  script:
+    - npm ci --no-audit --no-fund
+    - npx tsc --noEmit
+    - npm audit --omit=dev --audit-level=critical
+  allow_failure: true      # meldet Funde, blockiert aber keine Version
+
+# ---------- Web-App -> GitLab Pages ----------
+# Neue Pages-Schreibweise (wie der Assistent auf git.hhu.de sie vorschlägt): beliebiger Jobname, "pages:" mit "publish:".
+# Läuft bei jedem Push auf main: die Web-App ist dann immer auf dem Stand von main.
+create-pages:
+  stage: veroeffentlichen
+  image: node:22-bookworm
+  cache: { key: npm, paths: [.cache/npm] }
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run build:web
+    # Veröffentlicht wird der Ordner "public" (unser Vite-Ordner public/ steckt schon im Build)
+    - rm -rf public && mv dist-web public
+  pages:
+    publish: public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ---------- Android-APK ----------
+android:
+  stage: bauen
+  image: node:22-bookworm
+  timeout: 90m
+  cache:
+    key: android
+    paths: [.cache/npm, .cache/cargo, .cache/gradle, .cache/android-sdk, src-tauri/target]
+  variables:
+    NDK_VERSION: "27.2.12479018"
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless unzip > /dev/null
+    - export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
+    # Android-SDK (einmal, danach aus dem Cache)
+    - |
+      if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+        mkdir -p "$ANDROID_HOME/cmdline-tools" && cd /tmp
+        curl -sSfL -o tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q tools.zip && mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest" && cd "$CI_PROJECT_DIR"
+      fi
+    - yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+    - '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;$NDK_VERSION" > /dev/null'
+    - export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+    # Rust mit Android-Ziel
+    - curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable > /dev/null
+    - export PATH="$CARGO_HOME/bin:$PATH" && rustup target add aarch64-linux-android
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run tauri -- android init --ci
+    # Hochformat (Handy-Oberfläche) und App-Symbol wie am PC
+    - |
+      python3 - <<'PY'
+      import pathlib, re
+      p = pathlib.Path("src-tauri/gen/android/app/src/main/AndroidManifest.xml"); s = p.read_text(encoding="utf-8")
+      if "android:screenOrientation" not in s:
+          s = re.sub(r"<activity\b", '<activity android:screenOrientation="portrait"', s, count=1); p.write_text(s, encoding="utf-8")
+      assert 'android:screenOrientation="portrait"' in p.read_text(encoding="utf-8")
+      PY
+    - npm run tauri -- icon src-tauri/icons/android-icon.json
+    # Interne Android-Versionsnummer: 2.000.000 + Version (0.1.0 -> 2000100). Liegt über den alten 1.x-Builds,
+    # damit sich neue Versionen weiter einfach drüber installieren (Daten bleiben).
+    - node -e "const [a,b,c]=require('./package.json').version.split('.').map(Number); require('fs').writeFileSync('src-tauri/tauri.android.conf.json', JSON.stringify({bundle:{android:{versionCode:2000000+a*10000+b*100+c}}},null,2)); console.log('versionCode', 2000000+a*10000+b*100+c)"
+    - npm run tauri -- android build --apk --target aarch64
+    # Signieren: mit eurem Schlüssel aus den CI-Variablen (Datei- oder Text-Variable), sonst temporär
+    - BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+    - APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*release-unsigned.apk' | head -1) && test -n "$APK"
+    - |
+      if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
+        if [ -f "$ANDROID_KEYSTORE_B64" ]; then base64 -d < "$ANDROID_KEYSTORE_B64" > ks.jks; else echo "$ANDROID_KEYSTORE_B64" | base64 -d > ks.jks; fi
+        export KS_PASS="$ANDROID_KEYSTORE_PASSWORD"; ALIAS="$ANDROID_KEY_ALIAS"
+      else
+        echo "WARNUNG: kein eigener Schlüssel hinterlegt, APK wird temporär signiert (Updates nur nach Deinstallation)."
+        export KS_PASS=$(head -c 24 /dev/urandom | base64); ALIAS=azunavi
+        keytool -genkeypair -keystore ks.jks -storetype PKCS12 -storepass "$KS_PASS" -keypass "$KS_PASS" -alias "$ALIAS" -keyalg RSA -keysize 3072 -validity 365 -dname "CN=AzuNavi Test" -noprompt
+      fi
+    - '"$BT/zipalign" -f -p 4 "$APK" aligned.apk'
+    - '"$BT/apksigner" sign --ks ks.jks --ks-pass env:KS_PASS --ks-key-alias "$ALIAS" --out signed.apk aligned.apk'
+    - '"$BT/apksigner" verify signed.apk && rm -f ks.jks aligned.apk'
+    - V=$(node -p "require('./package.json').version") && mv signed.apk "AzuNavi_${V}_android_arm64.apk"
+    - |
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        curl -sSf --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file AzuNavi_*_android_arm64.apk "$PKG_URL/$CI_COMMIT_TAG/AzuNavi_${V}_android_arm64.apk" \
+          && echo "Download: $PKG_URL/$CI_COMMIT_TAG/AzuNavi_${V}_android_arm64.apk" \
+          || echo "HINWEIS: Package Registry nicht verfügbar. Die APK liegt trotzdem als Artefakt am Job (Build -> Jobs -> android -> Download)."
+      fi
+  artifacts:
+    paths: ["AzuNavi_*_android_arm64.apk"]
+    expire_in: 90 days
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
+# ---------- Windows-Programm (braucht einen Windows-Runner mit Tag "windows") ----------
+windows:
+  stage: bauen
+  tags: [windows]
+  timeout: 90m
+  script:
+    - npm ci --no-audit --no-fund
+    - npm run tauri build
+    - $V = (Get-Content package.json | ConvertFrom-Json).version
+    - $setup = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+    - Copy-Item $setup.FullName "AzuNavi_${V}_x64-setup.exe"
+    - Copy-Item src-tauri/target/release/AzuNavi.exe "AzuNavi_${V}_x64_portable.exe"
+    - |
+      if ($env:CI_COMMIT_TAG) {
+        foreach ($f in @("AzuNavi_${V}_x64-setup.exe", "AzuNavi_${V}_x64_portable.exe")) {
+          try { Invoke-RestMethod -Method Put -Headers @{ "JOB-TOKEN" = $env:CI_JOB_TOKEN } -InFile $f -Uri "$env:PKG_URL/$env:CI_COMMIT_TAG/$f" }
+          catch { Write-Host "HINWEIS: Package Registry nicht verfügbar. $f liegt als Artefakt am Job (Build -> Jobs -> windows -> Download)." }
+        }
+      }
+  artifacts:
+    paths: ["AzuNavi_*_x64*.exe"]
+    expire_in: 90 days
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+      when: manual          # erst auf "automatisch" stellen, wenn ein Windows-Runner existiert
+      allow_failure: true

@@ -8,3 +8,6 @@ Thumbs.db
 
 # Web-App-Build
 dist-web/
+
+# CI-Zwischenspeicher (GitLab)
+.cache/

@@ -17,15 +17,23 @@ function fixNamespaceImports(code: string, id: string): string | null {
   return out === code ? null : out;
 }
 
+// Sicherheitsregeln (CSP) der Web-App: Skripte nur aus der App selbst, keine Verbindungen nach außen
+const WEB_CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; " +
+  "font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'";
+const webCspPlugin = {
+  name: "web-csp",
+  transformIndexHtml(html: string) { return html.replace("<head>", `<head>\n    <meta http-equiv="Content-Security-Policy" content="${WEB_CSP}" />`); },
+};
+
 const fixPlugin = {
   name: "fix-namespace-imports",
   transform(code: string, id: string) { return fixNamespaceImports(code, id); },
 };
 
 export default defineConfig(({ mode }) => ({
-  // Web-App (GitHub Pages): liegt unter https://<name>.github.io/AzuNavi/
-  base: mode === "web" ? (process.env.AZ_BASE ?? "/AzuNavi/") : "/",
-  plugins: [react(), fixPlugin],
+  // Web-App: relative Pfade, damit sie unter jeder Adresse läuft (GitLab Pages, GitHub Pages, Intranet-Server)
+  base: mode === "web" ? (process.env.AZ_BASE ?? "./") : "/",
+  plugins: mode === "web" ? [react(), fixPlugin, webCspPlugin] : [react(), fixPlugin],
   clearScreen: false,
   build: { chunkSizeWarningLimit: 1600, outDir: mode === "web" ? "dist-web" : "dist" },
   optimizeDeps: {

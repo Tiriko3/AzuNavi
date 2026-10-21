@@ -14,6 +14,7 @@ import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/Templ
 import { createBackup, restoreBackup } from "../backup";
 import { fsapi } from "../fsapi";
 import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
+import { PrivacyInfo } from "../PrivacyInfo";
 import { todayStr } from "../util";
 import { APP_VERSION } from "../version";
 import { Field, Icon, Seg, Sheet, relDay, scopeLabel, useBackLayer } from "./ui";
@@ -143,7 +144,7 @@ function Today({ scope, name, go, newNote, celebrate }: { scope: ScopeF; name: s
 /* ---------- Mehr: Profil, Darstellung, Berichtsheft, Daten ---------- */
 function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfile, toast }: { open: boolean; section: "" | "profil"; onClose: () => void; prefs: Prefs; setPrefs: (p: Prefs) => void; profile: Profile; setProfile: (p: Profile) => void; toast: (t: string) => void }) {
   const qualsOn = useQualsEnabled();
-  const [sub, setSub] = useState<"" | "profil" | "vorlage" | "cloud">("");
+  const [sub, setSub] = useState<"" | "profil" | "vorlage" | "cloud" | "privacy">("");
   const [p, setP] = useState<Profile>(profile);
   const [tpl, setTpl] = useState<TplChoice>({ mode: "standard" });
   const [msg, setMsg] = useState(""), [err, setErr] = useState("");
@@ -160,6 +161,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
         {row("people", "Profil", profile.vorname ? `${profile.vorname} ${profile.nachname} · ${profile.beruf || "Beruf fehlt"}` : "Name und Beruf eintragen", () => setSub("profil"))}
         {row("book", "Berichtsheft-Vorlage", "Standard-Vorlage oder eigene Datei", () => setSub("vorlage"))}
         {row("cloud", "Sicherung in deiner Cloud", "OneDrive, Google Drive …, verschlüsselt", () => setSub("cloud"))}
+        {row("people", "Datenschutz & Speicherorte", "Was wo gespeichert ist", () => setSub("privacy"))}
       </div>
       <div className="m-h">Darstellung</div>
       <Field label="Schriftgröße"><Seg value={String(prefs.font)} options={[["1", "Normal"], ["1.15", "Groß"], ["1.3", "Sehr groß"]]} onChange={(v) => setPrefs({ ...prefs, font: Number(v) })} /></Field>
@@ -185,6 +187,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       <Sheet open={sub === "vorlage"} onClose={() => setSub("")} title="Berichtsheft-Vorlage" tall footer={<button className="m-btn" onClick={() => act(async () => { await applyTplChoice(tpl); setSub(""); toast("Vorlage übernommen"); })}><Icon n="check" />Übernehmen</button>}>
         <TemplateChooser prof={prof} value={tpl} onChange={setTpl} />
       </Sheet>
+      <Sheet open={sub === "privacy"} onClose={() => setSub("")} title="Datenschutz" tall><PrivacyInfo /></Sheet>
       <Sheet open={sub === "cloud"} onClose={() => setSub("")} title="Deine Cloud" tall><CloudFolderPanel /></Sheet>
     </Sheet>
   );

@@ -69,5 +69,6 @@ export async function restoreBackup(bytes: ArrayBuffer): Promise<{ rows: number;
 /** Alles löschen: Tabellen werden entfernt und beim Neustart frisch angelegt. Deine Ordner und Dateien bleiben unberührt. */
 export async function resetApp() {
   for (const t of await tables()) await execute(`DROP TABLE IF EXISTS "${t}"`);
-  if (!inTauri) localStorage.clear();
+  if (isWebApp) { const m = await import("./web/dataStore"); if (m.locationInfo().kind === "browser") await m.wipeBrowser(); }
+  else if (!inTauri) localStorage.clear();
 }

@@ -1,0 +1,13 @@
+# Änderungen
+
+## 0.1.0 – Neustart auf dem internen GitLab
+Erste Version auf GitLab. Enthält alles aus der Entwicklung bis dahin:
+- **Notizen, Berichtsheft (Word-Export mit eigener Vorlage), Projekte mit Netzplan und Pinnwand, Kontakte mit Netzplan**
+- **Kontakt-Gruppen**: eine Person in mehreren Gruppen, ganze Gruppen zuweisen, Bereiche und Gruppen am Stück verschieben, Beziehungen (Leitung oder Kontakt)
+- **Berufsprofile** mit Qualifikationen nach Ausbildungsordnung (optional)
+- **Drei Wege**: Windows-Programm, Android-App (eigene Handy-Oberfläche mit Nami, Caramella und Eda), Web-App im Browser (installierbar, offline, Datenordner z. B. in OneDrive)
+- **Sicherung** lokal und verschlüsselt in der eigenen Cloud
+- **Sicherheit**: strenge Sicherheitsregeln (CSP), keine Verbindungen ins Internet, Datenschutzseite in der App
+- Figuren in 4K-Auflösung
+
+Die Versionsnummern davor (1.x) stammen aus der Entwicklungszeit auf GitHub. Installierte Apps lassen sich ohne Datenverlust auf 0.1.0 aktualisieren.
