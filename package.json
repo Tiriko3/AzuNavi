@@ -1,14 +1,15 @@
 {
   "name": "azunavi",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "build:web": "tsc && vite build --mode web",
     "tauri": "tauri",
-    "release": "tauri build"
+    "release": "tauri build",
+    "release:windows": "node tools/windows-release.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.1.0",

@@ -70,8 +70,32 @@ Die App zeigt danach unter System „Version 0.1.0“. **Bestehende Installation
 Sie entsteht automatisch bei jedem Tag `v…` (Job `release` in der Pipeline). Dort stehen die Android-App (APK) und der Link zur Web-App, dazu die Änderungen aus `CHANGELOG.md`. Diesen einen Link gibst du weiter. Alle Versionen: **Deploy → Releases**.
 
 - **Web-App:** Deploy → Pages (die Web-App verlinkt selbst auf die Download-Seite).
-- **Ohne Windows-Runner:** Windows-Programm lokal bauen mit `npm run tauri build`, die Dateien liegen dann in `src-tauri\target\release\bundle\nsis\`.
+- **Windows-Programm:** siehe Abschnitt „Windows-Setup veröffentlichen“ direkt darunter (ein Befehl auf deinem PC).
 - **Falls der Job `release` rot wird:** Deploy → Releases → **New release**, den Tag wählen und die APK-Adresse aus Deploy → Package registry als Asset-Link eintragen.
+
+## Windows-Setup veröffentlichen (ein Befehl auf deinem PC)
+Auf git.hhu.de gibt es keinen Windows-Runner. Deshalb baust du das Windows-Programm auf deinem PC. Das Skript lädt es hoch und hängt es an dieselbe Download-Seite wie die Android-App.
+
+**Einmalig: Zugangs-Token erzeugen**
+- Projekt → **Settings → Access tokens → Add new token** (falls es das Menü gibt, Rolle **Developer**), Haken bei **`api`**, Ablauf in etwa einem Jahr.
+- Alternativ: Profilbild → **Preferences → Access tokens** (persönlicher Token, Haken bei `api`).
+- Token kopieren (wird nur einmal angezeigt). **Nie** in eine Datei im Projekt schreiben oder hochladen.
+
+**Bei jeder neuen Version**
+1. Version hochladen und Tag setzen (siehe oben), die Pipeline `v…` soll **grün** sein (dann existiert die Download-Seite).
+2. Auf deinem PC (PowerShell):
+```powershell
+cd C:\dev\azunavi
+$env:GITLAB_TOKEN = "glpat-DEIN-TOKEN"
+npm run release:windows
+```
+Das Skript baut das Programm, lädt `AzuNavi_<version>_x64-setup.exe` und die portable Datei in die Package Registry und hängt beide an die Download-Seite. Dauer beim ersten Bau etwa 5–10 Minuten.
+
+Ohne neu zu bauen (die Dateien liegen schon da): `npm run release:windows -- --no-build`.
+
+**Wenn es klemmt:** Die Meldungen sind auf Deutsch und nennen die Lösung, z. B. „Der Tag v… gibt es noch nicht“ oder „Das Tauri-Werkzeug ist beschädigt“. Letzteres: `Remove-Item node_modules -Recurse -Force; npm cache clean --force; npm ci`.
+
+**Hinweis zu Windows-Warnungen:** Das Setup ist nicht digital signiert. Windows zeigt beim ersten Start „Der Computer wurde durch Windows geschützt“. Lösung: **Weitere Informationen → Trotzdem ausführen**. Auf verwalteten Firmen-PCs kann eine Richtlinie unsignierte Programme blockieren, dann hilft die Web-App.
 
 ## 8. GitHub aufräumen (erst wenn alles läuft)
 - GitHub-Repository → Settings → ganz unten **Archive this repository** (oder auf Private stellen)

@@ -189,11 +189,21 @@ release:
         notes,
       ].join("\n");
       fs.writeFileSync("release.json", JSON.stringify({ name: "AzuNavi " + V, tag_name: CI_COMMIT_TAG, description, assets: { links } }));
+      fs.writeFileSync("links.jsonl", links.map((l) => JSON.stringify(l)).join("\n") + "\n");
       console.log("Release-Daten:", JSON.stringify({ tag: CI_COMMIT_TAG, links: links.map((l) => l.name) }));
       JS
-    - >
-      curl -sS --fail-with-body -X POST "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
-      --header "JOB-TOKEN: $CI_JOB_TOKEN" --header "Content-Type: application/json" --data @release.json
+    - |
+      code=$(curl -sS -o resp.json -w "%{http_code}" -X POST "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases" --header "JOB-TOKEN: $CI_JOB_TOKEN" --header "Content-Type: application/json" --data @release.json)
+      if [ "$code" = "201" ]; then
+        echo "Release angelegt."
+      elif [ "$code" = "409" ]; then
+        echo "Die Release-Seite gibt es schon (z. B. vom Windows-Skript). Die Links werden angehängt."
+        while IFS= read -r l; do
+          curl -sS --fail-with-body -X POST "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$CI_COMMIT_TAG/assets/links" --header "JOB-TOKEN: $CI_JOB_TOKEN" --header "Content-Type: application/json" --data "$l" > /dev/null
+        done < links.jsonl
+      else
+        echo "Release anlegen fehlgeschlagen (HTTP $code):"; cat resp.json; echo; exit 1
+      fi
     - echo "Download-Seite $CI_PROJECT_URL/-/releases/permalink/latest"
   rules:
     - if: $CI_COMMIT_TAG =~ /^v\d+/

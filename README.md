@@ -24,7 +24,7 @@ Dort stehen die fertigen Dateien. Du brauchst ein Konto auf git.hhu.de und Zugri
 
 - **Android:** die `.apk` herunterladen, aufs Handy kopieren, antippen, Installation aus dieser Quelle erlauben.
 - **Web-App (ohne Installation):** Link „Web-App“ auf der Download-Seite. Läuft in Edge/Chrome, auch auf Linux und Mac, und lässt sich als App installieren.
-- **Windows-Programm:** wird lokal gebaut und bei Bedarf auf der Download-Seite ergänzt. Die Web-App deckt das meiste ab.
+- **Windows:** `AzuNavi_<version>_x64-setup.exe` herunterladen und starten. Installiert nur für dich, keine Adminrechte nötig. Windows warnt eventuell („Der Computer wurde durch Windows geschützt“): auf **Weitere Informationen → Trotzdem ausführen** klicken. Die Datei ist nicht digital signiert.
 
 | Datei | Was ist das? | Für wen? |
 |---|---|---|
