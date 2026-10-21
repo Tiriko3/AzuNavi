@@ -87,6 +87,14 @@ const pid = proj.data.id;
 
 const tg = await api("GET", `/projects/${pid}/repository/tags/${encodeURIComponent(tag)}`);
 if (tg.status === 404) fail(`Den Tag ${tag} gibt es auf GitLab noch nicht. Erst setzen:\n  git tag ${tag}\n  git push gitlab ${tag}`);
+if (tg.status === 403) {
+  const me = await api("GET", "/personal_access_tokens/self");
+  const scopes = me.ok && Array.isArray(me.data?.scopes) ? me.data.scopes.join(", ") : "nicht ermittelbar";
+  fail(`Dein Token darf das Repository nicht lesen (403). Rechte des Tokens: ${scopes}.\n` +
+    `Meist ist die Rolle des Tokens zu niedrig (Guest oder Reporter) oder der Haken bei "api" fehlt.\n` +
+    `Lösung: neuen Token erzeugen mit Haken "api" und Rolle Developer oder Maintainer (Projekt -> Settings -> Access tokens),\n` +
+    `oder einen persönlichen Token (Profilbild -> Preferences -> Access tokens, Haken bei "api"). Der gebaute Installer bleibt erhalten, danach einfach mit --no-build erneut starten.`);
+}
 if (!tg.ok) fail(`Tag prüfen: GitLab antwortet mit ${tg.status}.`);
 
 /* ---------- 4) Hochladen (Package Registry) ---------- */
@@ -99,20 +107,27 @@ for (const f of files) {
 }
 
 /* ---------- 5) An die Download-Seite hängen ---------- */
+const releaseRoleHint = () => `\nDas heißt meist: Die Rolle deines Tokens reicht nicht. Der Tag ${tag} ist geschützt (Settings -> Repository -> Protected tags),\n` +
+  `und Releases an geschützten Tags ändern darf nur, wer den Tag anlegen darf, also Maintainer.\n` +
+  `Lösung: Token mit Rolle Maintainer erzeugen (Projekt -> Settings -> Access tokens) oder einen persönlichen Token als Besitzer.\n` +
+  `Die Dateien sind schon hochgeladen. Mit --no-build erneut starten.`;
 let rel = await api("GET", `/projects/${pid}/releases/${encodeURIComponent(tag)}`);
 if (rel.status === 404) {
   say("\nDie Release-Seite gibt es noch nicht, ich lege sie an …");
   const created = await api("POST", `/projects/${pid}/releases`, { json: { name: `AzuNavi ${version}`, tag_name: tag,
     description: `## AzuNavi ${version}\n\n**Windows:** das Setup herunterladen und starten (installiert nur für dich, keine Adminrechte nötig).` } });
-  if (!created.ok) fail(`Release anlegen fehlgeschlagen (${created.status}): ${created.text.slice(0, 200)}`);
+  if (!created.ok) fail(`Release anlegen fehlgeschlagen (${created.status}): ${created.text.slice(0, 200)}` + (created.status === 403 ? releaseRoleHint() : ""));
 } else if (!rel.ok) fail(`Release prüfen: GitLab antwortet mit ${rel.status}.`);
 
 const links = await api("GET", `/projects/${pid}/releases/${encodeURIComponent(tag)}/assets/links`);
 const existing = Array.isArray(links.data) ? links.data : [];
 for (const f of files) {
-  for (const old of existing.filter((l) => l.name === f.label)) await api("DELETE", `/projects/${pid}/releases/${encodeURIComponent(tag)}/assets/links/${old.id}`);
+  for (const old of existing.filter((l) => l.name === f.label)) {
+    const del = await api("DELETE", `/projects/${pid}/releases/${encodeURIComponent(tag)}/assets/links/${old.id}`);
+    if (del.status === 403) fail(`Alten Link „${f.label}“ entfernen fehlgeschlagen (403).` + releaseRoleHint());
+  }
   const add = await api("POST", `/projects/${pid}/releases/${encodeURIComponent(tag)}/assets/links`, { json: { name: f.label, url: f.url, link_type: "package" } });
-  if (!add.ok) fail(`Link „${f.label}“ anhängen fehlgeschlagen (${add.status}): ${add.text.slice(0, 200)}`);
+  if (!add.ok) fail(`Link „${f.label}“ anhängen fehlgeschlagen (${add.status}): ${add.text.slice(0, 200)}` + (add.status === 403 ? releaseRoleHint() : ""));
   say(`Angehängt: ${f.label}`);
 }
 
