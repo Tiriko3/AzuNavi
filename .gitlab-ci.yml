@@ -32,6 +32,23 @@ pakete-pruefen:
     - npm audit --omit=dev --audit-level=critical
   allow_failure: true      # meldet Funde, blockiert aber keine Version
 
+# ---------- Diagnose: was kann der Runner? (manuell starten: ▶) ----------
+runner-info:
+  stage: pruefen
+  image: node:22-bookworm
+  script:
+    - echo "== CPU-Kerne =="; nproc
+    - echo "== Arbeitsspeicher (MB) =="; free -m
+    - echo "== Speicherlimit des Containers =="; (cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo unbekannt)
+    - echo "== Festplatte =="; df -h / /tmp "$CI_PROJECT_DIR"
+    - echo "== tmpfs und Einhaengepunkte =="; (mount | grep -E "tmpfs| /tmp| /builds" || true)
+    - echo "== Internet =="
+    - for u in https://dl.google.com https://services.gradle.org https://maven.google.com https://static.crates.io https://static.rust-lang.org https://registry.npmjs.org; do printf "%s -> " "$u"; curl -sS -o /dev/null -m 20 -w "%{http_code}\n" "$u" || echo "FEHLER"; done
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+
 # ---------- Web-App -> GitLab Pages ----------
 # Neue Pages-Schreibweise (wie der Assistent auf git.hhu.de sie vorschlägt): beliebiger Jobname, "pages:" mit "publish:".
 # Läuft bei jedem Push auf main: die Web-App ist dann immer auf dem Stand von main.
@@ -60,6 +77,9 @@ android:
   variables:
     NDK_VERSION: "27.2.12479018"
   before_script:
+    - echo "== Ressourcen =="; nproc; free -m; (cat /sys/fs/cgroup/memory.max 2>/dev/null || true); df -h "$CI_PROJECT_DIR" | tail -1
+    # Temporäre Dateien (große Downloads) auf das Projekt-Laufwerk legen, nicht in den Arbeitsspeicher
+    - mkdir -p "$CI_PROJECT_DIR/.cache/tmp" && export TMPDIR="$CI_PROJECT_DIR/.cache/tmp" && export SDKMANAGER_OPTS="-Djava.io.tmpdir=$TMPDIR"
     - apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless unzip > /dev/null
     - export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
     # Android-SDK (einmal, danach aus dem Cache)
@@ -70,7 +90,9 @@ android:
         unzip -q tools.zip && mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest" && cd "$CI_PROJECT_DIR"
       fi
     - yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-    - '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;$NDK_VERSION" > /dev/null'
+    - |
+      "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;$NDK_VERSION" > sdk-install.log 2>&1 \
+        || { echo "sdkmanager fehlgeschlagen. Letzte Zeilen:"; tail -n 30 sdk-install.log; free -m; exit 1; }
     - export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
     # Rust mit Android-Ziel
     - curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable > /dev/null
