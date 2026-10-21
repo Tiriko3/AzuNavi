@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { canPickFolder, chooseFolder, deviceName, holdLock, otherLock, resumeSaved, savedLocation, useBrowserStorage, type SavedLocation } from "./dataStore";
 import namiImg from "../assets/figuren/nami_gruss.webp";
+import { DOWNLOAD_URL } from "./downloadUrl";
 
 type Step = "laden" | "wahl" | "weiter" | "sperre" | "bereit";
 
@@ -63,6 +64,7 @@ export function WebGate({ children }: { children: ReactNode }) {
           <button className="wg-link" onClick={() => location.reload()}>Erneut prüfen</button>
         </>}
         {err && <p className="wg-warn">{err}</p>}
+        {DOWNLOAD_URL && <a className="wg-link wg-dl" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Handy-App (Android) herunterladen</a>}
         <p className="wg-foot">Dieses Gerät: {deviceName()}</p>
       </div>
     </div>

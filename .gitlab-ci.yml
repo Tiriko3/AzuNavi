@@ -56,6 +56,9 @@ create-pages:
   stage: veroeffentlichen
   image: node:22-bookworm
   cache: { key: npm, paths: [.cache/npm] }
+  variables:
+    # Die Web-App verlinkt damit auf die Download-Seite (immer die neueste Version)
+    VITE_DOWNLOAD_URL: "$CI_PROJECT_URL/-/releases/permalink/latest"
   script:
     - npm ci --no-audit --no-fund
     - npm run build:web
@@ -144,6 +147,56 @@ android:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
+
+# ---------- Release-Seite: eine Adresse mit allen fertigen Dateien ----------
+# Legt bei jedem Versions-Tag eine Release-Seite an (Deploy -> Releases) mit Download-Links und Änderungen aus CHANGELOG.md.
+# Fester Link auf die jeweils neueste Version: <Projekt-Adresse>/-/releases/permalink/latest
+release:
+  stage: veroeffentlichen
+  image: node:22-bookworm
+  needs: [android]
+  allow_failure: true
+  script:
+    - V=$(node -p "require('./package.json').version")
+    - APK="AzuNavi_${V}_android_arm64.apk"
+    - test -f "$APK"
+    - |
+      # Liegt die APK in der Package Registry? Dann diesen festen Link verwenden.
+      APK_URL=""
+      if curl -fs -m 120 -o /dev/null -r 0-0 --header "JOB-TOKEN: $CI_JOB_TOKEN" "$PKG_URL/$CI_COMMIT_TAG/$APK"; then APK_URL="$PKG_URL/$CI_COMMIT_TAG/$APK"; fi
+      export V APK APK_URL
+      node - <<'JS'
+      const fs = require("fs");
+      const { V, APK_URL, CI_COMMIT_TAG, CI_PIPELINE_URL, CI_PAGES_URL } = process.env;
+      let notes = "";
+      try {
+        const lines = fs.readFileSync("CHANGELOG.md", "utf8").split("\n");
+        const i = lines.findIndex((l) => l.startsWith("## " + V));
+        if (i >= 0) {
+          let j = lines.findIndex((l, k) => k > i && l.startsWith("## "));
+          if (j < 0) j = lines.length;
+          notes = lines.slice(i + 1, j).join("\n").trim();
+        }
+      } catch (e) { /* ohne Änderungsliste */ }
+      const links = [];
+      if (APK_URL) links.push({ name: "Android-App (APK)", url: APK_URL, link_type: "package" });
+      else links.push({ name: "Android-App (APK): in der Pipeline, Job android, Download", url: CI_PIPELINE_URL, link_type: "other" });
+      if (CI_PAGES_URL) links.push({ name: "Web-App (Browser, ohne Installation)", url: CI_PAGES_URL, link_type: "other" });
+      const description = [
+        "## AzuNavi " + V, "",
+        "**Android:** APK herunterladen, aufs Handy kopieren, antippen und die Installation aus dieser Quelle erlauben. Eine vorhandene App wird aktualisiert, die Daten bleiben.", "",
+        "**Browser (Windows, Linux, Mac, Handy):** die Web-App öffnen und in Edge oder Chrome auf „App installieren“ klicken.", "",
+        notes,
+      ].join("\n");
+      fs.writeFileSync("release.json", JSON.stringify({ name: "AzuNavi " + V, tag_name: CI_COMMIT_TAG, description, assets: { links } }));
+      console.log("Release-Daten:", JSON.stringify({ tag: CI_COMMIT_TAG, links: links.map((l) => l.name) }));
+      JS
+    - >
+      curl -sS --fail-with-body -X POST "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
+      --header "JOB-TOKEN: $CI_JOB_TOKEN" --header "Content-Type: application/json" --data @release.json
+    - echo "Download-Seite $CI_PROJECT_URL/-/releases/permalink/latest"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
 
 # ---------- Windows-Programm (braucht einen Windows-Runner mit Tag "windows") ----------
 windows:

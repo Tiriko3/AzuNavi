@@ -14,6 +14,7 @@ import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/
 import { listQualifications, replaceQualifications } from "../db/repo";
 import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
 import { PrivacyInfo } from "../PrivacyInfo";
+import { DOWNLOAD_URL } from "../web/downloadUrl";
 import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
@@ -177,6 +178,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           {isWebApp && <WebDataRow />}
+          {isWebApp && DOWNLOAD_URL && <div className="sysrow"><span>Handy-App (Android)</span><a className="mini" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Herunterladen</a></div>}
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
           <div className="sysrow"><span>Datenschutz &amp; Speicherorte</span><button className="mini" onClick={() => setPrivOpen(true)}>Ansehen</button></div>
           <div className="sysrow"><span>Sicherung in deiner Cloud</span><button className="mini" onClick={() => setCloudOpen(true)}>Öffnen</button></div>

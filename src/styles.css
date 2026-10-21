@@ -948,3 +948,5 @@ button,.item{-webkit-user-select:none;user-select:none}
 .privacy h4{margin:14px 0 4px;font:italic 900 16px var(--display);text-transform:uppercase;color:var(--abyss)}
 .privacy ul{margin:4px 0;padding-left:20px} .privacy code{background:#eef3ff;padding:1px 5px;border-radius:4px}
 .m-sheet .privacy{max-height:none} .m-sheet .privacy h4{color:var(--m-navy)}
+
+.wg-dl{display:inline-block;margin-top:10px;font-weight:700}

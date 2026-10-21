@@ -63,10 +63,15 @@ Dann läuft zusätzlich `android` (beim ersten Mal etwa 20–30 Minuten). `windo
 
 Die App zeigt danach unter System „Version 0.1.0“. **Bestehende Installationen lassen sich trotzdem einfach aktualisieren:** Die Pipeline gibt der Android-App intern eine höhere Nummer als allen alten 1.x-Versionen (0.1.0 → 2.000.100), und das Windows-Installationsprogramm erlaubt die kleinere Versionsnummer. Daten bleiben erhalten.
 
-## 7. Wo ist was?
-- **Web-App:** Deploy → Pages zeigt die Adresse.
-- **APK und Windows-Dateien:** Deploy → Package Registry → `azunavi` → Version.
+## 7. Wo ist was? Eine Adresse für alles
+**Download-Seite (immer die neueste Version):**
+`https://git.hhu.de/qov83dor/AzuNavi/-/releases/permalink/latest`
+
+Sie entsteht automatisch bei jedem Tag `v…` (Job `release` in der Pipeline). Dort stehen die Android-App (APK) und der Link zur Web-App, dazu die Änderungen aus `CHANGELOG.md`. Diesen einen Link gibst du weiter. Alle Versionen: **Deploy → Releases**.
+
+- **Web-App:** Deploy → Pages (die Web-App verlinkt selbst auf die Download-Seite).
 - **Ohne Windows-Runner:** Windows-Programm lokal bauen mit `npm run tauri build`, die Dateien liegen dann in `src-tauri\target\release\bundle\nsis\`.
+- **Falls der Job `release` rot wird:** Deploy → Releases → **New release**, den Tag wählen und die APK-Adresse aus Deploy → Package registry als Asset-Link eintragen.
 
 ## 8. GitHub aufräumen (erst wenn alles läuft)
 - GitHub-Repository → Settings → ganz unten **Archive this repository** (oder auf Private stellen)

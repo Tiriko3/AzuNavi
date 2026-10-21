@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.1 – Eine Adresse für alle Downloads
+- Bei jeder neuen Version legt GitLab automatisch eine **Download-Seite (Release)** an, mit der Android-App und dem Link zur Web-App.
+- Fester Link auf die jeweils **neueste Version**: `https://git.hhu.de/qov83dor/AzuNavi/-/releases/permalink/latest`
+- Die Web-App verlinkt selbst auf diese Seite (Startbildschirm, System, Handy: Mehr).
+- Neuer Diagnose-Job `runner-info` in der Pipeline.
+
 ## 0.1.0 – Neustart auf dem internen GitLab
 Erste Version auf GitLab. Enthält alles aus der Entwicklung bis dahin:
 - **Notizen, Berichtsheft (Word-Export mit eigener Vorlage), Projekte mit Netzplan und Pinnwand, Kontakte mit Netzplan**
