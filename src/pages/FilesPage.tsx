@@ -223,7 +223,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
   const pasteHere = (folders: boolean) => act(async () => {
     if (!current) return;
     const fs = await fsapi();
-    const picked = folders ? await fs.pickFolder("Ordner wählen, der hierher soll") : null;
+    const picked = folders ? await fs.pickFolder("Ordner wählen, der hierher soll", false) : null;
     const items = folders ? (picked ? [picked] : []) : await fs.pickFiles();
     if (items.length) setAssistant({ items, fixedDest: current });
   });
@@ -257,7 +257,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
   });
   const relink = (f: TrackedFile) => act(async () => {
     const fs = await fsapi();
-    const p = await fs.pickFile();
+    const p = await fs.pickFile(true);
     if (!p) return;
     await setFilePath(f.id, p);
     await loadMeta();

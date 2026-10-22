@@ -1,11 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { charById } from "./chars";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
-import { isMobile, noDesktop } from "./platform";
+import { isDesktopApp, isMobile, noDesktop } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
 import { getSetting as getSet } from "./db/db";
 import { ITEMS, SCOPES, type ItemId, type ScopeId } from "./items";
 import { getSetting, initDb, setSetting, type DbStatus } from "./db/db";
+import { adoptKnownLocations } from "./desktop/grants";
 import { isMuted, setMuted, snd } from "./sound";
 import { Water } from "./Water";
 import { PageView } from "./PageView";
@@ -62,6 +63,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const status = await initDb();
+      // PC ab 0.4.1: bisher benutzte Ordner und Dateilinks einmalig (nach Rückfrage in einem Windows-Fenster) weiter erlauben
+      if (isDesktopApp) { try { await adoptKnownLocations(); } catch { /* ohne: Ordner einfach neu wählen */ } }
       setDb(status);
       const s = await getSetting("scope");
       if (s === "alle" || s === "schule" || s === "arbeit") setScope(s);

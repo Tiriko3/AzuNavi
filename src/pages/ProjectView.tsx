@@ -108,7 +108,7 @@ export function ProjectView({ project: p, projects, threads, persons, version, e
   });
   const linkFile = () => act(async () => {
     const fs = await fsapi();
-    const path = await fs.pickFile();
+    const path = await fs.pickFile(true);
     if (!path) return;
     const roots = await getRoots();
     await setFileProject(path, baseName(path), scopeOfPath(roots, path), p.id);

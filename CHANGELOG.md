@@ -1,5 +1,16 @@
 # Änderungen
 
+## 0.4.1 – Datei-Befehle nur noch an freigegebenen Orten (PC)
+- **Sicherer Zugriff auf deine Dateien:** Die Datei-Befehle (Dateien-Seite, Verschieben, Vorschau, Öffnen, Cloud-Sicherung) arbeiten am PC nur noch in Ordnern und an Dateien, die du selbst freigegeben hast. Vorher konnten sie jeden Pfad lesen und schreiben und waren nur durch die Sicherheitsregeln des Fensters geschützt.
+- **Wie etwas freigegeben wird:** Du wählst Ordner (Arbeit, Schule, Cloud-Ordner) und Dateien in Dialogen, die das Programm selbst (Rust) öffnet. Gewählte Ordner merkt sich AzuNavi dauerhaft (`freigaben.json`). Mit einem Projekt verknüpfte Dateien ebenfalls. Alles andere, was du auswählst oder aufs Fenster ziehst, gilt nur für diese Sitzung. Das Frontend kann nichts selbst freigeben.
+- **Einmalige Rückfrage beim ersten Start:** AzuNavi fragt in einem Windows-Fenster, ob die bisher benutzten Ordner und verknüpften Dateien weiter erlaubt sein sollen (mit Liste der Ordner). Ein Klick auf „Erlauben“, danach läuft alles wie bisher. Bei „Nicht jetzt“ wählst du die Ordner auf der Dateien-Seite einfach neu aus.
+- **Geprüft wird der echte Ort:** Verknüpfungen, die aus einem freigegebenen Ordner hinausführen, und `..` im Pfad werden abgelehnt. Ein Ordner „Arbeit2“ ist nicht „Arbeit“.
+- **Rückgängig nach einem Neustart:** Der Ordner, aus dem eine Datei verschoben wurde (z. B. Downloads), wird nur als Ziel zum Zurücklegen gemerkt, nie zum Lesen.
+- **„Speichern unter“** öffnet und schreibt jetzt Rust selbst.
+- Android: unverändert (die Prüfung gibt es nur am PC).
+- Noch offen: Rechte in `capabilities` verkleinern (nach der Umstellung von Android).
+- Neu: Rust-Tests in `src-tauri/src/fsguard.rs`, `tools/grants-test.mts`.
+
 ## 0.4.0 – PC-Programm mit Datenordner und Profilen
 - **Gleiche Daten am PC und im Browser:** Das PC-Programm legt seine Daten jetzt wie die Web-App in einem **Datenordner** ab (`azunavi.db`, `dateien/`, `profil.json`). Wählst du am PC und in der Web-App denselben Ordner (z. B. `OneDrive\AzuNavi`), arbeitest du an beiden Orten mit denselben Daten und demselben Profil.
 - **Passwortschutz auch am PC:** Dieselben Profile mit Passwort und Wiederherstellungsschlüssel wie in der Web-App (Verschlüsselung der Datenbank und der Anhänge). System → Passwortschutz.

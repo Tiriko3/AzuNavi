@@ -20,9 +20,12 @@ export interface FsApi {
   read(path: string, max: number): Promise<Uint8Array>;
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
+  /** PC (ab 0.4.1): Rust öffnet den Dialog. Gewählte Dateien sind für diese Sitzung freigegeben. */
   pickFiles(): Promise<string[]>;
-  pickFolder(title: string): Promise<string | null>;
-  pickFile(): Promise<string | null>;
+  /** `keep` (Standard): Ordner dauerhaft freigeben (Arbeit, Schule, Cloud). false: nur für diese Sitzung. */
+  pickFolder(title: string, keep?: boolean): Promise<string | null>;
+  /** `keep`: Datei dauerhaft merken, weil sie mit einem Projekt verknüpft und später wieder geöffnet wird. */
+  pickFile(keep?: boolean): Promise<string | null>;
   /** Speichern-unter-Fenster, gibt den gewählten Pfad zurück (oder null bei Abbruch) */
   saveFile(defaultName: string, bytes: Uint8Array, filterName: string, ext: string): Promise<string | null>;
   /** Datei ohne Dialog an einen bekannten Pfad schreiben (z. B. in den gewählten Cloud-Ordner am PC) */
@@ -52,18 +55,23 @@ const real: FsApi = {
   open: (path) => invoke<void>("fs_open", { path }),
   reveal: (path) => invoke<void>("fs_reveal", { path }),
   pickFiles: async () => {
+    if (!isMobile) return invoke<string[]>("fs_pick_files", { multiple: true, title: "Dateien auswählen", keep: false });
     const r = await open({ multiple: true, directory: false, title: "Dateien auswählen" });
     return !r ? [] : Array.isArray(r) ? r : [r];
   },
-  pickFolder: async (title) => {
+  pickFolder: async (title, keep = true) => {
+    if (!isMobile) return invoke<string | null>("fs_pick_folder", { title, keep });
     const r = await open({ multiple: false, directory: true, title });
     return typeof r === "string" ? r : null;
   },
-  pickFile: async () => {
+  pickFile: async (keep = false) => {
+    if (!isMobile) return (await invoke<string[]>("fs_pick_files", { multiple: false, title: "Datei suchen", keep }))[0] ?? null;
     const r = await open({ multiple: false, directory: false, title: "Datei suchen" });
     return typeof r === "string" ? r : null;
   },
   saveFile: async (defaultName, bytes, filterName, ext) => {
+    // PC: Rust öffnet das Speichern-Fenster und schreibt selbst
+    if (!isMobile) return invoke<string | null>("fs_save_file", { defaultName, filterName, ext, bytes: Array.from(bytes) });
     const path = await save({ defaultPath: defaultName, filters: [{ name: filterName, extensions: [ext] }], title: "Speichern unter" });
     if (!path) return null;
     if (isMobile) { const { writeFile } = await import("@tauri-apps/plugin-fs"); await writeFile(path, bytes); }   // content://-Adresse vom Android-Speicherdialog

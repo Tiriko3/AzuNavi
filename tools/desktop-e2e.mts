@@ -37,6 +37,7 @@ function makeBackend() {
       case "data_write": { if (!st.current) throw "Kein Datenordner gewählt."; if (!b64) throw "Falscher Aufruf: es fehlen die Daten."; const rel = decodeURIComponent(headers?.["x-rel"] ?? ""); checkRel(rel); disk.set(rel, new Uint8Array(Buffer.from(b64, "base64"))); return null; }
       case "data_list": return [...disk.keys()].sort();
       case "data_remove_lock": disk.delete("azunavi.lock"); return null;
+      case "fs_grants_state": return { asked: true };
       case "legacy_info": return { exists: st.legacy, size: 4_200_000, modified: 1_790_000_000, dir: "C:\\Users\\Test\\AppData\\Roaming\\com.local.personaapp", backup_dir: null };
       case "legacy_backup": st.backups++; return { dir: "C:\\Users\\Test\\AppData\\Roaming\\com.local.personaapp\\Sicherung-vor-0.4.0", files: ["persona-x.db"], bytes: 4_200_000, created: st.backups === 1 };
       case "plugin:sql|load": return args.db;

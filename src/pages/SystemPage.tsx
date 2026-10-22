@@ -56,7 +56,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
   });
   const ltToggle = async () => { const on = !lt.on; await setSetting("lt_on", on ? "1" : "0"); setLt({ ...lt, on, status: "" }); if (on && lt.dir) ltTest(); };
   const ltPick = () => act(async () => {
-    const d = await (await fsapi()).pickFolder("LanguageTool-Ordner wählen (darin liegt languagetool-server.jar)");
+    const d = await (await fsapi()).pickFolder("LanguageTool-Ordner wählen (darin liegt languagetool-server.jar)", false);
     if (!d) return;
     await setSetting("lt_dir", d); await setSetting("lt_on", "1");
     setLt({ on: true, dir: d, status: "" }); ltTest();
