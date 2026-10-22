@@ -11,7 +11,8 @@ import { undoMove } from "../mover";
 import { Assistant, DialogBox, prettyFolder } from "./Assistant";
 import { suggestProject } from "../util";
 import type { ScopeId } from "../items";
-import { isWebApp, noDesktop } from "../platform";
+import { canUseFolders, isWebApp, noDesktop } from "../platform";
+import { dropToPaths } from "../web/webFiles";
 
 const SCOPE_LABEL: Record<Scope, string> = { arbeit: "Arbeit", schule: "Schule" };
 const IMG = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
@@ -44,10 +45,10 @@ interface Preview { kind: "img" | "pdf" | "text" | "none" | "big" | "loading" | 
 
 /** Auf dem Handy gibt es keine freien Ordner wie am PC (Android erlaubt Apps keinen direkten Zugriff) */
 export function FilesPage(props: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
-  if (noDesktop) return (
+  if (noDesktop && !(isWebApp && canUseFolders)) return (
     <div className="work"><div className="paperbox mobnote">
-      <b>{isWebApp ? "Dateien kommt bald auch im Browser." : "Dateien gibt es nur am PC."}</b>
-      <p>{isWebApp ? "Browser dürfen nur auf Ordner zugreifen, die du einzeln freigibst. Diese Lösung ist in Arbeit. Bis dahin sortierst du Dateien mit dem PC-Programm." : "Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal."}</p>
+      <b>{isWebApp ? "Dateien geht im Browser nur in Chrome oder Edge am PC." : "Dateien gibt es nur am PC."}</b>
+      <p>{isWebApp ? "Andere Browser und Handys dürfen keine Ordner freigeben. Öffne die Web-App in Chrome oder Edge am PC oder nutze das PC-Programm. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren überall ganz normal." : "Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal."}</p>
     </div></div>
   );
   return <FilesPageDesktop {...props} />;
@@ -295,7 +296,10 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
 
   /* ---------- Darstellung ---------- */
   return (
-    <div className={"work files" + (dragOver ? " dragover" : "")}>
+    <div className={"work files" + (dragOver ? " dragover" : "")}
+      onDragOver={isWebApp ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
+      onDragLeave={isWebApp ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false); } : undefined}
+      onDrop={isWebApp ? (e) => { e.preventDefault(); setDragOver(false); const p = dropToPaths(e.dataTransfer); void act(async () => { const l = await p; if (l.length) setDrop(l); }); } : undefined}>
       <section className="wcol ftree">
         <div className="wtools">
           <button className="btn" onClick={startAssistant}><span>+ Datei hinzufügen</span></button>
@@ -306,6 +310,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
               <div className={"trhead " + s}>{SCOPE_LABEL[s]}</div>
               {trees[s] ? <ul className="tlist">{renderNode(trees[s]!, 0)}</ul> :
                 <div className="small trerr">{treeErr[s] ?? (roots?.[s] ? "wird geladen …" : "noch nicht eingerichtet")}
+                  {treeErr[s]?.includes("Erlaubnis") && roots?.[s] && <button className="mini hot" onClick={() => act(async () => { const fs = await fsapi(); if (await fs.grant?.(roots[s]!)) await reloadAll(current); })}>Zugriff erlauben</button>}
                   {treeErr[s] && <button className="mini" onClick={() => chooseSingle(s)}>Ordner neu wählen</button>}</div>}
             </div>
           ))}
@@ -333,7 +338,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
                 <button className="mini hot" onClick={() => pasteHere(false)} title="Dateien auswählen, sie kommen ohne Rückfragen in diesen Ordner">Hier einfügen</button>
                 <button className="mini" onClick={() => pasteHere(true)} title="Einen ganzen Ordner (mit allem darin) hierher verschieben">Ordner hierher</button>
                 <button className="mini" onClick={() => { setNewFolderName(""); setModal("newfolder"); }}>Neuer Ordner</button>
-                <button className="mini" onClick={() => act(async () => (await fsapi()).open(current))}>Im Explorer</button>
+                {!isWebApp && <button className="mini" onClick={() => act(async () => (await fsapi()).open(current))}>Im Explorer</button>}
               </div>
               <div className="fproj">
                 <span>Projekt dieses Ordners:</span>
@@ -385,7 +390,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
                   </label>
                   <div className="pvbtns">
                     <button className="btn" onClick={() => act(async () => (await fsapi()).open(selected.path))}><span>Öffnen</span></button>
-                    <button className="mini" onClick={() => act(async () => (await fsapi()).reveal(selected.path))}>Im Explorer zeigen</button>
+                    {!isWebApp && <button className="mini" onClick={() => act(async () => (await fsapi()).reveal(selected.path))}>Im Explorer zeigen</button>}
                     <button className="mini" onClick={() => setAssistant({ items: [selected.path] })}>Woanders einsortieren</button>
                   </div>
                 </aside>
@@ -406,7 +411,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
         <div className="fmodal"><div className="paperbox mbox">
           <h3>Ordner einrichten</h3>
           <p>Die App zeigt deine <b>echten Ordner</b>. Alles, was du in „Arbeit“ und „Schule“ ablegst, im Explorer oder hier, erscheint automatisch. Du musst nichts nachbauen.</p>
-          <p className="small">Aktuell: Arbeit = {roots?.arbeit ?? "nicht gesetzt"} · Schule = {roots?.schule ?? "nicht gesetzt"}</p>
+          <p className="small">Aktuell: Arbeit = {roots?.arbeit?.replace(/^web:/, "") ?? "nicht gesetzt"} · Schule = {roots?.schule?.replace(/^web:/, "") ?? "nicht gesetzt"}</p>
           <div className="actions static">
             <button className="btn fpickmain" onClick={chooseMainFolder}><span>Hauptordner wählen</span></button>
             <button className="mini" onClick={() => chooseSingle("arbeit")}>Arbeit-Ordner einzeln wählen</button>
@@ -454,7 +459,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
             {missing.map((f) => (
               <div key={f.id} className="hrow">
                 <span className="hname"><b>{f.name}</b><small>{f.path}</small></span>
-                <button className="mini hot" onClick={() => relink(f)}>Datei suchen</button>
+                {!isWebApp && <button className="mini hot" onClick={() => relink(f)}>Datei suchen</button>}
                 <button className="mini" onClick={() => forget(f)}>Aus App entfernen</button>
               </div>
             ))}

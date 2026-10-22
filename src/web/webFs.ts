@@ -1,9 +1,8 @@
 // Datei-Funktionen im Browser: Dateien wählen, „Speichern unter“ (oder Herunterladen).
 // Freie Ordnerpfade (Dateien-Seite) gibt es im Browser nicht; dafür kommt eine eigene Lösung.
 import type { FsApi } from "../fsapi";
+import { registerFile, webFolderFs } from "./webFiles";
 
-const picked = new Map<string, File>();
-let n = 0;
 function pick(multiple: boolean, accept = ""): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
@@ -13,23 +12,13 @@ function pick(multiple: boolean, accept = ""): Promise<File[]> {
     input.click();
   });
 }
-const register = (f: File) => { const p = `web-datei:${++n}/${f.name}`; picked.set(p, f); return p; };
+const register = registerFile;
 const notHere = async (): Promise<never> => { throw new Error("Das geht in der Web-App noch nicht. Nutze dafür das PC-Programm."); };
 
 export const webFs: FsApi = {
-  tree: async (root) => ({ name: root, path: root, children: [] }),
-  list: async () => [],
-  exists: async (p) => picked.has(p),
-  isDir: async () => false,
-  mkdir: notHere, uniqueName: async (_d, name) => name, move: notHere, open: notHere, reveal: notHere,
+  ...webFolderFs,
   pickFiles: async () => (await pick(true)).map(register),
-  pickFolder: async () => null,
   pickFile: async () => { const f = (await pick(false))[0]; return f ? register(f) : null; },
-  read: async (path, max) => {
-    const f = picked.get(path); if (!f) throw new Error("Datei nicht mehr verfügbar, bitte erneut wählen.");
-    if (f.size > max) throw new Error("Die Datei ist zu groß.");
-    return new Uint8Array(await f.arrayBuffer());
-  },
   saveFile: async (defaultName, bytes, filterName, ext) => {
     const w = window as any;
     if (w.showSaveFilePicker) {   // Chrome/Edge: echtes „Speichern unter“

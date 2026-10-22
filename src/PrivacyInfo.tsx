@@ -16,6 +16,14 @@ export function PrivacyInfo() {
         <h4>Was passiert beim Aufruf der Web-App?</h4>
         <p>Die App-Dateien kommen von dem Webserver, auf dem die Web-App liegt (z. B. GitLab Pages eures Betriebs). Dabei entstehen wie bei jedem Webserver technische Protokolle, etwa mit deiner IP-Adresse. Deine Inhalte gehen dabei nie an den Server. Das verhindern auch die Sicherheitsregeln der App.</p>
       </>}
+      {isWebApp && <>
+        <h4>Passwortschutz (Profil)</h4>
+        <p>Mit Passwortschutz sind Datenbank und Anhänge verschlüsselt (AES-256). Das Passwort wird nirgends gespeichert; es gibt keinen Zugang durch andere und keinen Reset. Wer Ordner <b>und</b> Passwort (oder Wiederherstellungsschlüssel) hat, kommt an die Daten, sonst niemand. Dateinamen und -größen bleiben sichtbar, nur der Inhalt ist verschlüsselt. „Angemeldet bleiben“ speichert einen Schlüssel nur in diesem Browser, nie das Passwort. Die ZIP-Sicherung „Daten mitnehmen“ enthält die Daten unverschlüsselt, bewahre sie entsprechend auf.</p>
+      </>}
+      {isWebApp && <>
+        <h4>Ordner-Freigaben (Dateien-Seite)</h4>
+        <p>Der Browser darf nur auf Ordner zugreifen, die du einzeln freigibst. Die Freigabe merkt sich nur dieser Browser (nicht die Datenbank und nicht deine Cloud). Die Erlaubnis läuft ab, wenn du den Browser schließt, und du bestätigst sie mit einem Klick neu. Dateien in diesen Ordnern werden von AzuNavi <b>nicht</b> verschlüsselt, das sind deine normalen Dateien. Nur die App-Daten im Datenordner sind mit Passwortschutz verschlüsselt.</p>
+      </>}
       <h4>Daten anderer Menschen (Kontakte)</h4>
       <p>Speichere nur, was du für die Ausbildung brauchst. In „Notizen zur Person“ gehören <b>keine Bewertungen, keine Gesundheitsdaten und nichts Privates</b>.</p>
       <h4>Speicherort</h4>

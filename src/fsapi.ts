@@ -27,6 +27,8 @@ export interface FsApi {
   saveFile(defaultName: string, bytes: Uint8Array, filterName: string, ext: string): Promise<string | null>;
   /** Datei ohne Dialog an einen bekannten Pfad schreiben (z. B. in den gewählten Cloud-Ordner am PC) */
   writeFile(path: string, bytes: Uint8Array): Promise<void>;
+  /** Nur Web-App: Zugriff auf einen freigegebenen Ordner nach einem Klick neu erlauben (der Browser vergisst das beim Schließen) */
+  grant?(path: string): Promise<boolean>;
 }
 
 const real: FsApi = {

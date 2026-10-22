@@ -30,6 +30,8 @@ async function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectS
 const kvGet = <T,>(k: string) => tx<T | undefined>(KV, "readonly", (s) => s.get(k) as IDBRequest<T | undefined>);
 const kvSet = (k: string, v: unknown) => tx(KV, "readwrite", (s) => s.put(v, k));
 const kvDel = (k: string) => tx(KV, "readwrite", (s) => s.delete(k));
+/** Für webFiles.ts: gemerkte Ordner-Freigaben (nur in diesem Browser) */
+export const kvRead = kvGet, kvWrite = kvSet;
 
 /* ---------- Speicherorte (mehrere, für die Profilauswahl an gemeinsam genutzten PCs) ---------- */
 interface LocRec { id: string; kind: Kind; name: string; handle?: FileSystemDirectoryHandle; profileName?: string; declined?: boolean }

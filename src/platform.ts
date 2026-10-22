@@ -7,3 +7,6 @@ export const inTauriApp = typeof window !== "undefined" && "__TAURI_INTERNALS__"
 export const isWebApp = !inTauriApp && import.meta.env.VITE_AZ_WEB === "1";
 /** Kein PC-Programm: Handy-App oder Web-App. Dort gibt es kein Fenster, kein Java und keine freien Pfade. */
 export const noDesktop = isMobile || isWebApp;
+
+/** Der Browser kann Ordner freigeben (Chrome, Edge, Opera am PC): Voraussetzung für die Dateien-Seite in der Web-App */
+export const canUseFolders = typeof window !== "undefined" && "showDirectoryPicker" in window && !isMobile;

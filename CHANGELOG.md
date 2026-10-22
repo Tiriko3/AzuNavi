@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.3.1 – Dateien-Seite im Browser
+- Die **Dateien-Seite** läuft jetzt auch in der Web-App (Chrome, Edge, Opera am PC): Du gibst deine Hauptordner (Arbeit und Schule) einmal frei, danach siehst du den Ordnerbaum, legst Ordner an, sortierst Dateien mit dem Assistenten ein, ordnest Projekte zu und nutzt Vorschau und Verlauf.
+- **Ziehen & Ablegen** von Dateien und Ordnern ins Fenster funktioniert auch im Browser.
+- Dateien von außerhalb werden **kopiert** (der Browser darf das Original nicht löschen), Verschiebungen innerhalb deiner freigegebenen Ordner sind echte Verschiebungen mit Rückgängig.
+- Der Browser vergisst die Erlaubnis beim Schließen: Dann erscheint **„Zugriff erlauben“**, ein Klick genügt. Nicht verfügbar im Browser: „Im Explorer zeigen“, Ordner öffnen, „Datei suchen“ bei verschobenen Dateien.
+- Andere Browser und Handys zeigen einen Hinweis statt der Seite.
+- Neu: `tools/webfiles-test.mts` (Test der Datei-Logik).
+
 ## 0.3.0 – Profile mit Passwort (Web-App)
 - **Passwortschutz mit Verschlüsselung** für die Web-App: Datenbank und Anhänge im Datenordner (oder im Browser-Speicher) werden mit AES-256-GCM verschlüsselt. Kein zentrales Konto, kein Server: Wer Ordner **und** Passwort hat, kommt an die Daten.
 - Passwort mindestens 12 Zeichen (PBKDF2-SHA256, 600.000 Runden). Der Datenschlüssel liegt zweimal verpackt in `profil.json`: per Passwort und per **Wiederherstellungsschlüssel**, der bei der Einrichtung einmal angezeigt wird. Ohne beides sind die Daten weg (kein Admin-Reset).
@@ -9,6 +17,7 @@
 - Passwort ändern, Passwort vergessen → Wiederherstellungsschlüssel. Einschalten unter System → Passwortschutz (am Handy: Mehr → Passwortschutz).
 - Dateien sind an ihren Pfad gebunden: vertauschte oder manipulierte Dateien werden abgelehnt. Dateinamen und -größen bleiben sichtbar, nur der Inhalt ist verschlüsselt.
 - PC-Programm und Android-App sind unverändert (kommen in einer späteren Version).
+- Datenschutzseite erklärt den Passwortschutz.
 - Neu: `tools/vault-test.mts` (Test der Verschlüsselung).
 
 ## 0.1.2 – Windows-Setup auf der Download-Seite
