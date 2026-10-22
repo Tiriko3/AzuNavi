@@ -70,6 +70,8 @@ pub fn run() {
         data_cmds::legacy_info,
         data_cmds::legacy_backup,
         fs_grants::fs_grants_state,
+        fs_grants::fs_grants_list,
+        fs_grants::fs_grants_revoke,
         fs_grants::fs_adopt,
         fs_grants::fs_pick_folder,
         fs_grants::fs_pick_files,

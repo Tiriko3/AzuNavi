@@ -10,6 +10,7 @@ import namiImg from "../assets/figuren/nami_gruss.webp";
 import { DOWNLOAD_URL } from "./downloadUrl";
 import { isDesktopApp } from "../platform";
 import { installCloseGuard } from "./closeGuard";
+import { GateBackground, Intro } from "./Intro";
 import { folderHasDb, legacyBackup, legacyInfo, runLegacyImport, type BackupInfo, type ImportReport, type LegacyInfo } from "../desktop/legacy";
 
 type Step = "laden" | "liste" | "wahl" | "entsperren" | "wiederherstellen" | "angebot" | "einrichten" | "schluessel" | "migration" | "alt" | "uebernahme" | "sperre" | "bereit";
@@ -114,7 +115,7 @@ export function WebGate({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("azunavi-save", onSave);
   }, []);
 
-  if (step === "bereit") return <>{children}{profile && <AutoLock />}<div className={"websave " + save.state} title={save.detail || "Alles ist im Datenordner gespeichert"}>{save.state === "speichert" ? "Speichert …" : save.state === "fehler" ? "⚠ Nicht gespeichert" : "✓ Gespeichert"}</div></>;
+  if (step === "bereit") return <>{children}<Intro />{profile && <AutoLock />}<div className={"websave " + save.state} title={save.detail || "Alles ist im Datenordner gespeichert"}>{save.state === "speichert" ? "Speichert …" : save.state === "fehler" ? "⚠ Nicht gespeichert" : "✓ Gespeichert"}</div></>;
 
   const run = (label: string, f: () => Promise<void>) => async () => { setErr(""); setBusy(label); try { await f(); } catch (e) { setErr(msg(e)); } finally { setBusy(""); } };
   const pickFolder = run("", async () => { const id = await addFolder(); if (id) await open(id); });
@@ -159,6 +160,7 @@ export function WebGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="webgate">
+      <GateBackground />
       <div className="wg-card">
         <img className="wg-nami" src={namiImg} alt="" />
         <h1>AzuNavi<small>{isDesktopApp ? "PC-Programm" : "Web-App"}</small></h1>

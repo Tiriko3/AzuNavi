@@ -1,5 +1,20 @@
 # Änderungen
 
+## 0.4.3 – Freigaben ansehen und entziehen, kleinere Rechte am PC
+- **System → Freigegebene Ordner (PC):** Eine Übersicht zeigt, auf welche Ordner und Dateien AzuNavi außerhalb des Datenordners zugreifen darf. Jeder Ordner lässt sich mit zwei Klicks wieder entziehen („Entziehen“, dann „Wirklich entziehen?“), die einzelnen verknüpften Dateien und die Rückgängig-Orte mit „Alle entziehen“. Es wird nie etwas gelöscht oder verändert: Die Ordner und Dateien bleiben liegen, du wählst sie bei Bedarf auf der Dateien-Seite neu aus. Der Entzug wirkt sofort.
+- **Kleinere Rechte (capabilities) am PC:** Das Fenster darf am PC nur noch die alte `persona.db` lesen und laden (nicht mehr schreiben), im App-Ordner nur lesen (nicht mehr schreiben) und den Öffnen-Dialog benutzen (nicht mehr Speichern, Meldungen, Fragen). Schreiben und Speichern laufen über die geprüften Rust-Befehle (Datenordner, Freigaben).
+- **Handy unverändert:** Die Rechte der Android-App stehen jetzt in `capabilities/mobile.json` genau wie vorher (die Datei `default.json` gilt nur noch für Windows, Linux und macOS).
+- Neu: Rust-Test fürs Entziehen (`fsguard.rs`), Browser-Test der Übersicht (`tools/desktop-e2e.mts`, Abschnitt I).
+
+## 0.4.2 – Startbildschirm mit Wasser-Animation und Intro
+- **Startbildschirm:** Hinter der Startkarte läuft ruhiges Wasser mit Lichtstrahlen und Blasen (kleines WebM ohne Ton, nahtlose Schleife, ca. 215 KB). Es pausiert, wenn das Fenster nicht sichtbar ist.
+- **Intro beim Start:** Beim Öffnen von AzuNavi läuft einmal pro Start ein kurzer Übergang (ca. 4 s, Panels und Blasen, ca. 860 KB). Ein Klick oder eine Taste überspringt ihn. Innerhalb derselben Sitzung (z. B. nach „Sperren“ oder Neuladen) kommt er nicht noch einmal.
+- **Abschaltbar:** Der Schalter **System → Animationen** schaltet beides aus (dann nur Standbild und kein Intro). Das gilt schon beim nächsten Start, auch vor dem Laden der Datenbank. Wünscht das Betriebssystem „reduzierte Bewegung“, bleibt es ebenfalls beim Standbild.
+- Gilt für PC-Programm und Web-App. Die Handy-App ist unverändert.
+- Web-App: Der Service Worker legt Videos (Teilantworten) nicht mehr in den Zwischenspeicher, damit es keine Fehlermeldungen gibt.
+- Die Videos wurden mit Gemini erzeugt und sind für die private Nutzung gedacht, nicht zum Weitergeben oder Veröffentlichen.
+- Tests: `tools/desktop-e2e.mts` prüft jetzt auch, dass das Video wirklich läuft, das Intro erscheint und sich überspringen lässt, nicht doppelt kommt und bei „Animationen aus“ und reduzierter Bewegung entfällt.
+
 ## 0.4.1 – Datei-Befehle nur noch an freigegebenen Orten (PC)
 - **Sicherer Zugriff auf deine Dateien:** Die Datei-Befehle (Dateien-Seite, Verschieben, Vorschau, Öffnen, Cloud-Sicherung) arbeiten am PC nur noch in Ordnern und an Dateien, die du selbst freigegeben hast. Vorher konnten sie jeden Pfad lesen und schreiben und waren nur durch die Sicherheitsregeln des Fensters geschützt.
 - **Wie etwas freigegeben wird:** Du wählst Ordner (Arbeit, Schule, Cloud-Ordner) und Dateien in Dialogen, die das Programm selbst (Rust) öffnet. Gewählte Ordner merkt sich AzuNavi dauerhaft (`freigaben.json`). Mit einem Projekt verknüpfte Dateien ebenfalls. Alles andere, was du auswählst oder aufs Fenster ziehst, gilt nur für diese Sitzung. Das Frontend kann nichts selbst freigeben.

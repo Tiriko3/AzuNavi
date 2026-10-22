@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile-files",
-  "description": "Nur Handy: Dateien, die der Nutzer im Android-Dialog wählt (content://), lesen und schreiben. Gilt nicht am PC.",
+  "description": "Nur Handy (Android): bisherige Rechte unverändert. Die Handy-App nutzt weiter das SQL-Plugin und den App-Ordner, bis sie auf Datenordner und Profile umgestellt wird. Dazu Dateien, die der Nutzer im Android-Dialog wählt (content://), lesen und schreiben.",
   "platforms": [
     "android",
     "iOS"
@@ -10,6 +10,22 @@
     "main"
   ],
   "permissions": [
+    "core:default",
+    "sql:default",
+    "sql:allow-execute",
+    "fs:default",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    "dialog:default",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-set-decorations",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-center",
+    "core:window:allow-set-size",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
     "fs:allow-read-file",
     "fs:allow-write-file"
   ]

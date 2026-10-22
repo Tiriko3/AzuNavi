@@ -22,6 +22,7 @@ import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { isDesktopApp, isMobile, isWebApp, noDesktop, usesDataFolder } from "../platform";
 import { CHARACTERS } from "../chars";
+import { listGrants, revokeGrant, type GrantsList } from "../desktop/grants";
 
 import { APP_VERSION } from "../version";
 export { APP_VERSION };
@@ -179,6 +180,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
           {usesDataFolder && <WebDataRow />}
+          {isDesktopApp && <GrantsPanel />}
           {isWebApp && DOWNLOAD_URL && <div className="sysrow"><span>Handy-App (Android)</span><a className="mini" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Herunterladen</a></div>}
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
           <div className="sysrow"><span>Datenschutz &amp; Speicherorte</span><button className="mini" onClick={() => setPrivOpen(true)}>Ansehen</button></div>
@@ -246,6 +248,37 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
         </div>
       )}
     </div>
+  );
+}
+
+/** PC (ab 0.4.2): Was darf AzuNavi außerhalb des Datenordners anfassen? Hier lässt sich jede Freigabe wieder entziehen (die Ordner und Dateien bleiben unberührt). */
+function GrantsPanel() {
+  const [g, setG] = useState<GrantsList | null>(null);
+  const [arm, setArm] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const load = () => listGrants().then(setG).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+  const revoke = async (key: string, kind: "root" | "file" | "all-files", path?: string) => {
+    if (arm !== key) { setArm(key); window.setTimeout(() => setArm((a) => (a === key ? null : a)), 3000); return; }
+    setArm(null); setErr("");
+    try { await revokeGrant(kind, path); await load(); } catch (e) { setErr(String((e as Error)?.message ?? e)); }
+  };
+  if (!g) return err ? <p className="small">{err}</p> : null;
+  const none = !g.roots.length && !g.files.length;
+  return (
+    <>
+      <div className="sysrow"><span>Freigegebene Ordner</span><span className="small">{none ? "noch nichts" : `${g.roots.length} Ordner, ${g.files.length} Datei(en)`}</span></div>
+      {g.roots.map((r) => (
+        <div className="sysrow" key={r.path}><span className="small" style={{ wordBreak: "break-all" }} title={r.path}>{r.name}{r.exists ? "" : " (nicht gefunden)"}<br />{r.path}</span>
+          <button className={"mini" + (arm === "r" + r.path ? " hot" : "")} onClick={() => revoke("r" + r.path, "root", r.path)}>{arm === "r" + r.path ? "Wirklich entziehen?" : "Entziehen"}</button></div>
+      ))}
+      {(g.files.length > 0 || g.undo_dirs > 0) && (
+        <div className="sysrow"><span className="small">{g.files.length} verknüpfte Datei(en), {g.undo_dirs} Rückgängig-Ort(e)</span>
+          <button className={"mini" + (arm === "files" ? " hot" : "")} onClick={() => revoke("files", "all-files")}>{arm === "files" ? "Wirklich entziehen?" : "Alle entziehen"}</button></div>
+      )}
+      <p className="small">AzuNavi greift außerhalb des Datenordners nur auf diese Orte zu. Entziehen löscht nichts: Die Ordner und Dateien bleiben, du wählst sie bei Bedarf auf der Dateien-Seite neu aus.</p>
+      {err && <p className="small">{err}</p>}
+    </>
   );
 }
 

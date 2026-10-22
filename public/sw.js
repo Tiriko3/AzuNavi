@@ -9,6 +9,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const r = e.request;
   if (r.method !== "GET" || new URL(r.url).origin !== self.location.origin) return;
+  if (r.headers.has("range")) return;   // Videos kommen in Teilen (206) und lassen sich nicht in den Zwischenspeicher legen
   if (r.mode === "navigate") {
     e.respondWith(fetch(r).then((res) => { const cp = res.clone(); caches.open(CACHE).then((c) => c.put("./", cp)); return res; }).catch(() => caches.match("./")));
     return;

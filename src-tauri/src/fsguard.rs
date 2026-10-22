@@ -108,6 +108,23 @@ impl Grants {
     pub fn add_session(&mut self, canon: PathBuf) {
         Self::push_unique(&mut self.session, canon);
     }
+    /// Einen dauerhaft freigegebenen Ordner entziehen. Gibt an, ob es ihn gab.
+    pub fn revoke_root(&mut self, p: &Path) -> bool {
+        let n = self.roots.len();
+        self.roots.retain(|r| r != p);
+        self.roots.len() != n
+    }
+    /// Eine dauerhaft gemerkte Datei entziehen
+    pub fn revoke_file(&mut self, p: &Path) -> bool {
+        let n = self.files.len();
+        self.files.retain(|f| f != p);
+        self.files.len() != n
+    }
+    /// Alle einzelnen Dateien und alle Rückweg-Ordner entziehen (die freigegebenen Ordner bleiben)
+    pub fn clear_files(&mut self) {
+        self.files.clear();
+        self.undo_dirs.clear();
+    }
     /// Quellordner einer Verschiebung merken, damit „Rückgängig“ auch nach einem Neustart zurücklegen darf (höchstens 50)
     pub fn add_undo_dir(&mut self, canon: PathBuf) -> bool {
         if self.roots.iter().any(|r| inside(&canon, r)) {
@@ -280,6 +297,37 @@ mod tests {
             g.add_undo_dir(d.canonicalize().unwrap());
         }
         assert!(g.undo_dirs.len() <= 50);
+    }
+
+    #[test]
+    fn freigaben_entziehen() {
+        let t = Tmp::new("weg");
+        let (a, b, d) = (t.p().join("A"), t.p().join("B"), t.p().join("Downloads"));
+        for x in [&a, &b, &d] {
+            fs::create_dir_all(x).unwrap();
+        }
+        fs::write(d.join("x.pdf"), b"x").unwrap();
+        let mut g = Grants::default();
+        g.add_root(a.clone());
+        g.add_root(b.clone());
+        g.add_file(d.join("x.pdf").canonicalize().unwrap());
+        g.add_undo_dir(d.canonicalize().unwrap());
+        assert!(g.allowed(&a, Need::Read) && g.allowed(&b, Need::Dest) && g.allowed(&d.join("x.pdf"), Need::Read) && g.allowed(&d, Need::Dest));
+        assert!(g.revoke_root(&a));
+        assert!(!g.allowed(&a, Need::Read) && !g.allowed(&a.join("neu"), Need::Dest), "entzogener Ordner ist zu");
+        assert!(g.allowed(&b, Need::Read), "der andere bleibt");
+        assert!(!g.revoke_root(&a), "zweites Entziehen findet nichts");
+        assert!(!g.revoke_root(&t.p().join("gibts-nicht")));
+        g.clear_files();
+        assert!(!g.allowed(&d.join("x.pdf"), Need::Read) && !g.allowed(&d, Need::Dest), "Einzeldateien und Rückweg sind weg");
+        assert!(g.allowed(&b, Need::Read), "Ordner bleiben");
+        g.add_file(d.join("x.pdf").canonicalize().unwrap());
+        assert!(g.revoke_file(&d.join("x.pdf").canonicalize().unwrap()));
+        assert!(!g.allowed(&d.join("x.pdf"), Need::Read));
+        // Sitzungsfreigaben und andere Ordner bleiben beim Entziehen einer Datei unberührt
+        g.add_session(d.canonicalize().unwrap());
+        g.revoke_root(&b);
+        assert!(g.allowed(&d.join("x.pdf"), Need::Read), "diese Sitzung gilt weiter");
     }
 
     #[test]

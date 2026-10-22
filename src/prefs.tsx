@@ -26,6 +26,7 @@ export function applyPrefs(p: Prefs) {
   const r = document.documentElement;
   r.style.setProperty("--fs", String(p.font));
   r.classList.toggle("no-anim", !p.anim);
+  try { localStorage.setItem("azunavi.anim", p.anim ? "1" : "0"); } catch { /* egal */ }   // der Startbildschirm (vor der Datenbank) liest das
   r.classList.toggle("no-mascot", !p.mascot);
 }
 

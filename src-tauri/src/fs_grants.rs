@@ -184,6 +184,58 @@ pub async fn fs_adopt(app: AppHandle, window: WebviewWindow, state: State<'_, Fs
     Ok(AdoptResult { answer: if yes { "ja" } else { "nein" }.into(), folders: nf, files: nfi })
 }
 
+#[derive(Serialize)]
+pub struct GrantItem {
+    /// Pfad zur Anzeige (und zum Entziehen: genau diesen Text zurückgeben)
+    path: String,
+    name: String,
+    exists: bool,
+}
+
+#[derive(Serialize)]
+pub struct GrantsList {
+    roots: Vec<GrantItem>,
+    files: Vec<GrantItem>,
+    /// Anzahl gemerkter Rückweg-Ordner (zum Zurücklegen verschobener Dateien)
+    undo_dirs: usize,
+}
+
+fn item(p: &Path) -> GrantItem {
+    let shown = dd::display_path(p);
+    let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| shown.clone());
+    GrantItem { exists: p.exists(), path: shown, name }
+}
+
+/// Was ist dauerhaft freigegeben? (Für die Übersicht unter System)
+#[tauri::command]
+pub async fn fs_grants_list(state: State<'_, FsGrants>) -> Result<GrantsList, String> {
+    let g = state.inner.lock().map_err(|_| "Interner Fehler.".to_string())?;
+    Ok(GrantsList { roots: g.roots.iter().map(|p| item(p)).collect(), files: g.files.iter().map(|p| item(p)).collect(), undo_dirs: g.undo_dirs.len() })
+}
+
+/// Eine Freigabe entziehen. `kind`: "root" (Ordner), "file" (einzelne Datei), "all-files" (alle Einzeldateien und Rückweg-Ordner).
+/// Die Ordner und Dateien selbst werden nie angefasst. `path` ist der Text aus fs_grants_list.
+#[tauri::command]
+pub async fn fs_grants_revoke(app: AppHandle, state: State<'_, FsGrants>, kind: String, path: Option<String>) -> Result<(), String> {
+    {
+        let mut g = state.inner.lock().map_err(|_| "Interner Fehler.".to_string())?;
+        let find = |list: &Vec<PathBuf>| path.as_ref().and_then(|want| list.iter().find(|p| dd::display_path(p) == *want).cloned());
+        match kind.as_str() {
+            "root" => {
+                let p = find(&g.roots).ok_or_else(|| "Diese Freigabe gibt es nicht (mehr).".to_string())?;
+                g.revoke_root(&p);
+            }
+            "file" => {
+                let p = find(&g.files).ok_or_else(|| "Diese Freigabe gibt es nicht (mehr).".to_string())?;
+                g.revoke_file(&p);
+            }
+            "all-files" => g.clear_files(),
+            _ => return Err("Unbekannte Art.".into()),
+        }
+    }
+    save(&app, &state)
+}
+
 /// Ordner-Dialog. `keep`: dauerhaft freigeben (Arbeit, Schule, Cloud-Ordner) oder nur für diese Sitzung (Quellordner zum Verschieben).
 /// Gibt den gewählten Pfad zurück, bei Abbruch null.
 #[tauri::command]

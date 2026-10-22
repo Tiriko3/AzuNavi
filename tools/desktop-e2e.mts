@@ -20,7 +20,7 @@ const server = http.createServer(async (req, res) => {
 function makeBackend() {
   const disk = new Map<string, Uint8Array>();
   const locs: { id: string; path: string }[] = [];
-  const st = { current: null as string | null, missing: false, destroyed: 0, backups: 0, legacy: true, picks: 0, calls: [] as string[] };
+  const st = { roots: ["C:\\Users\\Test\\Arbeit", "C:\\Users\\Test\\Schule"], gfiles: ["C:\\Downloads\\a.pdf"], undo: 2, current: null as string | null, missing: false, destroyed: 0, backups: 0, legacy: true, picks: 0, calls: [] as string[] };
   const legacy = legacyDb(SQL); const lfiles = FILES();
   const OK_TOP = new Set(["azunavi.db", "profil.json", "azunavi.lock"]);
   const checkRel = (rel: string) => { const ok = (OK_TOP.has(rel) || (rel.startsWith("dateien/") && rel.length > 8)) && rel.split("/").every((p) => p && p !== ".." && !/[<>:"|?*\\\x00-\x1f]/.test(p) && !/[. ]$/.test(p)); if (!ok) throw "Dieser Pfad gehört nicht zu AzuNavi."; };
@@ -38,6 +38,13 @@ function makeBackend() {
       case "data_list": return [...disk.keys()].sort();
       case "data_remove_lock": disk.delete("azunavi.lock"); return null;
       case "fs_grants_state": return { asked: true };
+      case "fs_grants_list": return { roots: st.roots.map((p) => ({ path: p, name: p.split("\\").pop(), exists: true })), files: st.gfiles.map((p) => ({ path: p, name: p.split("\\").pop(), exists: true })), undo_dirs: st.undo };
+      case "fs_grants_revoke": {
+        if (args.kind === "root") { if (!st.roots.includes(args.path)) throw "Diese Freigabe gibt es nicht (mehr)."; st.roots = st.roots.filter((p) => p !== args.path); }
+        else if (args.kind === "file") st.gfiles = st.gfiles.filter((p) => p !== args.path);
+        else if (args.kind === "all-files") { st.gfiles = []; st.undo = 0; } else throw "Unbekannte Art.";
+        return null;
+      }
       case "legacy_info": return { exists: st.legacy, size: 4_200_000, modified: 1_790_000_000, dir: "C:\\Users\\Test\\AppData\\Roaming\\com.local.personaapp", backup_dir: null };
       case "legacy_backup": st.backups++; return { dir: "C:\\Users\\Test\\AppData\\Roaming\\com.local.personaapp\\Sicherung-vor-0.4.0", files: ["persona-x.db"], bytes: 4_200_000, created: st.backups === 1 };
       case "plugin:sql|load": return args.db;
@@ -74,8 +81,9 @@ let ok = 0, bad = 0;
 const check = (c: unknown, m: string) => { if (c) ok++; else { bad++; console.log("  ✗ " + m); } };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
 
-async function session(be: ReturnType<typeof makeBackend>) {
-  const ctx: BrowserContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean } = {}) {
+  const ctx: BrowserContext = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: opts.reducedMotion });
+  if (opts.animOff) await ctx.addInitScript(() => localStorage.setItem("azunavi.anim", "0"));
   await ctx.exposeFunction("__node", async (cmd: string, args: any, b64: string | null, headers: any) => { try { return (await be.handle(cmd, args, b64, headers)) ?? null; } catch (e) { return { __err: typeof e === "string" ? e : String((e as Error)?.message ?? e) }; } });
   await ctx.addInitScript(INIT);
   const errors: string[] = [];
@@ -213,6 +221,74 @@ console.log("E: eine alte Datei ist nicht lesbar: der Rest wird trotzdem überno
   await p.click("button:has-text('Daten übernehmen')");
   await p.waitForSelector("text=✓ Übernommen", { timeout: 30000 });
   check((await text(p)).includes("2 Datei(en) waren schon im alten Ordner nicht mehr vorhanden"), "nicht lesbare Datei wird gemeldet, Rest übernommen");
+  await s.ctx.close();
+}
+
+
+console.log("G: Hintergrund und Intro");
+{
+  const be = makeBackend(); const s = await session(be); let p = await s.open();
+  await p.waitForSelector("button:has-text('Datenordner wählen')");
+  await p.waitForTimeout(900);
+  check((await p.locator(".wg-bg video").count()) === 1, "Startbildschirm hat den Wasser-Hintergrund als Video");
+  check(await p.evaluate(() => { const v = document.querySelector(".wg-bg video") as HTMLVideoElement; return !!v && !v.paused && v.currentTime > 0 && v.videoWidth === 1280; }), "Video läuft wirklich (Chromium kann die WebM-Datei abspielen)");
+  await shot(p, "7-gate-video");
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten");
+  await p.click("button:has-text('Ohne alte Daten starten')");
+  await p.waitForSelector(".intro video", { timeout: 20000 });
+  await p.waitForTimeout(1300); await shot(p, "8-intro");
+  check(await p.evaluate(() => { const v = document.querySelector(".intro video") as HTMLVideoElement; return !v.paused && v.currentTime > 0.5; }), "Intro läuft");
+  await p.click(".intro");
+  await p.waitForSelector(".intro", { state: "detached", timeout: 3000 });
+  check(true, "Klick überspringt das Intro");
+  await shot(p, "9-app-nach-intro");
+  await p.reload(); await gone(p); await p.waitForTimeout(600);
+  check((await p.locator(".intro").count()) === 0, "in derselben Sitzung kein zweites Intro");
+  await closeWin(p);
+  // Intro läuft von allein zu Ende
+  p = await s.open(); await gone(p);
+  await p.waitForSelector(".intro video"); await p.waitForSelector(".intro", { state: "detached", timeout: 9000 });
+  check(true, "Intro endet von selbst (ca. 4 s)");
+  await s.ctx.close();
+}
+for (const [name, opts] of [["Animationen aus", { animOff: true }], ["Betriebssystem: reduzierte Bewegung", { reducedMotion: "reduce" as const }]] as const) {
+  console.log("H: " + name);
+  const be = makeBackend(); const s = await session(be, opts); const p = await s.open();
+  await p.waitForSelector("button:has-text('Datenordner wählen')");
+  check((await p.locator(".wg-bg video").count()) === 0 && (await p.locator(".wg-bg img").count()) === 1, "nur Standbild, kein Video");
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+  await gone(p); await p.waitForTimeout(1200);
+  check((await p.locator(".intro").count()) === 0, "kein Intro");
+  await s.ctx.close();
+}
+
+
+console.log("I: System → Freigaben ansehen und entziehen");
+{
+  const be = makeBackend(); const s = await session(be, { animOff: true }); const p = await s.open();
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+  await gone(p); await p.waitForTimeout(1500);
+  await p.click("text=Tutorial überspringen"); await p.waitForTimeout(500);
+  for (let i = 0; i < 7 && !(await text(p)).includes("Ton, Datenbank und Einstellungen"); i++) { await p.keyboard.press("ArrowDown"); await p.waitForTimeout(450); }
+  await p.keyboard.press("Enter");
+  await p.waitForSelector("text=Freigegebene Ordner", { timeout: 15000 });
+  let t = await text(p);
+  check(t.includes("2 Ordner, 1 Datei(en)"), "Zusammenfassung: 2 Ordner, 1 Datei");
+  check(t.includes("C:\\Users\\Test\\Arbeit") && t.includes("C:\\Users\\Test\\Schule"), "beide Ordner mit Pfad aufgelistet");
+  check(t.includes("1 verknüpfte Datei(en), 2 Rückgängig-Ort(e)"), "Einzeldateien und Rückgängig-Orte gezählt");
+  await shot(p, "10-freigaben");
+  const btn = p.locator(".sysrow", { hasText: "C:\\Users\\Test\\Arbeit" }).locator("button");
+  await btn.click();
+  check((await btn.innerText()).toLowerCase().includes("wirklich"), "erster Klick fragt nach");
+  check(be.st.roots.length === 2, "… und entzieht noch nichts");
+  await btn.click(); await p.waitForTimeout(400);
+  check(be.st.roots.length === 1 && be.st.roots[0].endsWith("Schule"), "zweiter Klick entzieht genau diesen Ordner");
+  check(!(await text(p)).includes("Users\\Test\\Arbeit"), "Liste aktualisiert sich");
+  const all = p.locator(".sysrow", { hasText: "verknüpfte Datei" }).locator("button");
+  await all.click(); await all.click(); await p.waitForTimeout(400);
+  check(be.st.gfiles.length === 0 && be.st.undo === 0 && be.st.roots.length === 1, "„Alle entziehen“ entzieht Dateien, der Ordner bleibt");
+  check(!(await text(p)).includes("verknüpfte Datei"), "Zeile für Einzeldateien verschwindet");
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }
 

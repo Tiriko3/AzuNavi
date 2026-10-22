@@ -1,18 +1,22 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Rechte des Hauptfensters",
+  "description": "PC (ab 0.4.2): nur, was das Fenster wirklich braucht. Daten und Dateien laufen über eigene, geprüfte Rust-Befehle (datadir.rs, fsguard.rs). Datenbank schreiben und Dateien im App-Ordner schreiben gehören NICHT mehr dazu. Die alte persona.db wird nur noch gelesen (einmalige Übernahme).",
+  "platforms": [
+    "windows",
+    "linux",
+    "macOS"
+  ],
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "sql:default",
-    "sql:allow-execute",
-    "fs:default",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-close",
     "fs:allow-appdata-read-recursive",
-    "fs:allow-appdata-write-recursive",
-    "dialog:default",
+    "dialog:allow-open",
     "core:window:allow-set-fullscreen",
     "core:window:allow-set-decorations",
     "core:window:allow-maximize",

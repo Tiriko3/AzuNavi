@@ -20,3 +20,10 @@ export async function adoptKnownLocations(collect: () => Promise<{ folders: stri
   const { folders, files } = await collect();
   await invoke("fs_adopt", { folders, files });
 }
+
+/* ---------- Übersicht und Entziehen (System → Freigaben) ---------- */
+export interface GrantItem { path: string; name: string; exists: boolean }
+export interface GrantsList { roots: GrantItem[]; files: GrantItem[]; undo_dirs: number }
+export const listGrants = () => invoke<GrantsList>("fs_grants_list");
+/** Eine Freigabe entziehen. Die Ordner und Dateien selbst werden nie angefasst. `path` ist der Text aus listGrants. */
+export const revokeGrant = (kind: "root" | "file" | "all-files", path?: string) => invoke<void>("fs_grants_revoke", { kind, path: path ?? null });
