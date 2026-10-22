@@ -1,20 +1,24 @@
-// Datenordner der Web-App. Zwei Varianten:
-//  - "folder": ein Ordner, den du selbst wählst (z. B. OneDrive\AzuNavi). Geht in Chrome, Edge und Opera am PC.
+// Datenordner von Web-App und PC-Programm. Drei Varianten:
+//  - "folder": ein Ordner, den du im Browser wählst (z. B. OneDrive\AzuNavi). Geht in Chrome, Edge und Opera am PC.
 //  - "browser": der private Speicher dieses Browsers (IndexedDB). Geht überall, auch im Handy-Browser und in Firefox.
+//  - "disk": ein Ordner, den du im PC-Programm wählst (ab 0.4.0). Rust liest und schreibt dort, geprüft und nur innerhalb des Ordners (siehe disk.ts).
+//    Es sind dieselben Dateien wie bei "folder": derselbe Ordner lässt sich am PC und im Browser öffnen.
 // Inhalt des Ordners: azunavi.db (Datenbank), dateien/ (Anhänge, Porträts, Vorlage), azunavi.lock (wer gerade arbeitet),
 // profil.json (nur mit Passwortschutz: Profil, Salz, verpackter Datenschlüssel). Mit Passwortschutz sind Datenbank
 // und Anhänge verschlüsselt (siehe vault.ts); readData/writeData erledigen das für alle Seiten unsichtbar.
+import { disk, hasDisk } from "./disk";
 import { PROFILE_FILE, createProfile, decryptFile, encryptFile, isVaultFile, keyMatches, openWithPassword, openWithRecovery, parseProfile, profileBytes, toKey, withNewPassword, type ProfileFile } from "./vault";
 
-type Kind = "folder" | "browser";
+type Kind = "folder" | "browser" | "disk";
 const IDB = "azunavi-web", KV = "kv", FILES = "files";
 let kind: Kind | null = null;
 let root: FileSystemDirectoryHandle | null = null;
 let curId: string | null = null;
+let diskName = "";
 /** Passwortschutz dieses Ortes: Profil + Schlüssel (null = gesperrt). Ohne Eintrag: Ordner ohne Passwort. */
 let secured: { profile: ProfileFile; key: CryptoKey | null } | null = null;
 
-export const canPickFolder = typeof window !== "undefined" && "showDirectoryPicker" in window;
+export const canPickFolder = hasDisk || (typeof window !== "undefined" && "showDirectoryPicker" in window);
 
 function idb(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
@@ -34,23 +38,35 @@ const kvDel = (k: string) => tx(KV, "readwrite", (s) => s.delete(k));
 export const kvRead = kvGet, kvWrite = kvSet;
 
 /* ---------- Speicherorte (mehrere, für die Profilauswahl an gemeinsam genutzten PCs) ---------- */
-interface LocRec { id: string; kind: Kind; name: string; handle?: FileSystemDirectoryHandle; profileName?: string; declined?: boolean }
-export interface SavedLocation { id: string; kind: Kind; name: string; profileName?: string; needsPermission: boolean; declined: boolean }
+interface LocRec { id: string; kind: Exclude<Kind, "disk">; name: string; handle?: FileSystemDirectoryHandle; profileName?: string; declined?: boolean }
+export interface SavedLocation { id: string; kind: Kind; name: string; profileName?: string; needsPermission: boolean; declined: boolean; /** nur PC: Ordner gerade nicht auffindbar */ missing?: boolean; /** nur PC: voller Pfad zur Anzeige */ path?: string }
 
 async function recs(): Promise<LocRec[]> {
   const list = await kvGet<LocRec[]>("locations");
   if (list) return list;
-  const old = await kvGet<{ kind: Kind; handle?: FileSystemDirectoryHandle }>("location");   // bis Version 0.2: genau ein Ort
+  const old = await kvGet<{ kind: "folder" | "browser"; handle?: FileSystemDirectoryHandle }>("location");   // bis Version 0.2: genau ein Ort
   if (!old) return [];
   const rec: LocRec = { id: newId(), kind: old.kind, name: old.kind === "folder" ? old.handle?.name ?? "Ordner" : "Dieser Browser", handle: old.handle };
   await kvSet("locations", [rec]); await kvSet("current", rec.id); await kvDel("location");
   return [rec];
 }
+/** PC-Programm: Profilname und „ohne Passwort“-Entscheidung pro Datenordner merken (die Ordnerliste selbst gehört Rust) */
+type DiskMeta = Record<string, { profileName?: string; declined?: boolean }>;
+const diskMeta = async () => (await kvGet<DiskMeta>("diskmeta")) ?? {};
+async function patchDiskMeta(id: string, patch: { profileName?: string; declined?: boolean }) { const m = await diskMeta(); m[id] = { ...m[id], ...patch }; await kvSet("diskmeta", m); }
 const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-async function patchRec(id: string, patch: Partial<LocRec>) { const l = await recs(); const r = l.find((x) => x.id === id); if (r) { Object.assign(r, patch); await kvSet("locations", l); } }
+async function patchRec(id: string, patch: Partial<LocRec>) {
+  if (hasDisk) { await patchDiskMeta(id, patch); return; }
+  patchRecWeb(id, patch);
+}
+async function patchRecWeb(id: string, patch: Partial<LocRec>) { const l = await recs(); const r = l.find((x) => x.id === id); if (r) { Object.assign(r, patch); await kvSet("locations", l); } }
 
 /** Alle bekannten Speicherorte (ohne sie schon zu öffnen) */
 export async function savedLocations(): Promise<SavedLocation[]> {
+  if (hasDisk) {
+    const meta = await diskMeta();
+    return (await disk.locations()).map((l) => ({ id: l.id, kind: "disk" as const, name: l.name, path: l.path, missing: !l.exists, profileName: meta[l.id]?.profileName, needsPermission: false, declined: !!meta[l.id]?.declined }));
+  }
   const out: SavedLocation[] = [];
   for (const r of await recs()) {
     let needs = false;
@@ -62,6 +78,14 @@ export async function savedLocations(): Promise<SavedLocation[]> {
 export const currentLocationId = async () => (await kvGet<string>("current")) ?? null;
 /** Einen gespeicherten Ort öffnen. Bei einem Ordner muss das nach einem Klick passieren (Berechtigung). */
 export async function resumeLocation(id: string): Promise<boolean> {
+  if (hasDisk) {
+    try { diskName = (await disk.open(id)).name; }
+    catch (e) {
+      const t = String((e as Error)?.message ?? e);
+      throw new Error(t.includes("ORDNER_FEHLT") ? "Der Datenordner wurde nicht gefunden. Ist das Laufwerk oder die Cloud verbunden? Du kannst auch einen anderen Ordner wählen." : t);
+    }
+    kind = "disk"; root = null; curId = id; secured = null; await kvSet("current", id); return true;
+  }
   const r = (await recs()).find((x) => x.id === id); if (!r) return false;
   if (r.kind === "folder") {
     const perm = await (r.handle as any)?.requestPermission?.({ mode: "readwrite" });
@@ -71,6 +95,7 @@ export async function resumeLocation(id: string): Promise<boolean> {
   kind = r.kind; curId = r.id; secured = null; await kvSet("current", r.id); return true;
 }
 export async function addFolder(): Promise<string | null> {
+  if (hasDisk) { const l = await disk.pickFolder(); return l ? l.id : null; }   // Fehler (z. B. nicht beschreibbar) zeigt der Startbildschirm
   try {
     const h: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker({ id: "azunavi-daten", mode: "readwrite" });
     const list = await recs();
@@ -87,13 +112,19 @@ export async function addBrowser(): Promise<string> {
   return rec.id;
 }
 /** „Wechseln“: Ort schließen, die Liste der Orte kommt wieder (der Ort selbst bleibt gemerkt) */
-export async function forgetLocation() { await kvDel("current"); kind = null; root = null; curId = null; secured = null; }
+export async function forgetLocation() { await kvDel("current"); if (kind === "disk") await disk.close().catch(() => {}); kind = null; root = null; curId = null; secured = null; }
 /** Einen Ort aus der Liste nehmen (Ordner und Dateien bleiben unberührt) */
 export async function removeLocation(id: string) {
+  if (hasDisk) {
+    await disk.forget(id);
+    const m = await diskMeta(); delete m[id]; await kvSet("diskmeta", m);
+    if ((await kvGet<string>("current")) === id) await kvDel("current");
+    return;
+  }
   await kvSet("locations", (await recs()).filter((r) => r.id !== id));
   if ((await kvGet<string>("current")) === id) await kvDel("current");
 }
-export const locationInfo = () => ({ kind, name: kind === "folder" ? root?.name ?? "" : "Dieser Browser" });
+export const locationInfo = () => ({ kind, name: kind === "folder" ? root?.name ?? "" : kind === "disk" ? diskName : "Dieser Browser" });
 export async function markDeclined() { if (curId) await patchRec(curId, { declined: true }); }
 
 async function dirOf(rel: string, create: boolean): Promise<{ dir: FileSystemDirectoryHandle; name: string }> {
@@ -104,6 +135,7 @@ async function dirOf(rel: string, create: boolean): Promise<{ dir: FileSystemDir
 }
 /** Datei roh (so wie sie im Ordner liegt) lesen, null, wenn es sie nicht gibt */
 export async function readRaw(rel: string): Promise<Uint8Array | null> {
+  if (kind === "disk") return disk.read(rel);
   if (kind === "browser") { const v = await tx<ArrayBuffer | undefined>(FILES, "readonly", (s) => s.get(rel) as IDBRequest<ArrayBuffer | undefined>); return v ? new Uint8Array(v) : null; }
   if (!root) throw new Error("Kein Datenordner gewählt");
   try { const { dir, name } = await dirOf(rel, false); return new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer()); }
@@ -111,6 +143,7 @@ export async function readRaw(rel: string): Promise<Uint8Array | null> {
 }
 /** Datei roh in den Datenordner schreiben (Unterordner werden angelegt). Ein Ordner-Schreibvorgang ist atomar. */
 export async function writeRaw(rel: string, bytes: Uint8Array): Promise<void> {
+  if (kind === "disk") return disk.write(rel, bytes);
   if (kind === "browser") { const copy = bytes.slice().buffer; await tx(FILES, "readwrite", (s) => s.put(copy, rel)); return; }
   if (!root) throw new Error("Kein Datenordner gewählt");
   const { dir, name } = await dirOf(rel, true);
@@ -139,6 +172,7 @@ export async function writeData(rel: string, bytes: Uint8Array): Promise<void> {
 
 /** Alle Dateien im Datenordner (Pfade mit /) */
 export async function listFiles(): Promise<string[]> {
+  if (kind === "disk") return disk.list();
   if (kind === "browser") {
     const db = await idb();
     return new Promise((res, rej) => { const r = db.transaction(FILES, "readonly").objectStore(FILES).getAllKeys(); r.onsuccess = () => res(r.result as string[]); r.onerror = () => rej(r.error); });
@@ -252,11 +286,11 @@ const myId = (() => { const k = "azunavi-tab"; let v = sessionStorage.getItem(k)
 export function deviceName(): string {
   const ua = navigator.userAgent;
   const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Windows/.test(ua) ? "Windows" : /Mac/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "Gerät";
-  const br = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  const br = hasDisk ? "PC-Programm" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
   return `${os} · ${br}`;
 }
 export async function otherLock(): Promise<{ device: string; ts: number } | null> {
-  if (kind !== "folder") return null;
+  if (kind !== "folder" && kind !== "disk") return null;
   try {
     const b = await readRaw(LOCK); if (!b) return null;
     const l = JSON.parse(new TextDecoder().decode(b)) as { id: string; device: string; ts: number };
@@ -265,9 +299,22 @@ export async function otherLock(): Promise<{ device: string; ts: number } | null
 }
 let lockTimer: number | undefined;
 export function holdLock() {
-  if (kind !== "folder") return;
+  if (kind !== "folder" && kind !== "disk") return;
   const beat = () => writeRaw(LOCK, new TextEncoder().encode(JSON.stringify({ id: myId, device: deviceName(), ts: Date.now() }))).catch(() => {});
   beat(); window.clearInterval(lockTimer); lockTimer = window.setInterval(beat, 60_000);
+}
+
+/** Beim sauberen Beenden: eigene Sperre entfernen, damit ein anderes Gerät (z. B. die Web-App) nicht bis zu 2,5 Minuten warnt.
+ *  Entfernt wird nur eine Sperre, die von diesem Fenster stammt. */
+export async function releaseLock(): Promise<void> {
+  window.clearInterval(lockTimer);
+  if (kind !== "folder" && kind !== "disk") return;
+  try {
+    const b = await readRaw(LOCK); if (!b) return;
+    const l = JSON.parse(new TextDecoder().decode(b)) as { id: string };
+    if (l.id !== myId) return;
+    if (kind === "disk") await disk.removeLock(); else if (root) await root.removeEntry(LOCK);
+  } catch { /* beim Beenden nicht wichtig */ }
 }
 
 /** Alles, was AzuNavi in diesem Browser gespeichert hat, entfernen: Datenbank und Anhänge (Modus „Browser“),
@@ -275,6 +322,7 @@ export function holdLock() {
 export async function wipeBrowser(): Promise<void> {
   window.clearInterval(lockTimer);
   if (kind === "folder" && root) { try { await root.removeEntry(LOCK); } catch { /* schon weg */ } }
+  if (kind === "disk") { try { await disk.removeLock(); } catch { /* schon weg */ } }
   kind = null; root = null; secured = null; curId = null;
   await new Promise<void>((res) => { const r = indexedDB.deleteDatabase(IDB); r.onsuccess = r.onerror = r.onblocked = () => res(); });
   try { localStorage.clear(); sessionStorage.clear(); } catch { /* egal */ }

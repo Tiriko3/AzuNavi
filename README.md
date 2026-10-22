@@ -117,7 +117,7 @@ Alles lässt sich überspringen und später unter **System → Tutorial wiederho
 <details>
 <summary><b>Wo liegen meine Daten?</b></summary>
 
-Alles bleibt auf deinem Rechner, in `%APPDATA%\com.local.personaapp`. Es wird nichts ins Internet geschickt. Installer und portable Version nutzen denselben Datenordner – nimm am besten nur eine Variante pro Rechner.
+Alles bleibt auf deinem Rechner, in dem **Datenordner**, den du beim ersten Start wählst (ab Version 0.4.0, z. B. `OneDrive\AzuNavi`). Darin liegen `azunavi.db`, `dateien/` und bei Passwortschutz `profil.json`, genau wie bei der Web-App: Wählst du denselben Ordner, hast du am PC und im Browser dieselben Daten und dasselbe Profil. Es wird nichts ins Internet geschickt. Die alte Datenbank früherer Versionen (`%APPDATA%\com.local.personaapp\persona.db`) wird beim ersten Start zur Übernahme angeboten, vorher wird eine Sicherung daneben angelegt (`Sicherung-vor-0.4.0`), und AzuNavi löscht sie nie. Installer und portable Version können denselben Datenordner nutzen, aber nicht gleichzeitig.
 </details>
 
 <details>
@@ -144,7 +144,7 @@ Deine Daten bleiben in beiden Fällen erhalten. Zur Sicherheit vorher eine Siche
 - **Installer:** Windows-Einstellungen → Apps → AzuNavi → Deinstallieren.
 - **Portable:** die `.exe` und die Desktop-Verknüpfung löschen.
 
-Wenn du auch alle Daten entfernen willst: vorher in AzuNavi **System → App zurücksetzen**, oder den Ordner `%APPDATA%\com.local.personaapp` löschen.
+Wenn du auch alle Daten entfernen willst: vorher in AzuNavi **System → App zurücksetzen**, oder deinen Datenordner löschen (und, falls vorhanden, den alten Ordner `%APPDATA%\com.local.personaapp` mit `persona.db` und der Sicherung).
 </details>
 
 <details>

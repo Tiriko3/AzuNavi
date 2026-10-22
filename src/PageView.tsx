@@ -80,14 +80,14 @@ export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onSco
                 <dd>
                   {db === null ? "wird geladen …" : db.ok ? (
                     <span className="ok">
-                      {db.mode === "sqlite" ? `SQLite verbunden, Schema Version ${db.schemaVersion}` : "Browser-Testmodus (keine echte SQLite)"}
+                      {db.mode === "sqlite" ? `SQLite verbunden, Schema Version ${db.schemaVersion}` : db.mode === "ordner" ? `SQLite im Datenordner, Schema Version ${db.schemaVersion}` : "Browser-Testmodus (keine echte SQLite)"}
                     </span>
                   ) : (
                     <span className="bad">Fehler: {db.error}</span>
                   )}
                 </dd>
                 <dt>Datei</dt>
-                <dd>%APPDATA%\com.local.personaapp\persona.db</dd>
+                <dd>azunavi.db im Datenordner</dd>
                 <dt>Bereich</dt>
                 <dd>{scopeLabel} (Tab-Taste wechselt)</dd>
                 <dt>Version</dt>

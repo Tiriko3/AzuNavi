@@ -8,8 +8,11 @@ import {
 import { MIN_PASSWORD, createProfile, passwordProblem, type ProfileFile } from "./vault";
 import namiImg from "../assets/figuren/nami_gruss.webp";
 import { DOWNLOAD_URL } from "./downloadUrl";
+import { isDesktopApp } from "../platform";
+import { installCloseGuard } from "./closeGuard";
+import { folderHasDb, legacyBackup, legacyInfo, runLegacyImport, type BackupInfo, type ImportReport, type LegacyInfo } from "../desktop/legacy";
 
-type Step = "laden" | "liste" | "wahl" | "entsperren" | "wiederherstellen" | "angebot" | "einrichten" | "schluessel" | "migration" | "sperre" | "bereit";
+type Step = "laden" | "liste" | "wahl" | "entsperren" | "wiederherstellen" | "angebot" | "einrichten" | "schluessel" | "migration" | "alt" | "uebernahme" | "sperre" | "bereit";
 const msg = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error:\s*/, "");
 
 /** Sperrt nach der eingestellten Zeit ohne Eingabe (System → Passwortschutz). Aus, solange 0 Minuten gewählt sind. */
@@ -38,11 +41,21 @@ export function WebGate({ children }: { children: ReactNode }) {
   // Formulare
   const [pw, setPw] = useState(""), [pw2, setPw2] = useState(""), [name, setName] = useState("");
   const [recKey, setRecKey] = useState(""), [remember, setRemember] = useState(false), [saved, setSaved] = useState(false);
+  // PC-Programm: alte Datenbank (persona.db) übernehmen
+  const [leg, setLeg] = useState<LegacyInfo | null>(null), [bak, setBak] = useState<BackupInfo | null>(null);
+  const [rep, setRep] = useState<ImportReport | null>(null), [prog, setProg] = useState(""), [legDone, setLegDone] = useState(false);
   const [pending, setPending] = useState<{ profile: ProfileFile; recoveryKey: string; raw: Uint8Array } | null>(null);
 
   const clearForm = () => { setPw(""); setPw2(""); setRecKey(""); setSaved(false); setErr(""); };
   /** Läuft jemand anderes im selben Ordner? Sonst los. */
-  const enter = async () => {
+  const enter = async (skipLegacy = false) => {
+    if (isDesktopApp && !legDone && !skipLegacy) {
+      try {
+        const info = await legacyInfo();
+        if (info.exists && !(await folderHasDb())) { setLeg(info); setBak(null); setErr(""); setStep("alt"); return; }
+      } catch { /* ohne Auskunft: normal weiter */ }
+      setLegDone(true);
+    }
     const other = await otherLock();
     if (other) { setLock(other); setStep("sperre"); return; }
     holdLock(); clearForm(); setStep("bereit");
@@ -72,16 +85,28 @@ export function WebGate({ children }: { children: ReactNode }) {
   };
   const open = async (id: string | null) => {
     setErr(""); if (!id) return;
-    if (await resumeLocation(id)) await afterOpen(id);
-    else setErr("Ohne Zugriff auf den Ordner geht es nicht. Bitte erlauben oder einen anderen Ordner wählen.");
+    try {
+      if (await resumeLocation(id)) await afterOpen(id);
+      else setErr("Ohne Zugriff auf den Ordner geht es nicht. Bitte erlauben oder einen anderen Ordner wählen.");
+    } catch (e) { setErr(msg(e)); }
   };
+
+  // PC-Programm: beim Schließen erst speichern
+  useEffect(() => { if (step === "bereit" && isDesktopApp) installCloseGuard().catch(() => {}); }, [step]);
+  // Schritt „alte Daten“: zuerst Sicherung der alten Datenbank anlegen (Rust prüft die Kopie)
+  useEffect(() => {
+    if (step !== "alt" || bak) return;
+    let gone = false;
+    legacyBackup().then((b) => { if (!gone) setBak(b); }).catch((e) => { if (!gone) setErr("Die Sicherung der alten Datenbank ist fehlgeschlagen, deshalb wird nichts übernommen: " + msg(e)); });
+    return () => { gone = true; };
+  }, [step, bak]);
 
   useEffect(() => {
     (async () => {
       const list = await savedLocations(); setLocs(list);
       if (!list.length) { setStep("wahl"); return; }
       const cur = await currentLocationId(); const c = list.find((l) => l.id === cur);
-      if (c && !c.needsPermission && await resumeLocation(c.id)) { await afterOpen(c.id); return; }
+      if (c && !c.needsPermission && !c.missing && await resumeLocation(c.id)) { await afterOpen(c.id); return; }
       setStep("liste");
     })().catch((e) => { setErr(msg(e)); setStep("wahl"); });
     const onSave = (e: Event) => setSave((e as CustomEvent).detail);
@@ -136,27 +161,27 @@ export function WebGate({ children }: { children: ReactNode }) {
     <div className="webgate">
       <div className="wg-card">
         <img className="wg-nami" src={namiImg} alt="" />
-        <h1>AzuNavi<small>Web-App</small></h1>
+        <h1>AzuNavi<small>{isDesktopApp ? "PC-Programm" : "Web-App"}</small></h1>
         {step === "laden" && <p>Einen Moment …</p>}
 
         {step === "liste" && <>
           <p>{locs.length > 1 ? "Willkommen zurück! Wer arbeitet gerade?" : "Willkommen zurück!"}</p>
           {locs.map((l) => <div key={l.id}>
-            <button className="wg-btn sec wg-loc" onClick={() => open(l.id)}>{l.profileName || (l.kind === "folder" ? `Ordner „${l.name}“` : "Dieser Browser")}<small>{l.kind === "folder" ? `Ordner „${l.name}“` : "Gespeichert in diesem Browser"}</small></button>
+            <button className="wg-btn sec wg-loc" disabled={l.missing} title={l.path} onClick={() => open(l.id)}>{l.profileName || (l.kind !== "browser" ? `Ordner „${l.name}“` : "Dieser Browser")}<small>{l.missing ? `Ordner „${l.name}“ nicht gefunden (Laufwerk oder Cloud verbunden?)` : l.kind !== "browser" ? `Ordner „${l.name}“` : "Gespeichert in diesem Browser"}</small></button>
             <button className="wg-link" onClick={async () => { await removeLocation(l.id); const n = await savedLocations(); setLocs(n); if (!n.length) setStep("wahl"); }}>Aus der Liste nehmen (Daten bleiben)</button>
           </div>)}
-          <p className="wg-small">Bei Ordnern fragt der Browser aus Sicherheitsgründen einmal nach, ob AzuNavi den Ordner bearbeiten darf.</p>
+          {!isDesktopApp && <p className="wg-small">Bei Ordnern fragt der Browser aus Sicherheitsgründen einmal nach, ob AzuNavi den Ordner bearbeiten darf.</p>}
           <button className="wg-link" onClick={() => { setErr(""); setStep("wahl"); }}>Anderen Speicherort hinzufügen</button>
         </>}
 
         {step === "wahl" && <>
           <p>Wo sollen deine Daten liegen? Sie bleiben bei dir. AzuNavi hat keinen Server und keine Konten.</p>
           {canPickFolder ? <>
-            <button className="wg-btn" onClick={pickFolder}>Datenordner wählen <span>empfohlen</span></button>
-            <p className="wg-small">Zum Beispiel <b>OneDrive\AzuNavi</b>. Dann sind deine Daten automatisch in deiner Cloud, und du kannst auf jedem PC weitermachen, auf dem du denselben Ordner öffnest. Im Ordner liegen deine Datenbank (<code>azunavi.db</code>) und deine Anhänge.</p>
+            <button className="wg-btn" disabled={!!busy} onClick={pickFolder}>Datenordner wählen <span>empfohlen</span></button>
+            <p className="wg-small">Zum Beispiel <b>OneDrive\AzuNavi</b>. Dann sind deine Daten automatisch in deiner Cloud, und du kannst auf jedem PC weitermachen, auf dem du denselben Ordner öffnest. Im Ordner liegen deine Datenbank (<code>azunavi.db</code>) und deine Anhänge.{isDesktopApp && <> Benutzt du auch die <b>Web-App</b>, wähle <b>denselben Ordner</b>: Dann hast du am PC und im Browser dieselben Daten und dasselbe Profil. AzuNavi fasst im Ordner nur seine eigenen Dateien an.</>}</p>
           </> : <p className="wg-small">Dieser Browser kann keine Ordner öffnen (das geht in Chrome und Edge am PC). Du kannst trotzdem loslegen:</p>}
-          <button className={canPickFolder ? "wg-btn sec" : "wg-btn"} onClick={pickBrowser}>Nur in diesem Browser speichern</button>
-          <p className="wg-small">Gut fürs eigene Handy oder zum Ausprobieren. Deine Daten bleiben in diesem Browser. Zum Übertragen nutzt du System → „Daten mitnehmen“. <b>Nicht auf PCs, die auch andere benutzen</b> (Schule, Schulungsraum).</p>
+          {!isDesktopApp && <><button className={canPickFolder ? "wg-btn sec" : "wg-btn"} onClick={pickBrowser}>Nur in diesem Browser speichern</button>
+          <p className="wg-small">Gut fürs eigene Handy oder zum Ausprobieren. Deine Daten bleiben in diesem Browser. Zum Übertragen nutzt du System → „Daten mitnehmen“. <b>Nicht auf PCs, die auch andere benutzen</b> (Schule, Schulungsraum).</p></>}
           {locs.length > 0 && <button className="wg-link" onClick={goList}>Zurück zur Liste</button>}
         </>}
 
@@ -212,6 +237,28 @@ export function WebGate({ children }: { children: ReactNode }) {
 
         {step === "migration" && <><p>Deine bisherigen Daten werden verschlüsselt …</p><p className="wg-small">Das dauert nur einen Moment. Bitte das Fenster nicht schließen.</p></>}
 
+        {step === "alt" && leg && <>
+          <p><b>Deine bisherigen Daten übernehmen?</b></p>
+          <p className="wg-small">AzuNavi hat auf diesem PC noch die alte Datenbank (<code>persona.db</code>, {(leg.size / 1048576).toFixed(1)} MB, zuletzt geändert {new Date(leg.modified * 1000).toLocaleString("de-DE")}). Sie wird in deinen neuen Datenordner übernommen, samt Anhängen, Porträts und Vorlage. Die alte Datenbank bleibt unverändert liegen, und AzuNavi löscht sie nie.</p>
+          {bak ? <p className="wg-small">✓ Sicherung angelegt{bak.created ? "" : " (gab es schon)"}: <code>{bak.dir}</code></p> : !err && <p className="wg-small">Sicherung der alten Datenbank wird angelegt …</p>}
+          <button className="wg-btn" disabled={!bak || !!busy} onClick={run("", async () => {
+            setStep("uebernahme"); setProg("Los geht’s …");
+            try { setRep(await runLegacyImport(setProg)); setLegDone(true); } catch (e) { setErr(msg(e)); setStep("alt"); }
+          })}>Daten übernehmen</button>
+          <button className="wg-btn sec" disabled={!!busy} onClick={async () => { setLegDone(true); setErr(""); await enter(true); }}>Ohne alte Daten starten</button>
+          <p className="wg-small">Die Übernahme geht nur in einen Ordner ohne vorhandene Daten. Willst du später doch noch übernehmen, wähle unter System → Datenordner → Wechseln einen neuen, leeren Ordner.</p>
+        </>}
+
+        {step === "uebernahme" && <>
+          {!rep ? <><p>Deine Daten werden übernommen …</p><p className="wg-small">{prog}</p><p className="wg-small">Bitte das Fenster nicht schließen.</p></> : <>
+            <p><b>✓ Übernommen</b></p>
+            <p className="wg-small">{rep.tables} Tabellen, {rep.rows} Einträge und {rep.files} Dateien. Alles wurde nach dem Kopieren zur Probe zurückgelesen und mit dem Original verglichen.</p>
+            {rep.missing.length > 0 && <p className="wg-warn">{rep.missing.length} Datei(en) waren schon im alten Ordner nicht mehr vorhanden: {rep.missing.slice(0, 5).join(", ")}{rep.missing.length > 5 ? " …" : ""}</p>}
+            {rep.rejected.length > 0 && <p className="wg-warn">{rep.rejected.length} Datei(en) haben einen Namen, den der Datenordner nicht annimmt: {rep.rejected.slice(0, 5).join(", ")}</p>}
+            <button className="wg-btn" onClick={async () => { await enter(true); }}>Weiter</button>
+          </>}
+        </>}
+
         {step === "sperre" && lock && <>
           <p className="wg-warn">Dieser Datenordner ist gerade auf einem anderen Gerät geöffnet: <b>{lock.device}</b> (zuletzt aktiv vor {Math.max(1, Math.round((Date.now() - lock.ts) / 60000))} Min.).</p>
           <p className="wg-small">Wenn ihr gleichzeitig arbeitet, überschreibt das zuletzt gespeicherte Gerät die Änderungen des anderen. Schließ AzuNavi dort am besten zuerst.</p>
@@ -220,7 +267,7 @@ export function WebGate({ children }: { children: ReactNode }) {
         </>}
 
         {err && <p className="wg-warn">{err}</p>}
-        {DOWNLOAD_URL && <a className="wg-link wg-dl" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Handy-App (Android) herunterladen</a>}
+        {!isDesktopApp && DOWNLOAD_URL && <a className="wg-link wg-dl" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Handy-App (Android) herunterladen</a>}
         <p className="wg-foot">Dieses Gerät: {deviceName()}</p>
       </div>
     </div>

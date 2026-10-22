@@ -6,7 +6,7 @@ import "@fontsource/poppins/500.css";
 import "@fontsource/poppins/600.css";
 import "./styles.css";
 import App from "./App";
-import { isMobile, isWebApp } from "./platform";
+import { isMobile, isWebApp, usesDataFolder } from "./platform";
 import { WebGate } from "./web/WebGate";
 import { APP_VERSION } from "./version";
 
@@ -16,7 +16,7 @@ const MobileApp = lazy(() => import("./mobile/MobileApp"));
 const app = isMobile ? <Suspense fallback={null}><MobileApp /></Suspense> : <App />;
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {isWebApp ? <WebGate>{app}</WebGate> : app}
+    {usesDataFolder ? <WebGate>{app}</WebGate> : app}
   </React.StrictMode>
 );
 

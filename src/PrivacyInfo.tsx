@@ -1,5 +1,5 @@
 // „Datenschutz & Speicherorte“: was AzuNavi speichert, wo, und wie man es wieder los wird. Gleicher Text am PC, im Browser und auf dem Handy.
-import { inTauriApp, isMobile, isWebApp } from "./platform";
+import { inTauriApp, isDesktopApp, isMobile, isWebApp, usesDataFolder } from "./platform";
 
 export function PrivacyInfo() {
   return (
@@ -7,7 +7,7 @@ export function PrivacyInfo() {
       <p><b>Kurz:</b> AzuNavi hat keinen Server, keine Konten, keine Werbung und kein Tracking. Deine Daten liegen nur dort, wo du sie speicherst.</p>
       <h4>Wo liegen meine Daten?</h4>
       <ul>
-        {inTauriApp && !isMobile && <li><b>PC-Programm:</b> im App-Ordner deines Benutzerkontos (Windows: <code>%APPDATA%\com.local.personaapp</code>).</li>}
+        {isDesktopApp && <li><b>PC-Programm:</b> in deinem gewählten Datenordner (<code>azunavi.db</code>, <code>dateien/</code>, bei Passwortschutz <code>profil.json</code>), derselbe Aufbau wie in der Web-App. Die alte Datenbank von früheren Versionen (<code>persona.db</code> unter <code>%APPDATA%\com.local.personaapp</code>) und die Sicherung davor bleiben dort liegen, bis du sie selbst löschst. AzuNavi fasst im Datenordner nur seine eigenen Dateien an.</li>}
         {inTauriApp && isMobile && <li><b>Handy-App:</b> im geschützten Speicher der App auf diesem Handy.</li>}
         {isWebApp && <li><b>Web-App:</b> in deinem gewählten Datenordner (<code>azunavi.db</code>, <code>dateien/</code>) oder, wenn du „Nur in diesem Browser“ gewählt hast, im Speicher dieses Browsers.</li>}
         <li><b>Sicherungen</b> liegen nur dort, wo du sie speicherst. Die Cloud-Sicherung ist mit deinem Passwort verschlüsselt (AES-256).</li>
@@ -16,9 +16,9 @@ export function PrivacyInfo() {
         <h4>Was passiert beim Aufruf der Web-App?</h4>
         <p>Die App-Dateien kommen von dem Webserver, auf dem die Web-App liegt (z. B. GitLab Pages eures Betriebs). Dabei entstehen wie bei jedem Webserver technische Protokolle, etwa mit deiner IP-Adresse. Deine Inhalte gehen dabei nie an den Server. Das verhindern auch die Sicherheitsregeln der App.</p>
       </>}
-      {isWebApp && <>
+      {usesDataFolder && <>
         <h4>Passwortschutz (Profil)</h4>
-        <p>Mit Passwortschutz sind Datenbank und Anhänge verschlüsselt (AES-256). Das Passwort wird nirgends gespeichert; es gibt keinen Zugang durch andere und keinen Reset. Wer Ordner <b>und</b> Passwort (oder Wiederherstellungsschlüssel) hat, kommt an die Daten, sonst niemand. Dateinamen und -größen bleiben sichtbar, nur der Inhalt ist verschlüsselt. „Angemeldet bleiben“ speichert einen Schlüssel nur in diesem Browser, nie das Passwort. Die ZIP-Sicherung „Daten mitnehmen“ enthält die Daten unverschlüsselt, bewahre sie entsprechend auf.</p>
+        <p>Mit Passwortschutz sind Datenbank und Anhänge verschlüsselt (AES-256). Das Passwort wird nirgends gespeichert; es gibt keinen Zugang durch andere und keinen Reset. Wer Ordner <b>und</b> Passwort (oder Wiederherstellungsschlüssel) hat, kommt an die Daten, sonst niemand. Dateinamen und -größen bleiben sichtbar, nur der Inhalt ist verschlüsselt. „Angemeldet bleiben“ speichert einen Schlüssel nur auf diesem Gerät (im Browser bzw. im Programm), nie das Passwort. Die ZIP-Sicherung „Daten mitnehmen“ enthält die Daten unverschlüsselt, bewahre sie entsprechend auf.</p>
       </>}
       {isWebApp && <>
         <h4>Ordner-Freigaben (Dateien-Seite)</h4>

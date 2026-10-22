@@ -20,7 +20,7 @@ import { todayStr } from "../util";
 import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
-import { isMobile, isWebApp, noDesktop } from "../platform";
+import { isDesktopApp, isMobile, isWebApp, noDesktop, usesDataFolder } from "../platform";
 import { CHARACTERS } from "../chars";
 
 import { APP_VERSION } from "../version";
@@ -178,7 +178,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <button className={"mini" + (armLoad ? " hot" : "")} disabled={busy} onClick={loadQualList}>{armLoad ? "Wirklich laden?" : "Liste für meinen Beruf laden"}</button></div>}
           <h3 className="sysh">Daten</h3>
           <div className="sysrow"><span>Alte Berichtshefte</span><button className="mini" onClick={() => setImportOpen(true)}>Importieren (Word/PDF)</button></div>
-          {isWebApp && <WebDataRow />}
+          {usesDataFolder && <WebDataRow />}
           {isWebApp && DOWNLOAD_URL && <div className="sysrow"><span>Handy-App (Android)</span><a className="mini" href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">Herunterladen</a></div>}
           <div className="sysrow"><span>Daten mitnehmen</span><button className="mini" disabled={busy} onClick={backup}>Sicherung erstellen</button></div>
           <div className="sysrow"><span>Datenschutz &amp; Speicherorte</span><button className="mini" onClick={() => setPrivOpen(true)}>Ansehen</button></div>
@@ -198,10 +198,10 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <dt>Kammer</dt><dd>{[profile.kammer, profile.kammerOrt].filter(Boolean).join(" ")}</dd>
             <dt>Betrieb</dt><dd>{profile.betrieb || "–"}</dd>
             <dt>Vorlage</dt><dd>{tplInfo}</dd>
-            <dt>Datenbank</dt><dd>{db?.ok ? <span className="ok">{db.mode === "sqlite" ? `SQLite, Schema ${db.schemaVersion}` : "Browser-Testmodus"}</span> : <span className="bad">{db?.error}</span>}</dd>
+            <dt>Datenbank</dt><dd>{db?.ok ? <span className="ok">{db.mode === "sqlite" ? `SQLite, Schema ${db.schemaVersion}` : db.mode === "ordner" ? `SQLite im Datenordner, Schema ${db.schemaVersion}` : "Browser-Testmodus"}</span> : <span className="bad">{db?.error}</span>}</dd>
             <dt>Version</dt><dd>{APP_VERSION}</dd>
           </dl>}
-          {isWebApp && <><h3 className="sysh">Passwortschutz</h3><ProfilePanel /></>}
+          {usesDataFolder && <><h3 className="sysh">Passwortschutz</h3><ProfilePanel /></>}
           <div className="danger">
             <b>App zurücksetzen</b>
             <p className="small">Löscht alle Daten in der App. Deine Ordner und Dateien auf der Festplatte bleiben. Tippe <b>ZURÜCKSETZEN</b> ein:</p>
@@ -256,11 +256,11 @@ function WebDataRow() {
   useEffect(() => { import("../web/dataStore").then((m) => setInfo(m.locationInfo())); }, []);
   return (
     <div className="sysrow"><span>Datenordner</span><span className="inl">
-      <span className="small">{info.kind === "folder" ? `Ordner „${info.name}“` : "Dieser Browser"}</span>
+      <span className="small">{info.kind === "folder" || info.kind === "disk" ? `Ordner „${info.name}“` : "Dieser Browser"}</span>
       <button className="mini" onClick={async () => { const m = await import("../web/dataStore"); await m.forgetLocation(); location.reload(); }}>Wechseln</button>
-      <button className={"mini" + (arm ? " hot" : "")} title="Datenbank, Anhänge und gemerkten Ordner aus diesem Browser entfernen"
+      {isWebApp && <button className={"mini" + (arm ? " hot" : "")} title="Datenbank, Anhänge und gemerkten Ordner aus diesem Browser entfernen"
         onClick={async () => { if (!arm) { setArm(true); return; } const m = await import("../web/dataStore"); await m.wipeBrowser(); location.reload(); }}>
-        {arm ? (info.kind === "folder" ? "Wirklich? (Ordner bleibt)" : "Wirklich? Alles weg!") : "Aus diesem Browser entfernen"}</button>
+        {arm ? (info.kind === "folder" ? "Wirklich? (Ordner bleibt)" : "Wirklich? Alles weg!") : "Aus diesem Browser entfernen"}</button>}
     </span></div>
   );
 }

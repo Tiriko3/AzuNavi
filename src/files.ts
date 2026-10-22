@@ -1,9 +1,10 @@
 // Bilder für Notizen (Anhänge) und Kontakte (Porträts).
-// Die Auswahl wird IMMER in den App-Ordner kopiert (%APPDATA%\com.local.personaapp\...),
-// das Original bleibt unberührt liegen.
+// Die Auswahl wird IMMER kopiert, das Original bleibt unberührt liegen:
+//  - PC-Programm (ab 0.4.0) und Web-App: in den Datenordner (dateien/attachments, dateien/portraits)
+//  - Handy: in den App-Ordner (%APPDATA%\com.local.personaapp\... bzw. App-Speicher)
 import { open } from "@tauri-apps/plugin-dialog";
 import { BaseDirectory, copyFile, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
-import { isMobile, isWebApp } from "./platform";
+import { isDesktopApp, isMobile, isWebApp, usesDataFolder } from "./platform";
 import { appRead, appWrite } from "./storage/appFiles";
 
 /** Android-Bilder kommen als content://…/image%3A123 ohne Endung: Typ an den ersten Bytes erkennen */
@@ -63,6 +64,16 @@ export async function pickAndStoreImages(folder: "attachments" | "portraits", mu
   const sel = await open({ multiple, directory: false, filters: [{ name: "Bilder", extensions: EXT }] });
   if (!sel) return [];
   const sources = Array.isArray(sel) ? sel : [sel];
+  if (isDesktopApp) {   // PC-Programm: Bild lesen und in den Datenordner kopieren (verschlüsselt, wenn das Profil ein Passwort hat)
+    const out: StoredFile[] = [];
+    for (let i = 0; i < sources.length; i++) {
+      const name = base(sources[i]);
+      const path = `${folder}/${stamp}_${i}_${safe(name)}`;
+      await appWrite(path, await readFile(sources[i]));
+      out.push({ name, path });
+    }
+    return out;
+  }
   await mkdir(folder, { baseDir: BaseDirectory.AppData, recursive: true });
   const out: StoredFile[] = [];
   for (let i = 0; i < sources.length; i++) {
@@ -90,7 +101,7 @@ export async function fileUrl(path: string): Promise<string | null> {
   if (cached) return cached;
   try {
     let blob: Blob | undefined;
-    if (isWebApp) {
+    if (usesDataFolder) {
       const bytes = await appRead(path);
       blob = new Blob([bytes as BlobPart], { type: MIME[extOf(path)] ?? "application/octet-stream" });
     } else if (!inTauri) {

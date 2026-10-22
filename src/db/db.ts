@@ -1,13 +1,14 @@
 import Database from "@tauri-apps/plugin-sql";
 import { MIGRATIONS } from "./migrations";
-import { isWebApp } from "../platform";
+import { usesDataFolder } from "../platform";
 
 // Läuft die App im Tauri-Fenster (echte SQLite-Datei) oder nur im normalen Browser (Entwicklung)?
 export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export interface DbStatus {
   ok: boolean;
-  mode: "sqlite" | "browser";
+  /** "sqlite": echte Datei über das SQL-Plugin (Android). "ordner": SQLite im Datenordner (PC-Programm und Web-App). "browser": nur Entwicklung. */
+  mode: "sqlite" | "browser" | "ordner";
   schemaVersion: number;
   error?: string;
 }
@@ -28,10 +29,16 @@ export function initDb(): Promise<DbStatus> {
 }
 
 async function doInit(): Promise<DbStatus> {
-  let mode: "sqlite" | "browser" = "sqlite";
+  let mode: "sqlite" | "browser" | "ordner" = "sqlite";
   try {
-    if (inTauri) {
-      // "sqlite:persona.db" liegt automatisch unter %APPDATA%\com.local.personaapp\persona.db
+    if (usesDataFolder) {
+      // PC-Programm (ab 0.4.0) und Web-App: SQLite als WebAssembly, gespeichert als azunavi.db im gewählten Datenordner.
+      // Den Ordner und das Profil hat der Startbildschirm (WebGate) vorher geöffnet.
+      mode = "ordner";
+      const { openWebDb } = await import("../web/webDb");
+      backend = await openWebDb();
+    } else if (inTauri) {
+      // Android: "sqlite:persona.db" liegt automatisch unter %APPDATA%\com.local.personaapp\persona.db (auf dem Handy im App-Speicher)
       const db = await Database.load("sqlite:persona.db");
       backend = {
         async execute(sql, params = []) {
@@ -40,11 +47,6 @@ async function doInit(): Promise<DbStatus> {
         },
         select: <T,>(sql: string, params: unknown[] = []) => db.select<T[]>(sql, params),
       };
-    } else if (isWebApp) {
-      // Web-App: SQLite als WebAssembly, gespeichert im gewählten Datenordner (azunavi.db)
-      mode = "browser";
-      const { openWebDb } = await import("../web/webDb");
-      backend = await openWebDb();
     } else if (import.meta.env.DEV) {
       mode = "browser";
       const { openBrowserDb } = await import("./browserDb");

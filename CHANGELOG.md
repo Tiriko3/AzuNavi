@@ -1,5 +1,17 @@
 # Änderungen
 
+## 0.4.0 – PC-Programm mit Datenordner und Profilen
+- **Gleiche Daten am PC und im Browser:** Das PC-Programm legt seine Daten jetzt wie die Web-App in einem **Datenordner** ab (`azunavi.db`, `dateien/`, `profil.json`). Wählst du am PC und in der Web-App denselben Ordner (z. B. `OneDrive\AzuNavi`), arbeitest du an beiden Orten mit denselben Daten und demselben Profil.
+- **Passwortschutz auch am PC:** Dieselben Profile mit Passwort und Wiederherstellungsschlüssel wie in der Web-App (Verschlüsselung der Datenbank und der Anhänge). System → Passwortschutz.
+- **Alte Daten übernehmen:** Beim ersten Start bietet AzuNavi an, die alte `persona.db` samt Anhängen, Porträts und Vorlage zu übernehmen. **Vorher** wird eine Sicherung neben die alte Datei gelegt (`Sicherung-vor-0.4.0`, inklusive `persona.db-wal`, jede Kopie Byte für Byte geprüft). Danach wird alles Zeile für Zeile mit dem Original verglichen, die Datenbank wird als **letzter** Schritt geschrieben. Bricht etwas ab, bleibt der Ordner leer und es geht von vorn. Die alte Datenbank bleibt unverändert liegen und wird nie gelöscht.
+- **Sicherer Zugriff auf den Datenordner:** Den Ordner wählst du im Dialog, den das Programm selbst öffnet. Rust liest, schreibt und listet nur AzuNavis eigene Dateien im gewählten Ordner (kein `..`, keine Laufwerke, keine Windows-Gerätenamen, keine Verknüpfungen). Geschrieben wird atomar (Zwischendatei, dann umbenennen, mit Wiederholungen, falls OneDrive die Datei kurz festhält). Fremde Dateien im Ordner bleiben unberührt.
+- **Beim Beenden wird gespeichert:** Fenster schließen (X, Alt+F4, Beenden-Knopf) speichert zuerst alles und gibt die Sperre frei, damit die Web-App nicht warnt. Schlägt das Speichern fehl, bleibt das Fenster offen (zweites Schließen beendet trotzdem).
+- **Fehlender Ordner:** Ist der Datenordner nicht erreichbar (Laufwerk, Cloud), zeigt AzuNavi das in der Liste an, statt einen neuen anzubieten.
+- Anhänge und Porträts werden am PC in den Datenordner kopiert (`dateien/attachments`, `dateien/portraits`).
+- Android-App unverändert (kommt in einer späteren Version). Die Rust-Befehle für den Datenordner gibt es nur am PC.
+- Noch nicht in dieser Version: Die allgemeinen Datei-Befehle der Dateien-Seite (`fs_*`) und die Rechte in `capabilities` werden erst in 0.4.1 bzw. später eingeschränkt.
+- Neu: `tools/desktop-test.mts` (Übernahme und Datenspeicher), `tools/desktop-e2e.mts` (Startbildschirm im Browser mit nachgebauter Tauri-Schnittstelle), `tools/legacy-fixture.mts`; Rust-Tests in `src-tauri/src/datadir.rs`.
+
 ## 0.3.1 – Dateien-Seite im Browser
 - Die **Dateien-Seite** läuft jetzt auch in der Web-App (Chrome, Edge, Opera am PC): Du gibst deine Hauptordner (Arbeit und Schule) einmal frei, danach siehst du den Ordnerbaum, legst Ordner an, sortierst Dateien mit dem Assistenten ein, ordnest Projekte zu und nutzt Vorschau und Verlauf.
 - **Ziehen & Ablegen** von Dateien und Ordnern ins Fenster funktioniert auch im Browser.
