@@ -7,8 +7,10 @@ export const inTauriApp = typeof window !== "undefined" && "__TAURI_INTERNALS__"
 export const isWebApp = !inTauriApp && import.meta.env.VITE_AZ_WEB === "1";
 /** PC-Programm (Windows-Fenster), nicht die Android-App */
 export const isDesktopApp = inTauriApp && !isMobile;
-/** Datenordner und Profile (ab 0.4.0): Web-App und PC-Programm benutzen dieselben Dateien (azunavi.db, dateien/, profil.json). Android folgt später. */
-export const usesDataFolder = isWebApp || isDesktopApp;
+/** Handy-App (Android/iOS im Tauri-Fenster) */
+export const isMobileApp = inTauriApp && isMobile;
+/** Datenordner und Profile: Web-App, PC-Programm (ab 0.4.0) und Handy-App (ab 0.5.0) benutzen denselben Aufbau (azunavi.db, dateien/, profil.json). */
+export const usesDataFolder = isWebApp || isDesktopApp || isMobileApp;
 /** Kein PC-Programm: Handy-App oder Web-App. Dort gibt es kein Fenster, kein Java und keine freien Pfade. */
 export const noDesktop = isMobile || isWebApp;
 

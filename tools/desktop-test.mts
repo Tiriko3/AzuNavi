@@ -46,7 +46,7 @@ let ok = 0, bad = 0;
 const check = (c: unknown, m: string) => { if (c) { ok++; } else { bad++; console.log("  ✗ " + m); } };
 const rejects = async (f: () => Promise<unknown>, part: string, m: string) => { try { await f(); bad++; console.log("  ✗ " + m + " (kein Fehler)"); } catch (e) { const t = String((e as Error)?.message ?? e); if (t.includes(part)) ok++; else { bad++; console.log(`  ✗ ${m}: Fehlertext „${t}“ enthält nicht „${part}“`); } } };
 
-const { importLegacy, LATEST_SCHEMA, validRel } = await import("../src/desktop/legacyImport.ts");
+const { importLegacy, exportLegacyZip, LATEST_SCHEMA, validRel } = await import("../src/desktop/legacyImport.ts");
 const { MIGRATIONS } = await import("../src/db/migrations.ts");
 const SQL = await initSqlJs();
 
@@ -98,6 +98,21 @@ console.log("Übernahme: normaler Ablauf");
   for (const m of MIGRATIONS) { for (const q of m.statements) fresh.run(q); fresh.run("INSERT OR IGNORE INTO schema_migrations VALUES (?, ?)", [m.version, "x"]); }
   const sch = (d: any) => JSON.stringify(d.exec("SELECT type,name,sql FROM sqlite_master ORDER BY name")[0].values);
   check(sch(fresh) === sch(n), "Schema wie bei normalem Start");
+}
+
+console.log("Sicherung der alten Daten (Handy: vor der Übernahme)");
+{
+  const JSZip = (await import("jszip")).default;
+  const l = legacyDb(); const z = await exportLegacyZip(source(l, FILES()), "0.5.0");
+  const zip = await JSZip.loadAsync(z.bytes);
+  const j = JSON.parse(await zip.file("daten.json")!.async("string"));
+  check(j.app === "persona-app" && j.schema === LATEST_SCHEMA && j.version === "0.5.0", "gleiche Kennung wie „Daten mitnehmen“ (damit Einspielen funktioniert)");
+  const n = (l.exec("SELECT COUNT(*) FROM notes")[0].values[0][0] as number);
+  check(j.tables.notes.length === n && !("schema_migrations" in j.tables), "alle Notizen drin, keine Migrations-Tabelle");
+  check(z.files === 5 && Object.keys(zip.files).filter((k) => k.startsWith("dateien/") && !zip.files[k].dir).length === 5, "5 Dateien in dateien/ (die fehlende wird übersprungen)");
+  const orig = FILES()["attachments/170002_0_bild2.png"]; const got = await zip.file("dateien/attachments/170002_0_bild2.png")!.async("uint8array");
+  check(got.length === orig.length && got.every((v: number, i: number) => v === orig[i]), "Dateiinhalt unverändert");
+  check(z.rows > 30, "Zeilen gezählt: " + z.rows);
 }
 
 console.log("Übernahme: Schutz vor Fehlern (es darf nichts Halbes übrig bleiben)");

@@ -1,12 +1,32 @@
 // Anbindung der Übernahme an das PC-Programm: alte Datenbank über das SQL-Plugin (nur lesen), alte Dateien über das Fs-Plugin,
 // Ziel ist der Datenordner (dataStore). Die Logik selbst steht in legacyImport.ts.
-import { legacy, type BackupInfo, type LegacyInfo } from "../web/disk";
-import { importLegacy, type ImportReport, type ImportSink, type LegacySource } from "./legacyImport";
+import { hasApp, legacy, type BackupInfo, type LegacyInfo } from "../web/disk";
+import { exportLegacyZip, importLegacy, type ImportReport, type ImportSink, type LegacySource } from "./legacyImport";
+import { fsapi } from "../fsapi";
+import { APP_VERSION } from "../version";
 import { DB_FILE } from "../web/webDb";
 import { readData, writeData, listFiles } from "../web/dataStore";
 
 export type { BackupInfo, LegacyInfo, ImportReport };
-export const legacyInfo = () => legacy.info();
+const NONE: LegacyInfo = { exists: false, size: 0, modified: 0, dir: "", backup_dir: null };
+/** Gibt es noch die alte Datenbank (persona.db) mit Daten? PC: fragt Rust (Datei neben der App). Handy: schaut über das SQL-Plugin hinein. */
+export async function legacyInfo(): Promise<LegacyInfo> {
+  if (!hasApp) return legacy.info();
+  try {
+    const { src, close } = await openSource();
+    try { return (await src.schemaVersion()) > 0 ? { ...NONE, exists: true } : NONE; } finally { await close(); }
+  } catch { return NONE; }   // keine alte Datenbank (frische Installation)
+}
+
+/** Handy: Sicherung der alten Daten als ZIP über den Android-Speicherdialog (z. B. in OneDrive). Gibt den Ort zurück, bei Abbruch null. */
+export async function saveLegacyBackup(): Promise<{ path: string; rows: number; files: number } | null> {
+  const { src, close } = await openSource();
+  try {
+    const z = await exportLegacyZip(src, APP_VERSION);
+    const path = await (await fsapi()).saveFile(`AzuNavi-Sicherung-alt_${stamp().slice(0, 8)}.zip`, z.bytes, "AzuNavi-Sicherung", "zip");
+    return path ? { path, rows: z.rows, files: z.files } : null;
+  } finally { await close(); }
+}
 
 /** Zeitstempel für den Namen der Sicherung, z. B. 20261022-101530 */
 export function stamp(d = new Date()): string {

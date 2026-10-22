@@ -8,7 +8,7 @@ export function PrivacyInfo() {
       <h4>Wo liegen meine Daten?</h4>
       <ul>
         {isDesktopApp && <li><b>PC-Programm:</b> in deinem gewählten Datenordner (<code>azunavi.db</code>, <code>dateien/</code>, bei Passwortschutz <code>profil.json</code>), derselbe Aufbau wie in der Web-App. Die alte Datenbank von früheren Versionen (<code>persona.db</code> unter <code>%APPDATA%\com.local.personaapp</code>) und die Sicherung davor bleiben dort liegen, bis du sie selbst löschst. AzuNavi fasst im Datenordner nur seine eigenen Dateien an.</li>}
-        {inTauriApp && isMobile && <li><b>Handy-App:</b> im geschützten Speicher der App auf diesem Handy.</li>}
+        {inTauriApp && isMobile && <li><b>Handy-App:</b> im geschützten Speicher der App auf diesem Handy, im gleichen Aufbau wie am PC (<code>azunavi.db</code>, <code>dateien/</code>, bei Passwortschutz <code>profil.json</code>). Die alte Datenbank früherer Versionen bleibt dort liegen, bis du sie selbst entfernst. Zwischen Handy und PC tauschst du mit der Sicherungsdatei (System → Daten mitnehmen oder Cloud-Sicherung).</li>}
         {isWebApp && <li><b>Web-App:</b> in deinem gewählten Datenordner (<code>azunavi.db</code>, <code>dateien/</code>) oder, wenn du „Nur in diesem Browser“ gewählt hast, im Speicher dieses Browsers.</li>}
         <li><b>Sicherungen</b> liegen nur dort, wo du sie speicherst. Die Cloud-Sicherung ist mit deinem Passwort verschlüsselt (AES-256).</li>
       </ul>

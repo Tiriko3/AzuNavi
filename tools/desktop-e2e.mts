@@ -22,6 +22,7 @@ function makeBackend() {
   const locs: { id: string; path: string }[] = [];
   const st = { roots: ["C:\\Users\\Test\\Arbeit", "C:\\Users\\Test\\Schule"], gfiles: ["C:\\Downloads\\a.pdf"], undo: 2, current: null as string | null, missing: false, destroyed: 0, backups: 0, legacy: true, picks: 0, calls: [] as string[] };
   const legacy = legacyDb(SQL); const lfiles = FILES();
+  const appdata = new Map<string, Uint8Array>(Object.entries(lfiles));   // „AppData“ des Handys: alte Dateien liegen direkt darin, neue Daten unter azunavi/
   const OK_TOP = new Set(["azunavi.db", "profil.json", "azunavi.lock"]);
   const checkRel = (rel: string) => { const ok = (OK_TOP.has(rel) || (rel.startsWith("dateien/") && rel.length > 8)) && rel.split("/").every((p) => p && p !== ".." && !/[<>:"|?*\\\x00-\x1f]/.test(p) && !/[. ]$/.test(p)); if (!ok) throw "Dieser Pfad gehört nicht zu AzuNavi."; };
   const info = (l: { id: string; path: string }) => ({ id: l.id, name: l.path.split("\\").pop(), path: l.path, exists: !st.missing });
@@ -50,12 +51,23 @@ function makeBackend() {
       case "plugin:sql|load": return args.db;
       case "plugin:sql|close": return true;
       case "plugin:sql|select": { const r = legacy.exec(args.query)[0]; return r ? r.values.map((v: unknown[]) => Object.fromEntries(r.columns.map((c: string, i: number) => [c, v[i]]))) : []; }
-      case "plugin:fs|read_file": { const b = (lfiles as any)[args.path]; if (!b) throw "No such file"; return { __bin: Buffer.from(b).toString("base64") }; }
+      case "plugin:fs|read_file": { const b = appdata.get(args.path); if (!b) throw "No such file"; return { __bin: Buffer.from(b).toString("base64") }; }
+      case "plugin:fs|exists": return appdata.has(args.path) || [...appdata.keys()].some((k) => k.startsWith(args.path + "/"));
+      case "plugin:fs|mkdir": return null;
+      case "plugin:fs|write_file": { if (!b64) throw "keine Daten"; appdata.set(decodeURIComponent(headers.path), new Uint8Array(Buffer.from(b64, "base64"))); return null; }
+      case "plugin:fs|rename": { const b = appdata.get(args.oldPath); if (!b) throw "No such file"; appdata.set(args.newPath, b); appdata.delete(args.oldPath); return null; }
+      case "plugin:fs|remove": appdata.delete(args.path); return null;
+      case "plugin:fs|read_dir": {
+        const pre = args.path + "/"; const seen = new Map<string, boolean>();
+        for (const k of appdata.keys()) if (k.startsWith(pre)) { const rest = k.slice(pre.length); const first = rest.split("/")[0]; seen.set(first, rest.includes("/")); }
+        return [...seen].map(([name, dir]) => ({ name, isDirectory: dir, isFile: !dir, isSymlink: false }));
+      }
+      case "plugin:dialog|save": return "content://fake/Sicherung.zip";
       case "plugin:window|destroy": st.destroyed++; return null;
       default: return null;
     }
   }
-  return { disk, locs, st, handle };
+  return { disk, locs, st, handle, appdata };
 }
 
 const INIT = `(() => {
@@ -81,8 +93,8 @@ let ok = 0, bad = 0;
 const check = (c: unknown, m: string) => { if (c) ok++; else { bad++; console.log("  ✗ " + m); } };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
 
-async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean } = {}) {
-  const ctx: BrowserContext = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: opts.reducedMotion });
+async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean; phone?: boolean } = {}) {
+  const ctx: BrowserContext = await browser.newContext(opts.phone ? { viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36", reducedMotion: opts.reducedMotion } : { viewport: { width: 1280, height: 720 }, reducedMotion: opts.reducedMotion });
   if (opts.animOff) await ctx.addInitScript(() => localStorage.setItem("azunavi.anim", "0"));
   await ctx.exposeFunction("__node", async (cmd: string, args: any, b64: string | null, headers: any) => { try { return (await be.handle(cmd, args, b64, headers)) ?? null; } catch (e) { return { __err: typeof e === "string" ? e : String((e as Error)?.message ?? e) }; } });
   await ctx.addInitScript(INIT);
@@ -288,6 +300,84 @@ console.log("I: System → Freigaben ansehen und entziehen");
   await all.click(); await all.click(); await p.waitForTimeout(400);
   check(be.st.gfiles.length === 0 && be.st.undo === 0 && be.st.roots.length === 1, "„Alle entziehen“ entzieht Dateien, der Ordner bleibt");
   check(!(await text(p)).includes("verknüpfte Datei"), "Zeile für Einzeldateien verschwindet");
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+
+
+console.log("J: Handy-App (Android): Speicher im App-Ordner, alte Daten mit Sicherung übernehmen");
+{
+  const be = makeBackend(); const s = await session(be, { phone: true, animOff: true }); let p = await s.open();
+  await p.waitForSelector("text=Möchtest du deine Daten mit einem Passwort schützen?", { timeout: 15000 });
+  let t = await text(p);
+  check(t.includes("HANDY-APP") || t.toLowerCase().includes("handy-app"), "Titel „Handy-App“");
+  check(!t.toLowerCase().includes("datenordner wählen"), "keine Ordner-Auswahl am Handy (es gibt nur den App-Speicher)");
+  await shot(p, "11-handy-angebot");
+  await p.click("text=Ohne Passwort weiterarbeiten");
+  await p.waitForSelector("text=Deine bisherigen Daten übernehmen?");
+  t = await text(p);
+  check(t.includes("Auf diesem Handy liegen noch deine Daten"), "Handy-Text der Übernahme");
+  const imp = p.locator("button:has-text('Daten übernehmen')");
+  check(await imp.isDisabled(), "Übernehmen ist gesperrt, solange keine Sicherung gespeichert ist");
+  check(![...be.appdata.keys()].some((k) => k.startsWith("azunavi/")), "bis hierher nichts im neuen Speicher");
+  await shot(p, "12-handy-alt");
+  await p.click("button:has-text('Sicherung speichern')");
+  await p.waitForSelector("text=Sicherung gespeichert");
+  const saved = be.appdata.get("content://fake/Sicherung.zip");
+  check(!!saved && Buffer.from(saved.slice(0, 2)).toString() === "PK", "Sicherung wurde als ZIP über den Android-Dialog gespeichert");
+  check(!imp.isDisabled || !(await imp.isDisabled()), "danach ist Übernehmen frei");
+  await imp.click();
+  await p.waitForSelector("text=✓ Übernommen", { timeout: 40000 });
+  t = await text(p);
+  check(/\d+ Tabellen, \d+ Einträge und 5 Dateien/.test(t), "Bericht: " + (t.match(/\d+ Tabellen[^.]*\./)?.[0] ?? "?"));
+  check(be.appdata.has("azunavi/azunavi.db") && be.appdata.has("azunavi/dateien/attachments/170001_0_bild1.png"), "Datenbank und Dateien im neuen Speicher (azunavi/)");
+  check(be.appdata.has("attachments/170001_0_bild1.png") && be.appdata.has("portraits/p1.png"), "alte Dateien unverändert liegen geblieben");
+  await p.click("button:has-text('Weiter')"); await gone(p); await p.waitForTimeout(1500);
+  await shot(p, "13-handy-app");
+  check(be.appdata.has("azunavi/azunavi.db") && !be.appdata.has("azunavi/azunavi.db.tmp"), "keine Zwischendatei übrig");
+  const nd = new SQL.Database(be.appdata.get("azunavi/azunavi.db")!);
+  check((nd.exec("SELECT COUNT(*) FROM notes")[0].values[0][0] as number) === 3, "Notizen aus der alten Datenbank sind da");
+  // Neustart: keine Frage mehr, Daten da
+  await p.reload(); await gone(p); await p.waitForTimeout(800);
+  check(!(await text(p)).includes("bisherigen Daten übernehmen"), "beim nächsten Start keine Frage mehr");
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+{
+  console.log("K: Handy mit Passwort: alte Daten landen verschlüsselt, Neustart verlangt das Passwort");
+  const be = makeBackend(); const s = await session(be, { phone: true, animOff: true }); let p = await s.open();
+  await p.waitForSelector("button:has-text('Mit Passwort schützen')");
+  await p.click("button:has-text('Mit Passwort schützen')");
+  await p.fill("label:has-text('Name des Profils') input", "Handy");
+  const pws = p.locator("input[type=password]"); await pws.nth(0).fill("ein sehr langes passwort 123"); await pws.nth(1).fill("ein sehr langes passwort 123");
+  await p.click("button:has-text('Weiter')");
+  await p.waitForSelector("text=Dein Wiederherstellungsschlüssel");
+  await p.check("text=Ich habe den Schlüssel sicher aufbewahrt.");
+  await p.click("button:has-text('Profil anlegen und Daten verschlüsseln')");
+  await p.waitForSelector("text=Deine bisherigen Daten übernehmen?");
+  await p.click("button:has-text('Sicherung speichern')"); await p.waitForSelector("text=Sicherung gespeichert");
+  await p.click("button:has-text('Daten übernehmen')");
+  await p.waitForSelector("text=✓ Übernommen", { timeout: 40000 });
+  const magic = (k: string) => Buffer.from(be.appdata.get(k)!.slice(0, 4)).toString();
+  check(magic("azunavi/azunavi.db") === "AZV1" && magic("azunavi/dateien/attachments/170002_0_bild2.png") === "AZV1", "Datenbank und Anhang verschlüsselt im App-Speicher");
+  check(Buffer.from(be.appdata.get("attachments/170002_0_bild2.png")!.slice(0, 4)).toString() !== "AZV1", "die alten Dateien wurden nicht angefasst");
+  await p.click("button:has-text('Weiter')"); await gone(p); await p.waitForTimeout(1000);
+  await p.reload();
+  await p.waitForSelector("text=ist durch ein Passwort geschützt");
+  await p.fill("input[type=password]", "falsches passwort 12345"); await p.click("button:has-text('Entsperren')");
+  await p.waitForSelector("text=Falsches Passwort");
+  await p.fill("input[type=password]", "ein sehr langes passwort 123"); await p.click("button:has-text('Entsperren')");
+  await gone(p); await p.waitForTimeout(800);
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+{
+  console.log("L: Handy, frische Installation (keine alte Datenbank)");
+  const be = makeBackend(); be.handle = ((real) => async (cmd: string, args: any, b64: string | null, h: any) => { if (cmd === "plugin:sql|select" && /schema_migrations/.test(args.query)) throw "no such table: schema_migrations"; return real(cmd, args, b64, h); })(be.handle);
+  const s = await session(be, { phone: true, animOff: true }); const p = await s.open();
+  await p.click("text=Ohne Passwort weiterarbeiten");
+  await gone(p); await p.waitForTimeout(1200);
+  check(be.appdata.has("azunavi/azunavi.db"), "leere Datenbank im App-Speicher angelegt, ohne Frage nach alten Daten");
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }

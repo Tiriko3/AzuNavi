@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile-files",
-  "description": "Nur Handy (Android): bisherige Rechte unverändert. Die Handy-App nutzt weiter das SQL-Plugin und den App-Ordner, bis sie auf Datenordner und Profile umgestellt wird. Dazu Dateien, die der Nutzer im Android-Dialog wählt (content://), lesen und schreiben.",
+  "description": "Nur Handy (Android): ab 0.5.0 speichert die Handy-App wie PC und Web in azunavi/ im App-Speicher (Datei-Rechte darum wie bisher). Die alte Datenbank persona.db darf nur noch gelesen werden (einmalige Übernahme), nicht mehr geschrieben. Dazu Dateien, die der Nutzer im Android-Dialog wählt (content://), lesen und schreiben.",
   "platforms": [
     "android",
     "iOS"
@@ -11,8 +11,9 @@
   ],
   "permissions": [
     "core:default",
-    "sql:default",
-    "sql:allow-execute",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-close",
     "fs:default",
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",

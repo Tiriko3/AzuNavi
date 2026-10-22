@@ -9,6 +9,7 @@
 //  5. ZULETZT azunavi.db schreiben, zurücklesen, vergleichen. Erst das macht den Ordner „belegt“.
 // Bricht etwas vorher ab, ist der Ordner weiterhin „leer“ und die Übernahme kann erneut laufen. Die alte Datenbank wird nie verändert.
 import type { SqlJsStatic } from "sql.js";
+import JSZip from "jszip";
 import { MIGRATIONS } from "../db/migrations";
 
 export interface LegacySource {
@@ -53,6 +54,31 @@ export function validRel(rel: string): boolean {
   return rel.split("/").every((p) => p && p !== "." && p !== ".." && !/[<>:"|?*\\\x00-\x1f]/.test(p) && !/[. ]$/.test(p) && !/^(con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(\.|$)/i.test(p) && !p.endsWith(".azunavi-tmp"));
 }
 
+/** Welche Dateien (Anhänge, Porträts, eigene Vorlage) die alte Datenbank verwendet */
+export function legacyFilePaths(old: Record<string, Record<string, unknown>[]>): Set<string> {
+  const want = new Set<string>();
+  old.attachments?.forEach((a) => typeof a.stored_path === "string" && want.add(a.stored_path));
+  old.persons?.forEach((p) => typeof p.portrait_path === "string" && p.portrait_path && want.add(p.portrait_path));
+  if (old.settings?.some((s) => s.key === "custom_template" && s.value === "1")) want.add(TEMPLATE);
+  return want;
+}
+
+/** Sicherung der ALTEN Daten als ZIP (gleiches Format wie „Daten mitnehmen“: daten.json plus dateien/), direkt aus der alten Datenbank gelesen.
+ *  Lässt sich später mit „Sicherung einspielen“ wiederherstellen. Die alte Datenbank wird nur gelesen. */
+export async function exportLegacyZip(src: LegacySource, version: string): Promise<{ bytes: Uint8Array; rows: number; files: number }> {
+  const tables: Record<string, Record<string, unknown>[]> = {};
+  let rows = 0;
+  for (const t of (await src.tableNames()).filter((x) => !SKIP.has(x))) { tables[t] = await src.rows(t); rows += tables[t].length; }
+  const zip = new JSZip();
+  zip.file("daten.json", JSON.stringify({ app: "persona-app", version, schema: await src.schemaVersion(), created: new Date().toISOString(), tables }));   // Kennung wie in backup.ts
+  let files = 0;
+  for (const rel of legacyFilePaths(tables)) {
+    const b = await src.readFile(rel);
+    if (b) { zip.file("dateien/" + rel, b); files++; }
+  }
+  return { bytes: await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }), rows, files };
+}
+
 export async function importLegacy(src: LegacySource, sink: ImportSink, SQL: SqlJsStatic, progress: (m: string) => void = () => {}): Promise<ImportReport> {
   if (await sink.hasDb()) throw new Error("Der Datenordner enthält schon Daten (azunavi.db). Die Übernahme geht nur in einen Ordner ohne Daten.");
   const legacyV = await src.schemaVersion();
@@ -93,10 +119,7 @@ export async function importLegacy(src: LegacySource, sink: ImportSink, SQL: Sql
   } catch (e) { try { db.run("ROLLBACK"); } catch { /* egal */ } db.close(); throw e; }
 
   /* 3. Dateien kopieren und prüfen (erst nachdem klar ist, was die Datenbank verlangt) */
-  const want = new Set<string>();
-  old.attachments?.forEach((a) => typeof a.stored_path === "string" && want.add(a.stored_path));
-  old.persons?.forEach((p) => typeof p.portrait_path === "string" && p.portrait_path && want.add(p.portrait_path));
-  if (old.settings?.some((s) => s.key === "custom_template" && s.value === "1")) want.add(TEMPLATE);
+  const want = legacyFilePaths(old);
   const missing: string[] = [], rejected: string[] = [];
   let files = 0, n = 0;
   try {

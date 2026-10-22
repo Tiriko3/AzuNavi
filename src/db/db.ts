@@ -1,4 +1,3 @@
-import Database from "@tauri-apps/plugin-sql";
 import { MIGRATIONS } from "./migrations";
 import { usesDataFolder } from "../platform";
 
@@ -7,7 +6,7 @@ export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in
 
 export interface DbStatus {
   ok: boolean;
-  /** "sqlite": echte Datei über das SQL-Plugin (Android). "ordner": SQLite im Datenordner (PC-Programm und Web-App). "browser": nur Entwicklung. */
+  /** "sqlite": (früher) echte Datei über das SQL-Plugin, jetzt ungenutzt. "ordner": SQLite im Datenordner (PC-Programm und Web-App). "browser": nur Entwicklung. */
   mode: "sqlite" | "browser" | "ordner";
   schemaVersion: number;
   error?: string;
@@ -32,21 +31,12 @@ async function doInit(): Promise<DbStatus> {
   let mode: "sqlite" | "browser" | "ordner" = "sqlite";
   try {
     if (usesDataFolder) {
-      // PC-Programm (ab 0.4.0) und Web-App: SQLite als WebAssembly, gespeichert als azunavi.db im gewählten Datenordner.
-      // Den Ordner und das Profil hat der Startbildschirm (WebGate) vorher geöffnet.
+      // PC-Programm (ab 0.4.0), Handy-App (ab 0.5.0) und Web-App: SQLite als WebAssembly, gespeichert als azunavi.db im Datenordner
+      // (am Handy im App-Speicher). Den Ordner und das Profil hat der Startbildschirm (WebGate) vorher geöffnet.
+      // Das SQL-Plugin wird nur noch einmalig gebraucht, um die alte persona.db zu lesen (desktop/legacy.ts).
       mode = "ordner";
       const { openWebDb } = await import("../web/webDb");
       backend = await openWebDb();
-    } else if (inTauri) {
-      // Android: "sqlite:persona.db" liegt automatisch unter %APPDATA%\com.local.personaapp\persona.db (auf dem Handy im App-Speicher)
-      const db = await Database.load("sqlite:persona.db");
-      backend = {
-        async execute(sql, params = []) {
-          const r = await db.execute(sql, params);
-          return { rowsAffected: r.rowsAffected, lastInsertId: r.lastInsertId ?? 0 };
-        },
-        select: <T,>(sql: string, params: unknown[] = []) => db.select<T[]>(sql, params),
-      };
     } else if (import.meta.env.DEV) {
       mode = "browser";
       const { openBrowserDb } = await import("./browserDb");

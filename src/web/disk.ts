@@ -5,6 +5,9 @@ import { invoke } from "@tauri-apps/api/core";
 /** PC-Programm (Tauri-Fenster, nicht Android). Gleiche Bedingung wie isDesktopApp in platform.ts, hier ohne Vite-Abhängigkeit (testbar unter Node). */
 export const hasDisk = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && !(typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
+/** Handy-App (Tauri, Android/iOS): Daten im App-Speicher (appStore.ts). Gleiche Bedingung wie isMobileApp in platform.ts, ohne Vite-Abhängigkeit. */
+export const hasApp = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 export interface DiskLoc { id: string; name: string; path: string; exists: boolean }
 export interface LegacyInfo { exists: boolean; size: number; modified: number; dir: string; backup_dir: string | null }
 export interface BackupInfo { dir: string; files: string[]; bytes: number; created: boolean }

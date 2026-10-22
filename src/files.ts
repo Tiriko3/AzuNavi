@@ -4,7 +4,7 @@
 //  - Handy: in den App-Ordner (%APPDATA%\com.local.personaapp\... bzw. App-Speicher)
 import { open } from "@tauri-apps/plugin-dialog";
 import { BaseDirectory, copyFile, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
-import { isDesktopApp, isMobile, isWebApp, usesDataFolder } from "./platform";
+import { isDesktopApp, isMobileApp, isWebApp, usesDataFolder } from "./platform";
 import { appRead, appWrite } from "./storage/appFiles";
 
 /** Android-Bilder kommen als content://…/image%3A123 ohne Endung: Typ an den ersten Bytes erkennen */
@@ -64,12 +64,14 @@ export async function pickAndStoreImages(folder: "attachments" | "portraits", mu
   const sel = await open({ multiple, directory: false, filters: [{ name: "Bilder", extensions: EXT }] });
   if (!sel) return [];
   const sources = Array.isArray(sel) ? sel : [sel];
-  if (isDesktopApp) {   // PC-Programm: Bild lesen und in den Datenordner kopieren (verschlüsselt, wenn das Profil ein Passwort hat)
+  if (isDesktopApp || isMobileApp) {   // PC und Handy: Bild lesen (am Handy eine content://-Adresse) und in den Datenordner kopieren (verschlüsselt, wenn das Profil ein Passwort hat)
     const out: StoredFile[] = [];
     for (let i = 0; i < sources.length; i++) {
-      const name = base(sources[i]);
+      let name = base(sources[i]);
+      const bytes = await readFile(sources[i]);
+      if (isMobileApp && !/\.[a-z0-9]{2,5}$/i.test(name)) name = "Bild_" + (i + 1) + sniffExt(bytes);
       const path = `${folder}/${stamp}_${i}_${safe(name)}`;
-      await appWrite(path, await readFile(sources[i]));
+      await appWrite(path, bytes);
       out.push({ name, path });
     }
     return out;
@@ -78,16 +80,7 @@ export async function pickAndStoreImages(folder: "attachments" | "portraits", mu
   const out: StoredFile[] = [];
   for (let i = 0; i < sources.length; i++) {
     const src = sources[i];
-    let name = base(src);
-    if (isMobile) {
-      // Handy: content://-Adresse lesen und als Kopie im App-Ordner ablegen
-      const bytes = await readFile(src);
-      if (!/\.[a-z0-9]{2,5}$/i.test(name)) name = "Bild_" + (i + 1) + sniffExt(bytes);
-      const path = `${folder}/${stamp}_${i}_${safe(name)}`;
-      await writeFile(path, bytes, { baseDir: BaseDirectory.AppData });
-      out.push({ name, path });
-      continue;
-    }
+    const name = base(src);
     const path = `${folder}/${stamp}_${i}_${safe(name)}`;
     await copyFile(src, path, { toPathBaseDir: BaseDirectory.AppData });
     out.push({ name, path });

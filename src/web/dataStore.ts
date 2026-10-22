@@ -6,10 +6,11 @@
 // Inhalt des Ordners: azunavi.db (Datenbank), dateien/ (Anhänge, Porträts, Vorlage), azunavi.lock (wer gerade arbeitet),
 // profil.json (nur mit Passwortschutz: Profil, Salz, verpackter Datenschlüssel). Mit Passwortschutz sind Datenbank
 // und Anhänge verschlüsselt (siehe vault.ts); readData/writeData erledigen das für alle Seiten unsichtbar.
-import { disk, hasDisk } from "./disk";
+import { disk, hasApp, hasDisk } from "./disk";
+import { appStore } from "./appStore";
 import { PROFILE_FILE, createProfile, decryptFile, encryptFile, isVaultFile, keyMatches, openWithPassword, openWithRecovery, parseProfile, profileBytes, toKey, withNewPassword, type ProfileFile } from "./vault";
 
-type Kind = "folder" | "browser" | "disk";
+type Kind = "folder" | "browser" | "disk" | "app";
 const IDB = "azunavi-web", KV = "kv", FILES = "files";
 let kind: Kind | null = null;
 let root: FileSystemDirectoryHandle | null = null;
@@ -38,7 +39,7 @@ const kvDel = (k: string) => tx(KV, "readwrite", (s) => s.delete(k));
 export const kvRead = kvGet, kvWrite = kvSet;
 
 /* ---------- Speicherorte (mehrere, für die Profilauswahl an gemeinsam genutzten PCs) ---------- */
-interface LocRec { id: string; kind: Exclude<Kind, "disk">; name: string; handle?: FileSystemDirectoryHandle; profileName?: string; declined?: boolean }
+interface LocRec { id: string; kind: Exclude<Kind, "disk" | "app">; name: string; handle?: FileSystemDirectoryHandle; profileName?: string; declined?: boolean }
 export interface SavedLocation { id: string; kind: Kind; name: string; profileName?: string; needsPermission: boolean; declined: boolean; /** nur PC: Ordner gerade nicht auffindbar */ missing?: boolean; /** nur PC: voller Pfad zur Anzeige */ path?: string }
 
 async function recs(): Promise<LocRec[]> {
@@ -56,13 +57,17 @@ const diskMeta = async () => (await kvGet<DiskMeta>("diskmeta")) ?? {};
 async function patchDiskMeta(id: string, patch: { profileName?: string; declined?: boolean }) { const m = await diskMeta(); m[id] = { ...m[id], ...patch }; await kvSet("diskmeta", m); }
 const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 async function patchRec(id: string, patch: Partial<LocRec>) {
-  if (hasDisk) { await patchDiskMeta(id, patch); return; }
+  if (hasDisk || hasApp) { await patchDiskMeta(id, patch); return; }
   patchRecWeb(id, patch);
 }
 async function patchRecWeb(id: string, patch: Partial<LocRec>) { const l = await recs(); const r = l.find((x) => x.id === id); if (r) { Object.assign(r, patch); await kvSet("locations", l); } }
 
 /** Alle bekannten Speicherorte (ohne sie schon zu öffnen) */
 export async function savedLocations(): Promise<SavedLocation[]> {
+  if (hasApp) {   // Handy: genau ein Ort, der App-Speicher
+    const m = (await diskMeta())["app"];
+    return [{ id: "app", kind: "app", name: "Dieses Handy", profileName: m?.profileName, needsPermission: false, declined: !!m?.declined }];
+  }
   if (hasDisk) {
     const meta = await diskMeta();
     return (await disk.locations()).map((l) => ({ id: l.id, kind: "disk" as const, name: l.name, path: l.path, missing: !l.exists, profileName: meta[l.id]?.profileName, needsPermission: false, declined: !!meta[l.id]?.declined }));
@@ -78,6 +83,7 @@ export async function savedLocations(): Promise<SavedLocation[]> {
 export const currentLocationId = async () => (await kvGet<string>("current")) ?? null;
 /** Einen gespeicherten Ort öffnen. Bei einem Ordner muss das nach einem Klick passieren (Berechtigung). */
 export async function resumeLocation(id: string): Promise<boolean> {
+  if (hasApp) { kind = "app"; root = null; curId = "app"; secured = null; await kvSet("current", "app"); return true; }
   if (hasDisk) {
     try { diskName = (await disk.open(id)).name; }
     catch (e) {
@@ -124,7 +130,7 @@ export async function removeLocation(id: string) {
   await kvSet("locations", (await recs()).filter((r) => r.id !== id));
   if ((await kvGet<string>("current")) === id) await kvDel("current");
 }
-export const locationInfo = () => ({ kind, name: kind === "folder" ? root?.name ?? "" : kind === "disk" ? diskName : "Dieser Browser" });
+export const locationInfo = () => ({ kind, name: kind === "folder" ? root?.name ?? "" : kind === "disk" ? diskName : kind === "app" ? "Dieses Handy" : "Dieser Browser" });
 export async function markDeclined() { if (curId) await patchRec(curId, { declined: true }); }
 
 async function dirOf(rel: string, create: boolean): Promise<{ dir: FileSystemDirectoryHandle; name: string }> {
@@ -136,6 +142,7 @@ async function dirOf(rel: string, create: boolean): Promise<{ dir: FileSystemDir
 /** Datei roh (so wie sie im Ordner liegt) lesen, null, wenn es sie nicht gibt */
 export async function readRaw(rel: string): Promise<Uint8Array | null> {
   if (kind === "disk") return disk.read(rel);
+  if (kind === "app") return appStore.read(rel);
   if (kind === "browser") { const v = await tx<ArrayBuffer | undefined>(FILES, "readonly", (s) => s.get(rel) as IDBRequest<ArrayBuffer | undefined>); return v ? new Uint8Array(v) : null; }
   if (!root) throw new Error("Kein Datenordner gewählt");
   try { const { dir, name } = await dirOf(rel, false); return new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer()); }
@@ -144,6 +151,7 @@ export async function readRaw(rel: string): Promise<Uint8Array | null> {
 /** Datei roh in den Datenordner schreiben (Unterordner werden angelegt). Ein Ordner-Schreibvorgang ist atomar. */
 export async function writeRaw(rel: string, bytes: Uint8Array): Promise<void> {
   if (kind === "disk") return disk.write(rel, bytes);
+  if (kind === "app") return appStore.write(rel, bytes);
   if (kind === "browser") { const copy = bytes.slice().buffer; await tx(FILES, "readwrite", (s) => s.put(copy, rel)); return; }
   if (!root) throw new Error("Kein Datenordner gewählt");
   const { dir, name } = await dirOf(rel, true);
@@ -173,6 +181,7 @@ export async function writeData(rel: string, bytes: Uint8Array): Promise<void> {
 /** Alle Dateien im Datenordner (Pfade mit /) */
 export async function listFiles(): Promise<string[]> {
   if (kind === "disk") return disk.list();
+  if (kind === "app") return appStore.list();
   if (kind === "browser") {
     const db = await idb();
     return new Promise((res, rej) => { const r = db.transaction(FILES, "readonly").objectStore(FILES).getAllKeys(); r.onsuccess = () => res(r.result as string[]); r.onerror = () => rej(r.error); });

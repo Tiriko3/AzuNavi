@@ -8,10 +8,10 @@ import {
 import { MIN_PASSWORD, createProfile, passwordProblem, type ProfileFile } from "./vault";
 import namiImg from "../assets/figuren/nami_gruss.webp";
 import { DOWNLOAD_URL } from "./downloadUrl";
-import { isDesktopApp } from "../platform";
+import { isDesktopApp, isMobileApp } from "../platform";
 import { installCloseGuard } from "./closeGuard";
 import { GateBackground, Intro } from "./Intro";
-import { folderHasDb, legacyBackup, legacyInfo, runLegacyImport, type BackupInfo, type ImportReport, type LegacyInfo } from "../desktop/legacy";
+import { folderHasDb, legacyBackup, legacyInfo, runLegacyImport, saveLegacyBackup, type BackupInfo, type ImportReport, type LegacyInfo } from "../desktop/legacy";
 
 type Step = "laden" | "liste" | "wahl" | "entsperren" | "wiederherstellen" | "angebot" | "einrichten" | "schluessel" | "migration" | "alt" | "uebernahme" | "sperre" | "bereit";
 const msg = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error:\s*/, "");
@@ -50,10 +50,13 @@ export function WebGate({ children }: { children: ReactNode }) {
   const clearForm = () => { setPw(""); setPw2(""); setRecKey(""); setSaved(false); setErr(""); };
   /** Läuft jemand anderes im selben Ordner? Sonst los. */
   const enter = async (skipLegacy = false) => {
-    if (isDesktopApp && !legDone && !skipLegacy) {
+    if ((isDesktopApp || isMobileApp) && !legDone && !skipLegacy) {
       try {
-        const info = await legacyInfo();
-        if (info.exists && !(await folderHasDb())) { setLeg(info); setBak(null); setErr(""); setStep("alt"); return; }
+        // erst schauen, ob der Ordner schon Daten hat (billig), nur sonst nach der alten Datenbank fragen
+        if (!(await folderHasDb())) {
+          const info = await legacyInfo();
+          if (info.exists) { setLeg(info); setBak(null); setErr(""); setStep("alt"); return; }
+        }
       } catch { /* ohne Auskunft: normal weiter */ }
       setLegDone(true);
     }
@@ -96,7 +99,7 @@ export function WebGate({ children }: { children: ReactNode }) {
   useEffect(() => { if (step === "bereit" && isDesktopApp) installCloseGuard().catch(() => {}); }, [step]);
   // Schritt „alte Daten“: zuerst Sicherung der alten Datenbank anlegen (Rust prüft die Kopie)
   useEffect(() => {
-    if (step !== "alt" || bak) return;
+    if (step !== "alt" || bak || !isDesktopApp) return;   // Handy: die Sicherung speichert der Nutzer selbst (Knopf unten)
     let gone = false;
     legacyBackup().then((b) => { if (!gone) setBak(b); }).catch((e) => { if (!gone) setErr("Die Sicherung der alten Datenbank ist fehlgeschlagen, deshalb wird nichts übernommen: " + msg(e)); });
     return () => { gone = true; };
@@ -105,6 +108,7 @@ export function WebGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       const list = await savedLocations(); setLocs(list);
+      if (isMobileApp) { await open("app"); return; }   // Handy: es gibt nur den App-Speicher, keinen Ordner zu wählen
       if (!list.length) { setStep("wahl"); return; }
       const cur = await currentLocationId(); const c = list.find((l) => l.id === cur);
       if (c && !c.needsPermission && !c.missing && await resumeLocation(c.id)) { await afterOpen(c.id); return; }
@@ -163,7 +167,7 @@ export function WebGate({ children }: { children: ReactNode }) {
       <GateBackground />
       <div className="wg-card">
         <img className="wg-nami" src={namiImg} alt="" />
-        <h1>AzuNavi<small>{isDesktopApp ? "PC-Programm" : "Web-App"}</small></h1>
+        <h1>AzuNavi<small>{isDesktopApp ? "PC-Programm" : isMobileApp ? "Handy-App" : "Web-App"}</small></h1>
         {step === "laden" && <p>Einen Moment …</p>}
 
         {step === "liste" && <>
@@ -241,14 +245,14 @@ export function WebGate({ children }: { children: ReactNode }) {
 
         {step === "alt" && leg && <>
           <p><b>Deine bisherigen Daten übernehmen?</b></p>
-          <p className="wg-small">AzuNavi hat auf diesem PC noch die alte Datenbank (<code>persona.db</code>, {(leg.size / 1048576).toFixed(1)} MB, zuletzt geändert {new Date(leg.modified * 1000).toLocaleString("de-DE")}). Sie wird in deinen neuen Datenordner übernommen, samt Anhängen, Porträts und Vorlage. Die alte Datenbank bleibt unverändert liegen, und AzuNavi löscht sie nie.</p>
-          {bak ? <p className="wg-small">✓ Sicherung angelegt{bak.created ? "" : " (gab es schon)"}: <code>{bak.dir}</code></p> : !err && <p className="wg-small">Sicherung der alten Datenbank wird angelegt …</p>}
+          {isMobileApp ? <p className="wg-small">Auf diesem Handy liegen noch deine Daten aus der alten Version. Sie werden in den neuen Speicher übernommen (mit Anhängen, Porträts und Vorlage). Danach kannst du sie mit einem Passwort schützen. Die alten Daten bleiben unverändert liegen, und AzuNavi löscht sie nie.</p> : <p className="wg-small">AzuNavi hat auf diesem PC noch die alte Datenbank (<code>persona.db</code>, {(leg.size / 1048576).toFixed(1)} MB, zuletzt geändert {new Date(leg.modified * 1000).toLocaleString("de-DE")}). Sie wird in deinen neuen Datenordner übernommen, samt Anhängen, Porträts und Vorlage. Die alte Datenbank bleibt unverändert liegen, und AzuNavi löscht sie nie.</p>}
+          {isMobileApp ? (bak ? <p className="wg-small">✓ Sicherung gespeichert: <code>{bak.dir}</code></p> : <button className="wg-btn sec" disabled={!!busy} onClick={run("", async () => { const r = await saveLegacyBackup(); if (!r) throw new Error("Es wurde keine Sicherung gespeichert. Ohne Sicherung wird nichts übernommen."); setBak({ dir: r.path, files: [], bytes: 0, created: true }); })}>1. Sicherung speichern (z. B. in OneDrive)</button>) : (bak ? <p className="wg-small">✓ Sicherung angelegt{bak.created ? "" : " (gab es schon)"}: <code>{bak.dir}</code></p> : !err && <p className="wg-small">Sicherung der alten Datenbank wird angelegt …</p>)}
           <button className="wg-btn" disabled={!bak || !!busy} onClick={run("", async () => {
             setStep("uebernahme"); setProg("Los geht’s …");
             try { setRep(await runLegacyImport(setProg)); setLegDone(true); } catch (e) { setErr(msg(e)); setStep("alt"); }
           })}>Daten übernehmen</button>
           <button className="wg-btn sec" disabled={!!busy} onClick={async () => { setLegDone(true); setErr(""); await enter(true); }}>Ohne alte Daten starten</button>
-          <p className="wg-small">Die Übernahme geht nur in einen Ordner ohne vorhandene Daten. Willst du später doch noch übernehmen, wähle unter System → Datenordner → Wechseln einen neuen, leeren Ordner.</p>
+          {isMobileApp ? <p className="wg-small">Die Sicherung aus Schritt 1 lässt sich später jederzeit unter Mehr → „Sicherung einspielen“ wieder laden, auch wenn du hier „Ohne alte Daten starten“ wählst.</p> : <p className="wg-small">Die Übernahme geht nur in einen Ordner ohne vorhandene Daten. Willst du später doch noch übernehmen, wähle unter System → Datenordner → Wechseln einen neuen, leeren Ordner.</p>}
         </>}
 
         {step === "uebernahme" && <>

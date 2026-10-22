@@ -1,5 +1,17 @@
 # Änderungen
 
+## 0.5.0 – Handy-App mit Datenordner-Format und Passwortschutz
+- **Gleiche Datenschicht wie PC und Web:** Die Android-App speichert jetzt wie das PC-Programm und die Web-App in `azunavi.db` und `dateien/` (im geschützten App-Speicher unter `azunavi/`), mit derselben Verschlüsselung. Es gibt keinen Ordner zu wählen: Das Handy hat genau einen Speicher.
+- **Passwortschutz am Handy:** Dieselben Profile wie am PC und im Browser (Passwort, Wiederherstellungsschlüssel, automatische Sperre, „Angemeldet bleiben“). Mehr → Passwortschutz.
+- **Alte Daten übernehmen:** Beim ersten Start nach dem Update bietet die Handy-App an, die alten Daten zu übernehmen (Notizen, Kontakte, Projekte, Anhänge, Porträts, Vorlage).
+  - **Vorher** speicherst du eine Sicherung über den Android-Speicherdialog (z. B. in OneDrive). Sie hat dasselbe Format wie „Daten mitnehmen“ und lässt sich mit „Sicherung einspielen“ wieder laden. **Ohne gespeicherte Sicherung wird nichts übernommen.**
+  - Danach werden alle Zeilen nach dem Kopieren zur Probe mit dem Original verglichen, jede Datei wird zurückgelesen, und die Datenbank wird als **letzter** Schritt geschrieben. Bricht etwas ab, bleibt der Speicher leer und es geht von vorn.
+  - Die alte Datenbank und die alten Dateien bleiben unverändert liegen und werden nie gelöscht.
+- **Austausch Handy ↔ PC:** weiterhin über die Sicherungsdatei (Mehr → Sicherung erstellen / einspielen oder Cloud-Sicherung). Android kann Ordner in OneDrive nicht verlässlich öffnen, deshalb gibt es am Handy keinen gemeinsamen Live-Ordner.
+- **Kleinere Rechte:** Die alte Datenbank darf am Handy nur noch gelesen werden (nur zur einmaligen Übernahme), nicht mehr beschrieben. Das SQL-Plugin wird sonst nirgends mehr benutzt.
+- Bilder aus der Galerie landen im Datenordner (verschlüsselt, wenn das Profil ein Passwort hat).
+- Neu: Browser-Durchläufe als Handy (`tools/desktop-e2e.mts`, Abschnitte J bis L), Test der Sicherung der alten Daten (`tools/desktop-test.mts`).
+
 ## 0.4.3 – Freigaben ansehen und entziehen, kleinere Rechte am PC
 - **System → Freigegebene Ordner (PC):** Eine Übersicht zeigt, auf welche Ordner und Dateien AzuNavi außerhalb des Datenordners zugreifen darf. Jeder Ordner lässt sich mit zwei Klicks wieder entziehen („Entziehen“, dann „Wirklich entziehen?“), die einzelnen verknüpften Dateien und die Rückgängig-Orte mit „Alle entziehen“. Es wird nie etwas gelöscht oder verändert: Die Ordner und Dateien bleiben liegen, du wählst sie bei Bedarf auf der Dateien-Seite neu aus. Der Entzug wirkt sofort.
 - **Kleinere Rechte (capabilities) am PC:** Das Fenster darf am PC nur noch die alte `persona.db` lesen und laden (nicht mehr schreiben), im App-Ordner nur lesen (nicht mehr schreiben) und den Öffnen-Dialog benutzen (nicht mehr Speichern, Meldungen, Fragen). Schreiben und Speichern laufen über die geprüften Rust-Befehle (Datenordner, Freigaben).
