@@ -13,6 +13,7 @@ import { isoWeek, weekDates } from "../report/types";
 import { TemplateChooser, applyTplChoice, type TplChoice } from "../report/TemplateChooser";
 import { createBackup, restoreBackup } from "../backup";
 import { fsapi } from "../fsapi";
+import { ProfilePanel } from "../web/ProfilePanel";
 import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
 import { PrivacyInfo } from "../PrivacyInfo";
 import { DOWNLOAD_URL } from "../web/downloadUrl";
@@ -146,7 +147,7 @@ function Today({ scope, name, go, newNote, celebrate }: { scope: ScopeF; name: s
 /* ---------- Mehr: Profil, Darstellung, Berichtsheft, Daten ---------- */
 function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfile, toast }: { open: boolean; section: "" | "profil"; onClose: () => void; prefs: Prefs; setPrefs: (p: Prefs) => void; profile: Profile; setProfile: (p: Profile) => void; toast: (t: string) => void }) {
   const qualsOn = useQualsEnabled();
-  const [sub, setSub] = useState<"" | "profil" | "vorlage" | "cloud" | "privacy">("");
+  const [sub, setSub] = useState<"" | "profil" | "vorlage" | "cloud" | "privacy" | "schutz">("");
   const [p, setP] = useState<Profile>(profile);
   const [tpl, setTpl] = useState<TplChoice>({ mode: "standard" });
   const [msg, setMsg] = useState(""), [err, setErr] = useState("");
@@ -163,6 +164,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
         {row("people", "Profil", profile.vorname ? `${profile.vorname} ${profile.nachname} · ${profile.beruf || "Beruf fehlt"}` : "Name und Beruf eintragen", () => setSub("profil"))}
         {row("book", "Berichtsheft-Vorlage", "Standard-Vorlage oder eigene Datei", () => setSub("vorlage"))}
         {row("cloud", "Sicherung in deiner Cloud", "OneDrive, Google Drive …, verschlüsselt", () => setSub("cloud"))}
+        {isWebApp && row("gear", "Passwortschutz", "Sperren, automatische Sperre, Passwort ändern", () => setSub("schutz"))}
         {row("people", "Datenschutz & Speicherorte", "Was wo gespeichert ist", () => setSub("privacy"))}
         {isWebApp && DOWNLOAD_URL && row("export", "Android-App herunterladen", "Öffnet die Download-Seite", () => window.open(DOWNLOAD_URL, "_blank", "noopener"))}
       </div>
@@ -190,6 +192,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       <Sheet open={sub === "vorlage"} onClose={() => setSub("")} title="Berichtsheft-Vorlage" tall footer={<button className="m-btn" onClick={() => act(async () => { await applyTplChoice(tpl); setSub(""); toast("Vorlage übernommen"); })}><Icon n="check" />Übernehmen</button>}>
         <TemplateChooser prof={prof} value={tpl} onChange={setTpl} />
       </Sheet>
+      {isWebApp && <Sheet open={sub === "schutz"} onClose={() => setSub("")} title="Passwortschutz" tall><ProfilePanel mobile /></Sheet>}
       <Sheet open={sub === "privacy"} onClose={() => setSub("")} title="Datenschutz" tall><PrivacyInfo /></Sheet>
       <Sheet open={sub === "cloud"} onClose={() => setSub("")} title="Deine Cloud" tall><CloudFolderPanel /></Sheet>
     </Sheet>

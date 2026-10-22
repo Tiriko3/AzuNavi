@@ -13,6 +13,7 @@ import { setQualsEnabled, useQualsEnabled } from "../report/quals";
 import { PROFILES, findProfile, profileById, qualSuggestion } from "../profiles/berufe";
 import { listQualifications, replaceQualifications } from "../db/repo";
 import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
+import { ProfilePanel } from "../web/ProfilePanel";
 import { PrivacyInfo } from "../PrivacyInfo";
 import { DOWNLOAD_URL } from "../web/downloadUrl";
 import { todayStr } from "../util";
@@ -200,6 +201,7 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <dt>Datenbank</dt><dd>{db?.ok ? <span className="ok">{db.mode === "sqlite" ? `SQLite, Schema ${db.schemaVersion}` : "Browser-Testmodus"}</span> : <span className="bad">{db?.error}</span>}</dd>
             <dt>Version</dt><dd>{APP_VERSION}</dd>
           </dl>}
+          {isWebApp && <><h3 className="sysh">Passwortschutz</h3><ProfilePanel /></>}
           <div className="danger">
             <b>App zurücksetzen</b>
             <p className="small">Löscht alle Daten in der App. Deine Ordner und Dateien auf der Festplatte bleiben. Tippe <b>ZURÜCKSETZEN</b> ein:</p>

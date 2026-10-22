@@ -28,6 +28,7 @@ export async function openWebDb(): Promise<Backend> {
     return chain;
   };
   const schedule = () => { dirty = true; emit("speichert"); window.clearTimeout(timer); timer = window.setTimeout(flush, 600); };
+  window.addEventListener("azunavi-flush", (e) => { (e as CustomEvent<Promise<unknown>[]>).detail.push(flush()); });   // vor dem Sperren: alles speichern
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
   window.addEventListener("pagehide", () => { flush(); });
   window.addEventListener("beforeunload", (e) => { if (dirty) { flush(); e.preventDefault(); } });

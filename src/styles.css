@@ -950,3 +950,14 @@ button,.item{-webkit-user-select:none;user-select:none}
 .m-sheet .privacy{max-height:none} .m-sheet .privacy h4{color:var(--m-navy)}
 
 .wg-dl{display:inline-block;margin-top:10px;font-weight:700}
+.wg-field{display:block;text-align:left;margin:12px 0 0}
+.wg-field span{display:block;font-size:13px;opacity:.85;margin-bottom:4px}
+.wg-field input{box-sizing:border-box;width:100%;height:50px;margin:0;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.95);color:#04106b;padding:8px 12px;font:600 17px var(--text)}
+.wg-key{font:700 21px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.05em;background:rgba(255,255,255,.12);border:2px dashed #bfe6ff;border-radius:12px;padding:14px 10px;margin:12px 0;word-break:break-all;user-select:all}
+.wg-check{display:flex;gap:10px;align-items:flex-start;text-align:left;font-size:14.5px;margin:12px 0 0}
+.wg-check input{width:22px;height:22px;flex:none;margin-top:1px}
+.wg-btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.wg-btn.wg-loc{flex-direction:column;gap:2px;text-transform:none;font-style:normal;font-weight:900;font-size:19px}
+.wg-btn.wg-loc small{font:600 12.5px var(--text);opacity:.7}
+.wg-row{display:flex;gap:10px}.wg-half{flex:1;min-height:46px;font-size:15px}
+.wg-link:disabled{opacity:.5}
