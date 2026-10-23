@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmptyArt } from "../EmptyArt";
 import type { MutableRefObject, PointerEvent as RPointerEvent } from "react";
 import {
   connect, createBoardProject, deleteProject, disconnect, listBoard, listThreads, setPos, setProjectPeople, updateProject,
@@ -327,6 +328,14 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
               }
               setConnectFrom(null);
             }} />
+          {shown.length === 0 && !draft && (
+            <div className="pempty paperbox">
+              <EmptyArt kind="zettel" pose="pinnt" />
+              <b>{projects.length === 0 ? "Noch keine Projekte." : "In diesem Bereich gibt es keine Projekte."}</b>
+              <p>Projekte hängen hier als Zettel im Netzplan und an der Pinnwand. Verbinde zusammengehörige Projekte mit Fäden und zoome mit dem Mausrad.</p>
+              <button className="btn" onClick={openNew}><span>Erstes Projekt anlegen</span></button>
+            </div>
+          )}
         </div>
       )}
       <div ref={vpRef} className={"bvp" + (connectMode ? " connecting" : "")} style={openId !== null || mode === "netz" ? { display: "none" } : undefined}
@@ -437,6 +446,7 @@ export function ProjectsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
         )}
         {shown.length === 0 && !draft && (
           <div className="pempty paperbox">
+            <EmptyArt kind="zettel" pose="pinnt" />
             <b>{projects.length === 0 ? "Noch keine Projekte." : "In diesem Bereich gibt es keine Projekte."}</b>
             <p>Projekte hängen hier als Zettel an der Pinnwand. Verbinde zusammengehörige Projekte mit Fäden und zoome mit dem Mausrad.</p>
             <button className="btn" onClick={openNew}><span>Erstes Projekt anlegen</span></button>

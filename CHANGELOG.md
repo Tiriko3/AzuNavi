@@ -1,5 +1,19 @@
 # Änderungen
 
+## 0.7.2 – Das Wasser läuft jetzt immer, und in 4K
+- **Fehler behoben: Das Wasser im Menü stand still.** Auf Rechnern, bei denen Windows die Animationseffekte abgeschaltet hat (zum Beispiel virtuelle Maschinen), meldet das Programm „reduzierte Bewegung“. Das hat 0.7.0 und 0.7.1 beachtet und deshalb nur das Standbild gezeigt, auch beim Startbildschirm und beim Intro. Jetzt zählt nur noch der Schalter **System → Animationen**.
+- **Neu: System → „Windows-Einstellung ‚Animationen reduzieren‘ beachten“** (Standard: aus). Wer die Windows-Einstellung als Vorgabe haben will, schaltet sie ein.
+- **Wächter:** Bleibt ein Video von allein stehen (zum Beispiel, weil das Springen an den Anfang scheitert), startet das Programm es neu. Bei unsichtbarem Fenster pausiert es, danach läuft es weiter.
+- **Wasser-Video hochskaliert:** Jedes der 96 Bilder wurde mit Real-ESRGAN auf 2240×2168 hochgerechnet (vorher 560×720). Das Video ist etwa 700 KB groß. Das Original-Video selbst ist weich gezeichnet, das bleibt so.
+- Neu: Browser-Tests, dass das Wasser sich wirklich bewegt (Zeitstempel ändert sich), mit und ohne Windows-Einstellung.
+
+
+## 0.7.1 – Bilder für leere Seiten
+- **Leere Seiten sind nicht mehr nur Text:** Auf „Noch keine Notizen“, „Noch keine Kontakte“ und „Noch keine Projekte“ steht jetzt ein Bild (Kiste mit Blasen bzw. Zettel mit Pin, 4K hochskaliert) und Mizu in der passenden Pose (schreibt, winkt, zeigt auf den Zettel). Bei „Maskottchen aus“ entfällt Mizu.
+- **Fehler behoben:** Auf der Projekte-Seite sahen neue Nutzer in der Standardansicht „Netzplan“ nur ein leeres dunkles Feld, weil die Hinweis-Karte nur an der (ausgeblendeten) Pinnwand hing. Jetzt steht sie auch im Netzplan, mit dem Knopf „Erstes Projekt anlegen“.
+- Neu: `tools/make-design-assets.py ui` erzeugt die Bilder; Browser-Test für die leeren Seiten.
+
+
 ## 0.7.0 – Alles in 4K, Wasser, Nacht-Hintergrund, Mizu, Tutorial
 - **Die gezeichneten Wasserflecken und die fliegenden Teilchen im Menü sind komplett entfernt.** Stattdessen läuft rechts im Menü bewegtes Wasser mit aufsteigenden Blasen (nur der Wasserteil des Gemini-Videos, ohne Figur; nahtlose Schleife, etwa 160 KB). Bei „Animationen aus“ steht ein Standbild.
 - **Mizu ersetzt Nami** (Name in `src/mascot.ts`). Der Wassergeist ist nur der Begleiter (Tutorial, Hilfe, Notizen-Animation, Startbildschirm, Handy). **Die Hauptfigur bleibt frei wählbar** (Original, Kai, Leo, Mira, Nova, Ruby, im Tutorial und unter System → Figur). Wer mit 0.6.0 versehentlich den Wassergeist als Hauptfigur hatte, bekommt seine vorherige Auswahl zurück.

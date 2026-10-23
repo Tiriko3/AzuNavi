@@ -4,7 +4,8 @@ Aufruf: python3 tools/make-design-assets.py <Ordner mit den Originaldateien> [fi
 Benötigt: Pillow, numpy, ncnn, ffmpeg und die Modelle (siehe tools/sr.py). Die Originale (JPG/MP4) gehören NICHT ins Projekt.
 - figuren: Mizu (nami_*.webp) aus den Gemini-Bögen; alle anderen Figuren (chars/*, katze_*, prof_*) werden auf 2160 px Höhe (4K) hochskaliert.
 - bg: sieben Hintergründe (sechs Seiten + Nacht) auf 3840×2160.
-- video: Wasser-Schleife (nur der Wasserteil, ohne Figur)."""
+- video: Wasser-Schleife (nur der Wasserteil, ohne Figur).
+- ui: Bilder für leere Seiten (Kiste mit Blasen, Ordner, Zettel mit Pin)."""
 import sys, os, glob, subprocess, time
 import numpy as np
 from PIL import Image
@@ -13,7 +14,7 @@ import sr
 
 args = [a for a in sys.argv[1:]]
 SRC = args[0] if args and os.path.isdir(args[0]) else "."
-parts = [a for a in args if a in ("figuren", "bg", "video")] or ["figuren", "bg", "video"]
+parts = [a for a in args if a in ("figuren", "bg", "video", "ui")] or ["figuren", "bg", "video", "ui"]
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "assets")
 f = lambda n: os.path.join(SRC, n)
 log = lambda *a: print(*a, flush=True)
@@ -87,15 +88,48 @@ if "bg" in parts:
         big.save(p, "WEBP", quality=80, method=4); log("   ", name, "←", sh, os.path.getsize(p) // 1024, "KB", f"({time.time() - t:.0f} s)")
 
 if "video" in parts:
-    log("Wasser-Schleife")
+    log("Wasser-Schleife (Bild für Bild hochskaliert)")
+    import shutil, tempfile
     MEDIA = os.path.join(OUT, "media"); os.makedirs(MEDIA, exist_ok=True)
     v = f("gemini_generated_video_5555f550.mp4")
-    vp9 = ["-an", "-c:v", "libvpx-vp9", "-crf", "34", "-b:v", "0", "-row-mt", "1", "-cpu-used", "2", "-pix_fmt", "yuv420p"]
-    # Nur der Wasserteil (rechte Bildhälfte ab x=720, dort ist nirgends die Figur), zweite Hälfte (viele Blasen), Ende in den Anfang geblendet = nahtlose Schleife (4 s)
-    crop = "crop=560:720:720:0,setpts=PTS-STARTPTS"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", v, "-i", v, "-filter_complex",
-        f"[0:v]trim=6:10,{crop}[a];[1:v]trim=5:6,{crop}[b];[a][b]xfade=transition=fade:duration=1:offset=3[o]",
-        "-map", "[o]", *vp9, os.path.join(MEDIA, "water-loop.webm")], check=True)
-    log("   water-loop.webm", os.path.getsize(os.path.join(MEDIA, "water-loop.webm")) // 1024, "KB")
-    # Standbild (bei „Animationen aus“ und als Platzhalter)
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "2", "-i", os.path.join(MEDIA, "water-loop.webm"), "-frames:v", "1", "-c:v", "libwebp", "-quality", "82", os.path.join(MEDIA, "water-poster.webp")], check=True)
+    work = os.path.join(tempfile.gettempdir(), "wasser-work")   # fester Ordner: ein abgebrochener Lauf macht beim nächsten Mal dort weiter
+    fr, up = os.path.join(work, "fr"), os.path.join(work, "up"); os.makedirs(fr, exist_ok=True); os.makedirs(up, exist_ok=True)
+    # Nur der Wasserteil (rechte Bildhälfte ab x=720, dort ist nirgends die Figur), obere 543 Zeilen (Wasseroberfläche), zweite Hälfte (viele Blasen),
+    # Ende in den Anfang geblendet = nahtlose Schleife (4 s, 24 Bilder pro Sekunde)
+    crop = "crop=560:543:720:0,setpts=PTS-STARTPTS"
+    if len(os.listdir(fr)) < 96:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", v, "-i", v, "-filter_complex",
+            f"[0:v]trim=6:10,{crop}[a];[1:v]trim=5:6,{crop}[b];[a][b]xfade=transition=fade:duration=1:offset=3[o]",
+            "-map", "[o]", "-r", "24", os.path.join(fr, "%04d.png")], check=True)
+    files = sorted(os.listdir(fr)); t0 = time.time()
+    for i, n in enumerate(files, 1):
+        if os.path.exists(os.path.join(up, n)): continue      # schon hochskaliert
+        Image.fromarray(sr.upscale4(np.asarray(Image.open(os.path.join(fr, n)).convert("RGB")))).save(os.path.join(up, n))
+        if i % 8 == 0 or i == len(files): log(f"    Bild {i}/{len(files)} ({time.time() - t0:.0f} s)")
+    out = os.path.join(MEDIA, "water-loop.webm")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "24", "-i", os.path.join(up, "%04d.png"), "-an", "-c:v", "libvpx-vp9", "-crf", "34", "-b:v", "0", "-row-mt", "1", "-cpu-used", "4", "-pix_fmt", "yuv420p", out], check=True)
+    Image.open(os.path.join(up, files[len(files) // 2])).save(os.path.join(MEDIA, "water-poster.webp"), "WEBP", quality=84, method=4)   # Standbild
+    shutil.rmtree(work, ignore_errors=True)
+    log("   water-loop.webm", os.path.getsize(out) // 1024, "KB;", "water-poster.webp", os.path.getsize(os.path.join(MEDIA, "water-poster.webp")) // 1024, "KB")
+
+if "ui" in parts:
+    log("Bilder für leere Seiten")
+    sheet = Image.open(f("Gemini_Generated_Image_8s01u58s01u58s01_1.jpg")).convert("RGB")
+    m = np.asarray(sheet).astype(int); m = (m[..., 1] - np.maximum(m[..., 0], m[..., 2])) < 60
+    band = m[1020:1430, 780:].any(0); segs = []; st = None
+    for i, v in enumerate(band):
+        if v and st is None: st = i
+        if not v and st is not None:
+            if i - st > 20: segs.append((st + 780, i + 780))
+            st = None
+    if st is not None: segs.append((st + 780, len(band) + 780))
+    assert len(segs) == 6, ("Requisiten nicht getrennt", segs)
+    parts6 = [trim(key(sheet.crop((x0 - 4, 1020, x1 + 4, 1430)))) for x0, x1 in segs]   # Zettel creme, Zettel blau, Klebeband, Pin, Kiste, Ordner
+    UI = os.path.join(OUT, "ui")
+    save_webp(to_height(sr.upscale_rgba(parts6[4]), 900), os.path.join(UI, "leer-kiste.webp"))
+    save_webp(to_height(sr.upscale_rgba(parts6[5]), 800), os.path.join(UI, "leer-ordner.webp"))
+    paper = sr.upscale_rgba(parts6[1]); pin = sr.upscale_rgba(parts6[3])
+    pin = to_height(pin, round(paper.height * 0.34))
+    card = Image.new("RGBA", (paper.width, paper.height + pin.height // 3), (0, 0, 0, 0))
+    card.paste(paper, (0, pin.height // 3), paper); card.alpha_composite(pin, ((paper.width - pin.width) // 2, 0))   # Pin steckt oben im Zettel
+    save_webp(to_height(card, 800), os.path.join(UI, "leer-zettel.webp"))

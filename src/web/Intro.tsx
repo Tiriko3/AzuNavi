@@ -3,27 +3,16 @@
 //  - Intro: kurzer Übergang ins Programm, einmal pro Start, mit Klick oder Taste überspringbar.
 // Beides entfällt (Standbild bzw. nichts), wenn „Animationen“ aus ist oder das Betriebssystem reduzierte Bewegung wünscht.
 import { useEffect, useRef, useState } from "react";
+import { motionOk, useKeepPlaying } from "./motion";
+export { motionOk };
 import bgUrl from "../assets/media/azunavi-bg.webm?url";
 import posterUrl from "../assets/media/azunavi-bg-poster.webp?url";
 import introUrl from "../assets/media/azunavi-intro.webm?url";
 
-/** Darf sich etwas bewegen? Der Schalter „Animationen“ wird beim Anwenden der Einstellungen hier gespiegelt (prefs.tsx), damit er schon vor der Datenbank gilt. */
-export function motionOk(): boolean {
-  try {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
-    return localStorage.getItem("azunavi.anim") !== "0";
-  } catch { return true; }
-}
-
 export function GateBackground() {
   const [motion] = useState(motionOk);
   const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const v = ref.current; if (!v) return;
-    const sync = () => { if (document.hidden) v.pause(); else v.play().catch(() => {}); };   // unsichtbar = kein Strom verbrauchen
-    document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, []);
+  useKeepPlaying(ref, motion);
   return (
     <div className="wg-bg" aria-hidden="true">
       {motion

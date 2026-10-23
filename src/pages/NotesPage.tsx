@@ -1,4 +1,5 @@
 import { useQualsEnabled } from "../report/quals";
+import { EmptyArt } from "../EmptyArt";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MutableRefObject } from "react";
 import {
@@ -194,6 +195,7 @@ export function NotesPage({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
         <div className="scroll">
           {visible.length === 0 && (
             <div className="empty paperbox">
+              <EmptyArt kind="kiste" pose="schreibt" />
               <b>{notes.length === 0 ? "Noch keine Notizen." : "Nichts gefunden."}</b>
               <p>{notes.length === 0
                 ? "Halte hier fest, was du erledigt hast: mit Datum, Bereich, Qualifikation und Bildern. Daraus entsteht später dein Berichtsheft."

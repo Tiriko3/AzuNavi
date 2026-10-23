@@ -94,9 +94,10 @@ let ok = 0, bad = 0;
 const check = (c: unknown, m: string) => { if (c) ok++; else { bad++; console.log("  ✗ " + m); } };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
 
-async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean; phone?: boolean; hour?: number } = {}) {
+async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean; phone?: boolean; hour?: number; respectOs?: boolean } = {}) {
   const ctx: BrowserContext = await browser.newContext(opts.phone ? { viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36", reducedMotion: opts.reducedMotion } : { viewport: { width: 1280, height: 720 }, reducedMotion: opts.reducedMotion });
   if (opts.animOff) await ctx.addInitScript(() => localStorage.setItem("azunavi.anim", "0"));
+  if (opts.respectOs) await ctx.addInitScript(() => localStorage.setItem("azunavi.respectos", "1"));
   if (opts.hour !== undefined) await ctx.addInitScript((h) => { Date.prototype.getHours = function () { return h; }; }, opts.hour);
   await ctx.exposeFunction("__node", async (cmd: string, args: any, b64: string | null, headers: any) => { try { return (await be.handle(cmd, args, b64, headers)) ?? null; } catch (e) { return { __err: typeof e === "string" ? e : String((e as Error)?.message ?? e) }; } });
   await ctx.addInitScript(INIT);
@@ -106,6 +107,7 @@ async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion
 }
 const text = (p: Page) => p.evaluate(() => document.body.innerText);
 const shot = async (p: Page, n: string) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/${n}.png` }); };
+const waitFor = async (cond: () => boolean, ms = 20000) => { const t = Date.now(); while (!cond() && Date.now() - t < ms) await new Promise((r) => setTimeout(r, 200)); return cond(); };
 const closeWin = async (p: Page) => { await p.evaluate(() => (window as any).__fire("tauri://close-requested")); await p.waitForTimeout(700); await p.close(); };
 const gone = async (p: Page) => { try { await p.waitForSelector(".webgate", { state: "detached", timeout: 20000 }); } catch (e) { console.log("  … Startbildschirm hängt bei: " + (await p.evaluate(() => document.body.innerText)).replace(/\n+/g, " | ").slice(0, 400)); throw e; } };
 
@@ -166,7 +168,7 @@ console.log("B: ohne alte Daten starten, danach keine Frage mehr");
   await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten");
   await p.waitForSelector("text=Deine bisherigen Daten übernehmen?");
   await p.click("button:has-text('Ohne alte Daten starten')");
-  await gone(p); await p.waitForTimeout(1800);
+  await gone(p); await waitFor(() => be.disk.has("azunavi.db"));
   check(be.disk.has("azunavi.db"), "leere Datenbank wurde angelegt");
   const nd = new SQL.Database(be.disk.get("azunavi.db")!);
   check((nd.exec("SELECT COUNT(*) FROM notes")[0].values[0][0] as number) === 0, "keine alten Notizen");
@@ -265,18 +267,26 @@ console.log("G: Hintergrund und Intro");
   check(true, "Intro endet von selbst (ca. 4 s)");
   await s.ctx.close();
 }
-for (const [name, opts] of [["Animationen aus", { animOff: true }], ["Betriebssystem: reduzierte Bewegung", { reducedMotion: "reduce" as const }]] as const) {
+for (const [name, opts, still] of [
+  ["Animationen aus", { animOff: true }, true],
+  ["Windows reduziert Bewegung, Schalter „beachten“ aus (Standard): es läuft trotzdem", { reducedMotion: "reduce" as const }, false],
+  ["Windows reduziert Bewegung, Schalter „beachten“ an: nur Standbild", { reducedMotion: "reduce" as const, respectOs: true }, true],
+] as const) {
   console.log("H: " + name);
   const be = makeBackend(); const s = await session(be, opts); const p = await s.open();
   await p.waitForSelector("button:has-text('Datenordner wählen')");
-  check((await p.locator(".wg-bg video").count()) === 0 && (await p.locator(".wg-bg img").count()) === 1, "nur Standbild, kein Video");
-  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
-  await gone(p); await p.waitForTimeout(1200);
-  check((await p.locator(".intro").count()) === 0, "kein Intro");
+  const vids = await p.locator(".wg-bg video").count(), imgs = await p.locator(".wg-bg img").count();
+  check(still ? vids === 0 && imgs === 1 : vids === 1, still ? "Startbildschirm: nur Standbild" : "Startbildschirm: Video");
+  if (!still) {
+    await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+    await p.waitForSelector(".intro video", { timeout: 20000 }); check(true, "Intro läuft");
+    await p.click(".intro"); await p.waitForSelector("text=Tutorial überspringen"); await p.click("text=Tutorial überspringen"); await p.waitForTimeout(1200);
+    const t1 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime); await p.waitForTimeout(1300);
+    const t2 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime);
+    check(t1 !== t2, `Wasser im Menü läuft wirklich weiter (${t1.toFixed(2)} → ${t2.toFixed(2)} s)`);
+  }
   await s.ctx.close();
 }
-
-
 console.log("I: System → Freigaben ansehen und entziehen");
 {
   const be = makeBackend(); const s = await session(be, { animOff: true }); const p = await s.open();
@@ -429,18 +439,22 @@ console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur 
   await p.click("text=Tutorial überspringen"); await p.waitForTimeout(1200);
   check((await p.locator("#waterbg video").count()) === 1, "Menü: Wasser-Video als Hintergrund");
   check(await p.evaluate(() => { const v = document.querySelector("#waterbg video") as HTMLVideoElement | null; return !!v && !v.paused && v.currentTime > 0; }), "Wasser läuft");
+  { const t1 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime); await p.waitForTimeout(1300); const t2 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime); check(t1 !== t2, `Wasser bewegt sich (${t1.toFixed(2)} → ${t2.toFixed(2)} s)`); }
   check((await p.locator("#caustics, .petal, #petals, .blob, .liquid").count()) === 0, "die alten Formen und Teilchen sind weg");
   check((await p.locator("#nightbg").count()) === 0, "tagsüber kein Nacht-Bild");
   const hero = await p.evaluate(() => { const i = document.querySelector("#avatarimg") as HTMLImageElement; return i.naturalHeight; });
   check(hero >= 2000, "Hauptfigur in hoher Auflösung: " + hero + " px");
   await shot(p, "15-menue");
+  let emptyPages = 0;
   for (const [i, n] of ["a", "b", "c", "d", "e", "f"].entries()) {
     await p.keyboard.press("ArrowDown"); await p.waitForTimeout(500);
     await p.keyboard.press("Enter"); await p.waitForSelector("#page.show", { timeout: 5000 }); await p.waitForTimeout(900);
     if (i === 0) check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("webp") || getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("url")), "Seite hat ihr Hintergrundbild");
+    if ((await p.locator(".emptyart:visible").count()) > 0) { emptyPages++; check((await p.locator(".emptymizu:visible").count()) === 1, "leere Seite zeigt Mizu"); }
     await shot(p, `16-seite-${i}-${n}`);
     await p.keyboard.press("Escape"); await p.waitForSelector("#page", { state: "detached", timeout: 5000 }); await p.waitForTimeout(500);
   }
+  check(emptyPages === 3, "Notizen, Kontakte und Projekte zeigen Bild und Mizu auf der leeren Seite: " + emptyPages);
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }

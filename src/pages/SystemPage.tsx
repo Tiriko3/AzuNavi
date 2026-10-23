@@ -149,6 +149,8 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           </div>
           <div className="sysrow"><span>Animationen</span>
             <button className={"toggle" + (prefs.anim ? " on" : "")} onClick={() => setPrefs({ anim: !prefs.anim })}><i />{prefs.anim ? "an" : "aus"}</button></div>
+          <div className="sysrow"><span>Windows-Einstellung „Animationen reduzieren“ beachten</span>
+            <button className={"toggle" + (prefs.respectOs ? " on" : "")} onClick={() => setPrefs({ respectOs: !prefs.respectOs })}><i />{prefs.respectOs ? "an" : "aus"}</button></div>
           <div className="sysrow"><span>Nacht-Hintergrund (Mond)</span>
             <select value={prefs.night} onChange={(e) => setPrefs({ night: e.target.value as NightMode })}>
               <option value="auto">Automatisch (21 bis 6 Uhr)</option><option value="an">Immer</option><option value="aus">Nie</option>

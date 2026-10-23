@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CHAR, charById } from "./chars";
 import { isNightNow } from "./night";
+import { motionFromPrefs } from "./web/motion";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
 import { isDesktopApp, isMobile, noDesktop } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
@@ -285,7 +286,7 @@ export default function App() {
   return (
     <PrefsContext.Provider value={{ prefs, setPrefs, openTutorial }}>
     <div id="stage" ref={stageRef} data-scope={scope} data-night={night ? "1" : undefined}>
-      <Water night={night} />
+      <Water night={night} moving={motionFromPrefs(prefs)} />
 
       {/* weiße Fläche links mit schräger Kante */}
       <div id="panel" aria-hidden="true">

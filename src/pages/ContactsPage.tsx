@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmptyArt } from "../EmptyArt";
 import type { MutableRefObject } from "react";
 import { clearPersonPos, deletePerson, listNotes, listPersonLinks, listPersonPos, listPersons, savePerson, savePersonPos, togglePersonLink, type Note, type Person, type PersonLink, type Scope, listGroups, createGroup, renameGroup, deleteGroup, listGroupMembers, setPersonGroups, type ContactGroup } from "../db/repo";
 import { NetGraph, layout, type GEdge, type GNode, type Pos } from "./NetGraph";
@@ -246,6 +247,7 @@ export function ContactsPage({ scope, escRef }: { scope: ScopeId; escRef: Mutabl
         {(
           shown.length === 0 ? (
             <div className="empty paperbox">
+              <EmptyArt kind="kiste" pose="gruss" />
               <b>{groupFilter !== null && persons.length > 0 ? "In dieser Gruppe ist noch niemand." : "Noch keine Kontakte."}</b>
               <p>{groupFilter !== null && persons.length > 0 ? "Öffne eine Person und hak die Gruppe an, oder leg eine neue Person an." : "Lege Personen an und verbinde sie miteinander: Ausbilder, Abteilungsleitung, Kolleginnen, Lehrkräfte. Daraus entsteht dein Netzplan."}</p>
             </div>
