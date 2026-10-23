@@ -67,7 +67,7 @@ function makeBackend() {
       default: return null;
     }
   }
-  return { disk, locs, st, handle, appdata };
+  return { disk, locs, st, handle, appdata, legacy };
 }
 
 const INIT = `(() => {
@@ -378,6 +378,34 @@ console.log("J: Handy-App (Android): Speicher im App-Ordner, alte Daten mit Sich
   await p.click("text=Ohne Passwort weiterarbeiten");
   await gone(p); await p.waitForTimeout(1200);
   check(be.appdata.has("azunavi/azunavi.db"), "leere Datenbank im App-Speicher angelegt, ohne Frage nach alten Daten");
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+
+
+{
+  console.log("M: Handy: „Text prüfen“ in der Notiz (eingebaute Prüfung, ohne Java)");
+  const be = makeBackend(); be.legacy.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('tutorial_done', '1')");
+  const s = await session(be, { phone: true, animOff: true }); const p = await s.open();
+  await p.click("text=Ohne Passwort weiterarbeiten");
+  await p.click("button:has-text('Sicherung speichern')"); await p.waitForSelector("text=Sicherung gespeichert");
+  await p.click("button:has-text('Daten übernehmen')"); await p.waitForSelector("text=✓ Übernommen", { timeout: 40000 });
+  await p.click("button:has-text('Weiter')"); await gone(p); await p.waitForTimeout(1200);
+  await p.click(".m-nav button:has-text('Notizen')"); await p.waitForTimeout(400);
+  await p.click("[aria-label='Neue Notiz']");
+  await p.waitForSelector("textarea");
+  await p.fill("textarea", "Ich gehe nach Hause weil ich müde bin. Die datei liegt hier , z.B. im Ordner.");
+  await p.click("button:has-text('Text prüfen')");
+  await p.waitForSelector(".spelllist", { timeout: 30000 });
+  const t = await text(p);
+  check(t.includes("geprüft mit der eingebauten Prüfung"), "zeigt „der eingebauten Prüfung“ (kein Java)");
+  check(t.includes("Vor „weil“ fehlt ein Komma"), "Komma vor „weil“ gefunden");
+  check(t.includes("Hauptwort großschreiben"), "„datei“ → Hauptwort großschreiben");
+  check(t.includes("Kein Leerzeichen vor Satzzeichen") && t.includes("Abkürzung mit Leerzeichen"), "Leerzeichen vor Komma und „z.B.“ gefunden");
+  await shot(p, "14-handy-pruefen");
+  await p.locator(".spelllist li", { hasText: "Vor „weil“" }).locator("button.chip").first().click();
+  await p.waitForTimeout(600);
+  check((await p.inputValue("textarea")).includes("nach Hause, weil ich"), "Klick auf den Vorschlag setzt das Komma");
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }

@@ -8,7 +8,7 @@ export function SpellCheck({ value, onChange, compact }: { value: string; onChan
   const [engine, setEngine] = useState("");
   const run = async (text = value) => {
     setBusy(true);
-    try { setIssues(await checkText(text)); setEngine(lastEngine + (lastEngine === "Hunspell" && ltError ? " (LanguageTool: " + ltError + ")" : "")); } finally { setBusy(false); }
+    try { setIssues(await checkText(text)); setEngine((lastEngine === "Hunspell" ? "der eingebauten Prüfung" : "LanguageTool") + (lastEngine === "Hunspell" && ltError ? " (LanguageTool: " + ltError + ")" : "")); } finally { setBusy(false); }
   };
   const fix = (i: Issue, s: string) => { const t = applyFix(value, i, s); onChange(t); run(t); };
   return (

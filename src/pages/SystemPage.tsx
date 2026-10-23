@@ -152,15 +152,16 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           <div className="sysrow"><span>Ton</span>
             <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>
           <div className="sysrow"><span>Tutorial</span><button className="mini hot" onClick={openTutorial}>Tutorial wiederholen</button></div>
+          <h3 className="sysh">Rechtschreibung &amp; Grammatik</h3>
+          <p className="small">Die eingebaute Prüfung (Wörterbuch plus Regeln für Kommas, „das/dass“, „seit/seid“, Abkürzungen und Typografie) funktioniert immer und überall, ohne Java und ohne Internet. Du findest sie als „Text prüfen“ bei Notizen, Projekten und im Berichtsheft.</p>
           {!noDesktop ? <>
-          <h3 className="sysh">Grammatik (LanguageTool)</h3>
-          <div className="sysrow"><span>LanguageTool nutzen</span>
+          <div className="sysrow"><span>Zusätzlich LanguageTool (genauer, braucht Java)</span>
             <button className={"toggle" + (lt.on ? " on" : "")} onClick={ltToggle}><i />{lt.on ? "an" : "aus"}</button></div>
           <div className="sysrow"><span className="ltdir" title={lt.dir}>{lt.dir || "kein Ordner gewählt"}</span>
             <span className="inl"><button className="mini" onClick={ltPick}>Ordner wählen</button>{lt.dir && <button className="mini" onClick={ltTest}>Testen</button>}</span></div>
           {lt.status && <p className="small ltstat">Status: {lt.status}</p>}
           <p className="small">Einmalig: Java 17+ installieren (Windows: <code>winget install EclipseAdoptium.Temurin.21.JRE</code>, Linux: <code>sudo apt install openjdk-21-jre</code>) und „LanguageTool Desktop“ von languagetool.org herunterladen und entpacken. Dann hier den Ordner wählen. Ohne LanguageTool prüft die App mit Hunspell (nur Rechtschreibung und einfache Regeln).</p>
-          </> : <p className="small">Die Grammatikprüfung mit LanguageTool braucht Java und geht nur am PC. Die Rechtschreibprüfung funktioniert auch hier.</p>}
+          </> : null}
         </section>
 
         <section className="paperbox syscard">

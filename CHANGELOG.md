@@ -1,5 +1,17 @@
 # Änderungen
 
+## 0.5.1 – Grammatikprüfung ohne Java (überall)
+- **Eingebaute Prüfung:** „Text prüfen“ kennt jetzt viele typische Fehler, ohne Java und ohne Internet, am PC, in der Web-App und am Handy. Vorher gab es das nur am PC mit LanguageTool; am Handy gab es gar keine Prüfung, jetzt steht sie bei jeder Notiz.
+- **Was sie findet:**
+  - **Rechtschreibung** wie bisher (Hunspell), dazu die klare Meldung „Hauptwort großschreiben“ bei „datei“ statt „Datei“.
+  - **das / dass:** „dass ist …“ (gemeint ist „das“) und „Ich glaube, das er kommt“ (gemeint ist „dass“).
+  - **Komma:** vor „dass, weil, obwohl, sodass, falls, nachdem, bevor, sobald, solange, indem, sondern“ und als Hinweis vor „wenn“. Typische Ausnahmen („nur weil“, „kurz bevor“, „und dass“, „nicht nur …, sondern auch“) werden nicht beanstandet.
+  - **seit / seid:** „seid zwei Jahren“; **Vergleich:** „schneller wie“ → „als“, „als wie“; „wegen dem“.
+  - **Schreibweise:** Apostroph vor dem Plural-s („Server's“), „z.B.“ → „z. B.“, fehlende Abkürzungspunkte (ggf, usw, bzw, ca …), Zahl und Einheit („16GB“), Gedankenstrich, deutsche Anführungszeichen, doppelte Satzzeichen, Leerzeichen in Klammern.
+- **Weniger Fehlalarme:** Die alte Warnung „Nach Komma oft ‚dass‘“ ist entfernt (sie schlug bei jedem richtigen Relativsatz an). „die die“, „das das“ als doppeltes Wort, Ergänzungsstriche („Vor- und -größen“), Abkürzungen vor kleinem Wort („d. h. oft“, „ca. 5“), Adressen und Pfade, Code mit „::“ werden nicht mehr beanstandet. Weitere Fachwörter (Logs, Namespaces, …) und Abkürzungen sind im Wörterbuch.
+- **Ehrlich:** Das sind Regeln für die häufigsten Fehler, keine vollständige Grammatik (zum Beispiel keine Prüfung von Artikel und Endungen). **LanguageTool bleibt als genauere Option am PC** (System → Rechtschreibung & Grammatik), jetzt als „zusätzlich“.
+- Neu: `tools/grammar-test.mts` (66 Prüfungen mit echtem Wörterbuch und einem Korpus richtiger Texte, in dem nichts gemeldet werden darf), Browser-Test am Handy (Abschnitt M in `tools/desktop-e2e.mts`).
+
 ## 0.5.0 – Handy-App mit Datenordner-Format und Passwortschutz
 - **Gleiche Datenschicht wie PC und Web:** Die Android-App speichert jetzt wie das PC-Programm und die Web-App in `azunavi.db` und `dateien/` (im geschützten App-Speicher unter `azunavi/`), mit derselben Verschlüsselung. Es gibt keinen Ordner zu wählen: Das Handy hat genau einen Speicher.
 - **Passwortschutz am Handy:** Dieselben Profile wie am PC und im Browser (Passwort, Wiederherstellungsschlüssel, automatische Sperre, „Angemeldet bleiben“). Mehr → Passwortschutz.

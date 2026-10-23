@@ -5,6 +5,7 @@ import { fileUrl, pickAndStoreImages } from "../files";
 import { useQualsEnabled } from "../report/quals";
 import { todayStr } from "../util";
 import { Empty, Field, Icon, Seg, Sheet, relDay } from "./ui";
+import { SpellCheck } from "../spell/SpellCheck";
 import type { Who } from "./fx";
 import namiImg from "../assets/figuren/nami_schreibt.webp";
 
@@ -90,7 +91,7 @@ export function NoteEditor({ value, onClose, projects, persons, onSaved, onDelet
       {err && <div className="m-err">{err}</div>}
       <Field label="Bereich"><Seg value={d.scope} options={[["arbeit", "Arbeit"], ["schule", "Schule"]]} onChange={(v) => set({ scope: v, projectId: null })} /></Field>
       <Field label="Datum"><input type="date" value={d.date} onChange={(e) => set({ date: e.target.value })} /></Field>
-      <Field label="Was hast du gemacht?"><textarea value={d.text} onChange={(e) => set({ text: e.target.value })} placeholder="z. B. Neuen Drucker im Netzwerk eingerichtet" autoFocus={!d.id} /></Field>
+      <Field label="Was hast du gemacht?"><textarea value={d.text} onChange={(e) => set({ text: e.target.value })} placeholder="z. B. Neuen Drucker im Netzwerk eingerichtet" autoFocus={!d.id} /><SpellCheck value={d.text} onChange={(v) => set({ text: v })} compact /></Field>
       <Field label="Projekt"><select value={d.projectId ?? ""} onChange={(e) => set({ projectId: e.target.value ? Number(e.target.value) : null })}>
         <option value="">kein Projekt</option>{projOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
       <Field label="Mit wem?"><div className="m-pick">
