@@ -7,7 +7,8 @@ import { listQualifications, replaceQualifications } from "../db/repo";
 import { ImportDialog } from "../import/ImportDialog";
 import { usePrefs } from "../prefs";
 import { GUIDES, NAMI, TOUR, type GuideId, type Pose } from "./tour";
-import { CHARACTERS } from "../chars";
+import { CHARACTERS, DEFAULT_CHAR } from "../chars";
+import { MASCOT_NAME } from "../mascot";
 import { getSetting, setSetting } from "../db/db";
 
 type Step = "start" | "profil" | "figur" | "vorlage" | "quali" | "import" | "tour" | "fertig";
@@ -49,7 +50,7 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
   const [qualText, setQualText] = useState("");
   const [qualCount, setQualCount] = useState(0);
   const [msg, setMsg] = useState("");
-  const [charId, setCharId] = useState("eigene");
+  const [charId, setCharId] = useState(DEFAULT_CHAR);
   const [spot, setSpot] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [place, setPlace] = useState<"ru" | "lu" | "ro" | "lo">("ru"); // wo Karte und Figur stehen
   const [done, setDone] = useState(false);     // Aufgabe erledigt?
@@ -249,9 +250,9 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
         </div>
         <div className="tutbody" key={step + tourI}>
           {step === "start" && <>
-            <h2>Hallo, ich bin Nami!</h2>
+            <h2>Hallo, ich bin {MASCOT_NAME}!</h2>
             <p>Ich zeige dir in ein paar Minuten, wie diese App funktioniert. Sie ist dein Begleiter für die Ausbildung: Du hältst fest, was du gemacht hast, und daraus entstehen dein Berichtsheft, deine Projekte und eine Übersicht deiner Fähigkeiten.</p>
-            <p>Alles bleibt auf diesem Rechner. Los geht's mit ein paar Angaben zu dir.</p>
+            <p>Alles bleibt bei dir: in deinem Datenordner bzw. auf diesem Gerät, ohne Konto und ohne Internet. Auf Wunsch schützt du es mit einem Passwort (System → Passwortschutz). Los geht's mit ein paar Angaben zu dir.</p>
           </>}
           {step === "profil" && <>
             <h2>Wer bist du?</h2>
@@ -295,7 +296,7 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           </>}
           {step === "figur" && <>
             <h2>Wähle deine Figur</h2>
-            <p>Deine Figur steht im Hauptmenü und wechselt je nach Bereich die Pose. Du kannst sie später unter System ändern.</p>
+            <p>Das ist deine <b>Hauptfigur</b>: Sie steht im Hauptmenü und wechselt je nach Bereich die Pose. {MASCOT_NAME} bleibt als Begleiter immer bei dir, egal wen du wählst. Du kannst die Figur später unter System ändern.</p>
             <div className="charpick">
               {CHARACTERS.map((c) => (
                 <button key={c.id} className={"charcard" + (charId === c.id ? " on" : "")} onClick={() => { setCharId(c.id); setSetting("pref_char", c.id); }}>
@@ -354,8 +355,13 @@ export function Tutorial({ onDone, onShowPage }: { onDone: () => void; onShowPag
           </>}
           {step === "fertig" && <>
             <h2>Geschafft, {p.vorname || "los geht's"}!</h2>
-            <p>Du bist startklar. Schreib heute deine erste Notiz, der Rest ergibt sich. Wenn du etwas vergisst: <b>System → Tutorial wiederholen</b>.</p>
-            <p>Ich bleibe übrigens in der Nähe und helfe beim Aufhängen deiner Notizen.</p>
+            <p>Du bist startklar. Schreib heute deine erste Notiz, der Rest ergibt sich. Wenn du etwas vergisst: <b>System → Tutorial wiederholen</b>, oder der <b>?</b>-Knopf erklärt dir jede Seite.</p>
+            <ul className="tutlist">
+              <li><b>Text prüfen</b> bei Notizen findet Tippfehler, Kommas und „das/dass“ (ohne Internet).</li>
+              <li><b>Passwortschutz</b> und Datenordner stehen unter System, auch für Handy und Browser.</li>
+              <li>Nachts (21 bis 6 Uhr) wechselt der Hintergrund von allein auf den Mond.</li>
+            </ul>
+            <p>{MASCOT_NAME} hilft dir beim Aufhängen deiner Notizen.</p>
           </>}
           {msg && <div className="errbox">{msg}</div>}
         </div>

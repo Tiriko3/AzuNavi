@@ -26,15 +26,7 @@ body{margin:0;height:100%;background:#04106b;overflow:hidden;display:flex;align-
 /* eigene Figur ist ganzkörper, die Auswahlfiguren sind unten angeschnitten: tiefer setzen und größer zeigen */
 #hero.orig{height:880px;left:40px}
 @keyframes heroIn{0%{opacity:0;transform:translateX(-70px) skewX(-8deg)}55%{opacity:1}100%{opacity:1;transform:none}}
-#caustics{position:absolute;inset:0 0 55% 0;opacity:.9}
-#caustics svg{width:100%;height:100%}
-.blob{fill:#aef3ff;opacity:.55}
-#caustics svg{animation:drift 9s ease-in-out infinite alternate;will-change:transform}
-@keyframes drift{from{transform:translate(-14px,4px) scale(1)}to{transform:translate(18px,-6px) scale(1.06)}}
 #depth{position:absolute;inset:0;background:radial-gradient(60% 50% at 70% 8%,rgba(160,245,255,.55),transparent 70%)}
-.petal{position:absolute;width:12px;height:12px;background:#ff7fb0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:.85;animation:rise linear infinite}
-.petal.c{background:#bff4ff}
-@keyframes rise{from{transform:translate(0,40px) rotate(0)}to{transform:translate(60px,-980px) rotate(300deg)}}
 
 #bigword{text-transform:uppercase;position:absolute;left:-62px;top:1000px;font:italic 900 330px/0.85 var(--display);color:#e6efff;text-shadow:14px 10px 0 #1457ff;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;letter-spacing:-6px;pointer-events:none}
 #bigword.swap{animation:bw .32s cubic-bezier(.2,.9,.3,1)}
@@ -94,7 +86,7 @@ kbd{font:600 14px var(--text);background:#fff;color:var(--ink);border-radius:50%
 #soon .paper{background:var(--paper);color:var(--ink);padding:50px 60px}
 #soon h3{margin:0 0 12px;font:italic 900 44px/1 var(--display);text-transform:uppercase}
 #soon p{margin:0;font:500 20px/1.5 var(--text);color:#2c3566}
-@media (prefers-reduced-motion:reduce){.blob,.petal,#hero{animation:none}.item,.note,#hero{transition:none}}
+@media (prefers-reduced-motion:reduce){#hero{animation:none}.item,.note,#hero{transition:none}}
 
 #board{position:absolute;inset:0}
 .pagecard{position:absolute;left:300px;top:380px;width:760px;transform:rotate(-2deg);filter:drop-shadow(8px 10px 0 rgba(4,16,107,.45))}
@@ -969,3 +961,13 @@ button,.item{-webkit-user-select:none;user-select:none}
 .wg-btn.wg-loc small{font:600 12.5px var(--text);opacity:.7}
 .wg-row{display:flex;gap:10px}.wg-half{flex:1;min-height:46px;font-size:15px}
 .wg-link:disabled{opacity:.5}
+
+
+/* ---- Design 0.7.0: Wasser (Menü), Seiten-Hintergründe in 4K, Nacht ---- */
+#waterbg{position:absolute;top:0;bottom:0;right:0;width:58%;overflow:hidden;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 24%);mask-image:linear-gradient(to right,transparent 0,#000 24%)}
+#waterbg video,#waterbg img{width:100%;height:100%;object-fit:cover;object-position:50% 0;display:block}
+#nightbg{position:absolute;top:0;bottom:0;right:0;width:68%;background-size:cover;background-position:36% 50%;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 22%);mask-image:linear-gradient(to right,transparent 0,#000 22%)}
+#nightbg::after{content:"";position:absolute;left:0;right:0;bottom:0;height:24%;background:linear-gradient(to bottom,transparent,rgba(4,10,40,.78))}
+#stage[data-night]{--w1:#0b1546;--w2:#0a1a5a;--w3:#071348;--w4:#040b30}
+.secbg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.78;pointer-events:none}
+.tutlist{margin:8px 0 10px 18px;padding:0;line-height:1.5}.tutlist li{margin:3px 0}

@@ -1,4 +1,5 @@
 // Nami, Caramella, Eda und die Hilfe-Texte (klein gehalten, damit der „?“-Knopf nichts Großes nachladen muss)
+import { MASCOT_NAME } from "../mascot";
 import namiGruss from "../assets/figuren/nami_gruss.webp";
 import namiErklaert from "../assets/figuren/nami_erklaert.webp";
 import namiSchreibt from "../assets/figuren/nami_schreibt.webp";
@@ -18,7 +19,7 @@ export type Pose = keyof typeof NAMI;
 
 /** Die drei Begleiter: Nami führt durch die App, Caramella das Berichtsheft, Eda die Dateien */
 export const GUIDES = {
-  nami: { name: "Nami", accent: "#3db8ff", poses: NAMI as Record<string, string> },
+  nami: { name: MASCOT_NAME, accent: "#3db8ff", poses: NAMI as Record<string, string> },
   caramella: { name: "Caramella", accent: "#6c5cff", poses: { gruss: catZeigt, erklaert: catZeigt, schreibt: catSchreibt, pinnt: catSammelt, denkt: catSammelt, jubelt: catZeigt } as Record<string, string> },
   eda: { name: "Eda", accent: "#19e3b1", poses: { gruss: edaGruss, erklaert: edaGruss, schreibt: edaFertig, pinnt: edaFertig, denkt: edaDenkt, jubelt: edaFertig } as Record<string, string> },
 } as const;
@@ -92,9 +93,9 @@ export const TOUR: TourStep[] = [
     allow: [".rweek button[aria-label]"],
     tips: ["Mit ◀ ▶ die Woche wählen", "„Als Word exportieren“ im Format deiner Vorlage (Standard-Vorlage deines Berufs oder deine eigene)", "Reiter „Fähigkeiten“ zeigt, welche Qualifikationen noch offen sind (wenn du sie nutzt)"] },
   { title: "System", pose: "erklaert", page: "system", target: ".syscols", side: "rechts",
-    text: "Hier stellst du alles ein: Schriftgröße, Animationen, Anzeige und deine Figur. Und du kannst deine Daten sichern, um sie auf einen anderen Laptop mitzunehmen.",
+    text: "Hier stellst du alles ein: Schriftgröße, Animationen, Anzeige, Nacht-Hintergrund und deine Figur. Hier schützt du deine Daten mit einem Passwort, wechselst den Datenordner und sicherst alles, um es auf Handy oder anderen Laptop mitzunehmen.",
     todo: "Schau dich kurz um – mit „Weiter“ bist du fertig.",
     allow: [],
-    tips: ["Anzeige: Fenster, randlos oder Vollbild", "„Sicherung erstellen“ und „einspielen“ zum Umziehen", "Hier findest du auch „Tutorial wiederholen“"] },
+    tips: ["Anzeige: Fenster, randlos oder Vollbild", "Passwortschutz: verschlüsselt Datenbank und Anhänge, mit Wiederherstellungsschlüssel", "„Sicherung erstellen“ und „einspielen“ zum Umziehen zwischen PC und Handy", "Freigegebene Ordner: Hier siehst du, worauf AzuNavi zugreifen darf, und kannst es entziehen", "Hier findest du auch „Tutorial wiederholen“"] },
 ];
 

@@ -1,5 +1,6 @@
 // Effekte der Handy-Oberfläche: lebendiger Hintergrund, Begleiter mit Sprechblase, Konfetti, Übergangs-Wischer.
 // Alles respektiert „Animationen aus“ (no-anim), „Maskottchen aus“ (no-mascot) und „Bewegung reduzieren“ des Systems.
+import { MASCOT_NAME } from "../mascot";
 import { useEffect, useState } from "react";
 import namiGruss from "../assets/figuren/nami_gruss.webp";
 import namiJubelt from "../assets/figuren/nami_jubelt.webp";
@@ -16,7 +17,7 @@ import edaDenkt from "../assets/figuren/prof_denkt.webp";
 import edaFertig from "../assets/figuren/prof_fertig.webp";
 
 export const MASCOTS = {
-  nami: { name: "Nami", color: "#3db8ff", poses: { gruss: namiGruss, jubelt: namiJubelt, pinnt: namiPinnt, schreibt: namiSchreibt, denkt: namiDenkt, erklaert: namiErklaert } },
+  nami: { name: MASCOT_NAME, color: "#3db8ff", poses: { gruss: namiGruss, jubelt: namiJubelt, pinnt: namiPinnt, schreibt: namiSchreibt, denkt: namiDenkt, erklaert: namiErklaert } },
   cara: { name: "Caramella", color: "#b45cff", poses: { zeigt: katzeZeigt, sammelt: katzeSammelt, schlaeft: katzeSchlaeft, schreibt: katzeSchreibt } },
   eda: { name: "Eda", color: "#19c2b4", poses: { gruss: edaGruss, denkt: edaDenkt, fertig: edaFertig } },
 } as const;

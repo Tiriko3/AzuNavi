@@ -10,10 +10,20 @@ const SystemPage = lazy(() => import("./pages/SystemPage").then((m) => ({ defaul
 import katzeSchlaeft from "./assets/figuren/katze_schlaeft.webp";
 import { ITEMS, SCOPES, type ItemId, type ScopeId } from "./items";
 import { skylinePath, torn } from "./util";
+import bgNacht from "./assets/bg/nacht.webp";
+import bgNotizen from "./assets/bg/notizen.webp";
+import bgKontakte from "./assets/bg/kontakte.webp";
+import bgBericht from "./assets/bg/berichtsheft.webp";
+import bgProjekte from "./assets/bg/projekte.webp";
+import bgDateien from "./assets/bg/dateien.webp";
+import bgSystem from "./assets/bg/system.webp";
+const SEC_BG: Record<string, string> = { notizen: bgNotizen, kontakte: bgKontakte, berichtsheft: bgBericht, projekte: bgProjekte, dateien: bgDateien, system: bgSystem };
 import type { DbStatus } from "./db/db";
 
 interface Props {
   pageId: ItemId;
+  /** Nacht: statt des Seitenbilds das Mond-Bild */
+  night?: boolean;
   scope: ScopeId;
   muted: boolean;
   db: DbStatus | null;
@@ -26,7 +36,7 @@ interface Props {
 
 // Innenansicht eines Menüpunkts. In Etappe 1 sind alle Seiten noch leer,
 // nur "System" zeigt schon Ton und Datenbank-Status.
-export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onScopeChange, onHelp, escRef }: Props) {
+export function PageView({ pageId, night, scope, muted, db, onToggleMute, onBack, onScopeChange, onHelp, escRef }: Props) {
   const item = ITEMS.find((i) => i.id === pageId)!;
   const scopeLabel = SCOPES.find((s) => s.id === scope)!.label;
   const sky = useMemo(() => ({ top: skylinePath(3), bottom: skylinePath(9) }), []);
@@ -41,6 +51,7 @@ export function PageView({ pageId, scope, muted, db, onToggleMute, onBack, onSco
 
   return (
     <div id="page" className={"show" + (isWork ? " work-page" : "")}>
+      <div className="secbg" style={{ backgroundImage: `url(${night ? bgNacht : SEC_BG[pageId] ?? ""})` }} aria-hidden="true" />
       <svg id="skyT" viewBox="0 0 1600 240" preserveAspectRatio="none">
         <path d={sky.top} fill="#06198f" transform="translate(0 240) scale(1 -1)" />
       </svg>

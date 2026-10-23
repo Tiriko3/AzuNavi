@@ -86,6 +86,7 @@ const INIT = `(() => {
       return r === undefined ? null : r;
     },
   };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
   window.__fire = (ev) => cbs[window.__listeners[ev]] && cbs[window.__listeners[ev]]({ event: ev, id: 1, payload: null });
 })();`;
 
@@ -93,9 +94,10 @@ let ok = 0, bad = 0;
 const check = (c: unknown, m: string) => { if (c) ok++; else { bad++; console.log("  ✗ " + m); } };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox"] });
 
-async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean; phone?: boolean } = {}) {
+async function session(be: ReturnType<typeof makeBackend>, opts: { reducedMotion?: "reduce"; animOff?: boolean; phone?: boolean; hour?: number } = {}) {
   const ctx: BrowserContext = await browser.newContext(opts.phone ? { viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36", reducedMotion: opts.reducedMotion } : { viewport: { width: 1280, height: 720 }, reducedMotion: opts.reducedMotion });
   if (opts.animOff) await ctx.addInitScript(() => localStorage.setItem("azunavi.anim", "0"));
+  if (opts.hour !== undefined) await ctx.addInitScript((h) => { Date.prototype.getHours = function () { return h; }; }, opts.hour);
   await ctx.exposeFunction("__node", async (cmd: string, args: any, b64: string | null, headers: any) => { try { return (await be.handle(cmd, args, b64, headers)) ?? null; } catch (e) { return { __err: typeof e === "string" ? e : String((e as Error)?.message ?? e) }; } });
   await ctx.addInitScript(INIT);
   const errors: string[] = [];
@@ -407,6 +409,53 @@ console.log("J: Handy-App (Android): Speicher im App-Ordner, alte Daten mit Sich
   await p.waitForTimeout(600);
   check((await p.inputValue("textarea")).includes("nach Hause, weil ich"), "Klick auf den Vorschlag setzt das Komma");
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+
+
+console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur bleibt wählbar");
+{
+  const be = makeBackend(); const s = await session(be, { hour: 12 }); const p = await s.open();
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+  await p.waitForSelector(".intro video", { timeout: 20000 }); await p.click(".intro"); await p.waitForSelector(".intro", { state: "detached", timeout: 3000 });
+  await p.waitForSelector("text=Tutorial überspringen"); await shot(p, "17-tut-start");
+  await p.click("button:has-text('Starten')"); await p.waitForTimeout(500);
+  await p.fill("label:has-text('Vorname') input", "Test"); await p.fill("label:has-text('Nachname') input", "Azubi");
+  await p.selectOption("select.field >> nth=0", { index: 1 });
+  for (let i = 0; i < 4 && !(await text(p)).toLowerCase().includes("wähle deine figur"); i++) { await p.click(".tutfoot .btn:not(.ghost)"); await p.waitForTimeout(500); }
+  check((await text(p)).toLowerCase().includes("wähle deine figur") && (await text(p)).includes("Hauptfigur"), "Tutorial: Figur-Schritt erklärt Hauptfigur und Begleiter");
+  check((await p.locator(".charcard").count()) === 6 && !(await text(p)).toLowerCase().includes("wassergeist"), "Auswahl: Original, Kai, Leo, Mira, Nova, Ruby (der Wassergeist ist nur Begleiter)");
+  await shot(p, "18-tut-figur");
+  await p.click("text=Tutorial überspringen"); await p.waitForTimeout(1200);
+  check((await p.locator("#waterbg video").count()) === 1, "Menü: Wasser-Video als Hintergrund");
+  check(await p.evaluate(() => { const v = document.querySelector("#waterbg video") as HTMLVideoElement | null; return !!v && !v.paused && v.currentTime > 0; }), "Wasser läuft");
+  check((await p.locator("#caustics, .petal, #petals, .blob, .liquid").count()) === 0, "die alten Formen und Teilchen sind weg");
+  check((await p.locator("#nightbg").count()) === 0, "tagsüber kein Nacht-Bild");
+  const hero = await p.evaluate(() => { const i = document.querySelector("#avatarimg") as HTMLImageElement; return i.naturalHeight; });
+  check(hero >= 2000, "Hauptfigur in hoher Auflösung: " + hero + " px");
+  await shot(p, "15-menue");
+  for (const [i, n] of ["a", "b", "c", "d", "e", "f"].entries()) {
+    await p.keyboard.press("ArrowDown"); await p.waitForTimeout(500);
+    await p.keyboard.press("Enter"); await p.waitForSelector("#page.show", { timeout: 5000 }); await p.waitForTimeout(900);
+    if (i === 0) check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("webp") || getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("url")), "Seite hat ihr Hintergrundbild");
+    await shot(p, `16-seite-${i}-${n}`);
+    await p.keyboard.press("Escape"); await p.waitForSelector("#page", { state: "detached", timeout: 5000 }); await p.waitForTimeout(500);
+  }
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
+  await s.ctx.close();
+}
+console.log("O: Nacht (Mond-Hintergrund nach Uhrzeit)");
+for (const [hour, expectNight] of [[23, true], [3, true], [12, false], [20, false]] as const) {
+  const be = makeBackend(); const s = await session(be, { hour, animOff: true }); const p = await s.open();
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+  await p.waitForSelector("text=Tutorial überspringen", { timeout: 20000 }); await p.click("text=Tutorial überspringen"); await p.waitForTimeout(1000);
+  check(((await p.locator("#nightbg").count()) === 1) === expectNight && ((await p.locator("#waterbg").count()) === 1) === !expectNight, `${hour} Uhr: ${expectNight ? "Mond-Bild" : "Wasser"}`);
+  if (hour === 23) {
+    await shot(p, "19-nacht-menue");
+    await p.keyboard.press("ArrowDown"); await p.waitForTimeout(400); await p.keyboard.press("Enter"); await p.waitForSelector("#page.show"); await p.waitForTimeout(900);
+    check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.length > 20), "Seite bei Nacht mit Hintergrund");
+    await shot(p, "20-nacht-seite");
+  }
   await s.ctx.close();
 }
 

@@ -21,6 +21,8 @@ import { getSetting, setSetting } from "../db/db";
 import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { isDesktopApp, isMobile, isWebApp, noDesktop, usesDataFolder } from "../platform";
+import { MASCOT_NAME } from "../mascot";
+import type { NightMode } from "../night";
 import { CHARACTERS } from "../chars";
 import { listGrants, revokeGrant, type GrantsList } from "../desktop/grants";
 
@@ -147,7 +149,11 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
           </div>
           <div className="sysrow"><span>Animationen</span>
             <button className={"toggle" + (prefs.anim ? " on" : "")} onClick={() => setPrefs({ anim: !prefs.anim })}><i />{prefs.anim ? "an" : "aus"}</button></div>
-          <div className="sysrow"><span>Maskottchen (Nami, Caramella, Eda)</span>
+          <div className="sysrow"><span>Nacht-Hintergrund (Mond)</span>
+            <select value={prefs.night} onChange={(e) => setPrefs({ night: e.target.value as NightMode })}>
+              <option value="auto">Automatisch (21 bis 6 Uhr)</option><option value="an">Immer</option><option value="aus">Nie</option>
+            </select></div>
+          <div className="sysrow"><span>Maskottchen ({MASCOT_NAME}, Caramella, Eda)</span>
             <button className={"toggle" + (prefs.mascot ? " on" : "")} onClick={() => setPrefs({ mascot: !prefs.mascot })}><i />{prefs.mascot ? "an" : "aus"}</button></div>
           <div className="sysrow"><span>Ton</span>
             <button className={"toggle" + (!muted ? " on" : "")} onClick={onToggleMute}><i />{muted ? "aus" : "an"}</button></div>

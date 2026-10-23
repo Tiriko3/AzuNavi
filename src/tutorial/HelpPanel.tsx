@@ -1,4 +1,5 @@
 import { NAMI, TOUR } from "./tour";
+import { MASCOT_NAME } from "../mascot";
 import type { ItemId } from "../items";
 import { usePrefs } from "../prefs";
 
@@ -21,7 +22,7 @@ export function HelpPanel({ pageId, onClose, onTutorial }: { pageId: ItemId | nu
     <div className="helppanel" role="dialog" aria-label="Hilfe">
       {prefs.mascot && <img className="helpnami" src={NAMI[card.pose]} alt="" draggable={false} />}
       <div className="helpcard paperbox">
-        <div className="tuthead"><span className="tutname">Nami hilft</span><button className="mini" onClick={onClose}>Schließen (Esc)</button></div>
+        <div className="tuthead"><span className="tutname">{MASCOT_NAME} hilft</span><button className="mini" onClick={onClose}>Schließen (Esc)</button></div>
         <h3>{card.title}</h3>
         <p>{card.text}</p>
         <ul className="tuttips">{[...card.tips, ...(EXTRA[key] ?? [])].map((t) => <li key={t}>{t}</li>)}</ul>

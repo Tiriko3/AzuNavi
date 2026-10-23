@@ -18,6 +18,7 @@ import { CloudFolderPanel } from "../cloud/CloudFolderPanel";
 import { PrivacyInfo } from "../PrivacyInfo";
 import { DOWNLOAD_URL } from "../web/downloadUrl";
 import { isWebApp, usesDataFolder } from "../platform";
+import { MASCOT_NAME } from "../mascot";
 import { todayStr } from "../util";
 import { APP_VERSION } from "../version";
 import { Field, Icon, Seg, Sheet, relDay, scopeLabel, useBackLayer } from "./ui";
@@ -170,7 +171,7 @@ function MoreSheet({ open, section, onClose, prefs, setPrefs, profile, setProfil
       </div>
       <div className="m-h">Darstellung</div>
       <Field label="Schriftgröße"><Seg value={String(prefs.font)} options={[["1", "Normal"], ["1.15", "Groß"], ["1.3", "Sehr groß"]]} onChange={(v) => setPrefs({ ...prefs, font: Number(v) })} /></Field>
-      <Field label="Begleiter (Nami, Eda, Caramella)"><Seg value={prefs.mascot ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => setPrefs({ ...prefs, mascot: v === "an" })} /></Field>
+      <Field label={`Begleiter (${MASCOT_NAME}, Eda, Caramella)`}><Seg value={prefs.mascot ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => setPrefs({ ...prefs, mascot: v === "an" })} /></Field>
       <Field label="Animationen"><Seg value={prefs.anim ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => setPrefs({ ...prefs, anim: v === "an" })} /></Field>
       <Field label="Qualifikationen"><Seg value={qualsOn ? "an" : "aus"} options={[["an", "An"], ["aus", "Aus"]]} onChange={(v) => act(async () => { await setQualsEnabled(v === "an"); toast(v === "an" ? "Qualifikationen an" : "Qualifikationen aus"); })} /></Field>
       <div className="m-h">Daten</div>
@@ -233,7 +234,7 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
       <main className="m-main" style={{ paddingBottom: 30 }}>
         {err && <div className="m-err">{err}</div>}
         {step === 0 && <>
-          <div className="m-hero"><Mascot who="nami" pose="gruss" size={98} /><div><b>Hallo, ich bin Nami!</b><p>Ich begleite dich durch die Ausbildung.</p></div></div>
+          <div className="m-hero"><Mascot who="nami" pose="gruss" size={98} /><div><b>Hallo, ich bin {MASCOT_NAME}!</b><p>Ich begleite dich durch die Ausbildung.</p></div></div>
           <div className="m-card"><p style={{ margin: 0 }}>Mit AzuNavi hältst du fest, was du in Betrieb und Schule machst. Daraus entsteht dein <b>Berichtsheft</b>, dazu Projekte und deine Kontakte.</p>
             <p className="m-note">Alles bleibt auf diesem Handy. Es gibt kein Konto und keine Werbung.</p></div>
           <button className="m-btn" onClick={() => setStep(1)}>Los geht’s</button>

@@ -2,9 +2,10 @@
 // Werden in der Datenbank (settings) gespeichert und gelten sofort für die ganze App.
 import { createContext, useContext } from "react";
 import { getSetting, setSetting } from "./db/db";
+import type { NightMode } from "./night";
 
-export interface Prefs { font: number; anim: boolean; mascot: boolean; tutorialDone: boolean }
-export const DEFAULT_PREFS: Prefs = { font: 1, anim: true, mascot: true, tutorialDone: false };
+export interface Prefs { font: number; anim: boolean; mascot: boolean; tutorialDone: boolean; night: NightMode }
+export const DEFAULT_PREFS: Prefs = { font: 1, anim: true, mascot: true, tutorialDone: false, night: "auto" };
 
 export async function loadPrefs(): Promise<Prefs> {
   const f = Number(await getSetting("pref_font"));
@@ -13,6 +14,7 @@ export async function loadPrefs(): Promise<Prefs> {
     anim: (await getSetting("pref_anim")) !== "0",
     mascot: (await getSetting("pref_mascot")) !== "0",
     tutorialDone: (await getSetting("tutorial_done")) === "1",
+    night: ((v) => (v === "an" || v === "aus" ? v : "auto") as NightMode)(await getSetting("pref_night")),
   };
 }
 export async function savePrefs(p: Prefs) {
@@ -20,6 +22,7 @@ export async function savePrefs(p: Prefs) {
   await setSetting("pref_anim", p.anim ? "1" : "0");
   await setSetting("pref_mascot", p.mascot ? "1" : "0");
   await setSetting("tutorial_done", p.tutorialDone ? "1" : "0");
+  await setSetting("pref_night", p.night);
 }
 /** Einstellungen sofort auf die Seite anwenden (Schrift über eine CSS-Variable, Animationen über eine Klasse) */
 export function applyPrefs(p: Prefs) {

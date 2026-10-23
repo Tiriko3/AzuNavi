@@ -12,6 +12,8 @@ export interface Character { id: string; name: string; poses: Record<ItemId, str
 
 const POSE_IDS: ItemId[] = ["notizen", "kontakte", "berichtsheft", "projekte", "dateien", "system"];
 const NAMES: Record<string, string> = { kai: "Kai", leo: "Leo", mira: "Mira", nova: "Nova", ruby: "Ruby" };
+/** Standard-Hauptfigur (die Auswahl bleibt: Tutorial und System → Figur) */
+export const DEFAULT_CHAR = "eigene";
 
 // alle Bilder im Figuren-Ordner einsammeln (neue Figuren erscheinen automatisch)
 const files = import.meta.glob("./assets/figuren/chars/*/*.webp", { eager: true, import: "default" }) as Record<string, string>;
@@ -24,10 +26,10 @@ for (const [path, url] of Object.entries(files)) {
   found.set(m[1], poses);
 }
 
-export const CHARACTERS: Character[] = [
-  { id: "eigene", name: "Original", poses: { notizen: ichNotizen, kontakte: ichKontakte, berichtsheft: ichBericht, projekte: ichProjekte, dateien: ichDateien, system: ichSystem } },
-  ...[...found.entries()]
-    .filter(([, p]) => POSE_IDS.every((k) => p[k]))
-    .map(([id, p]) => ({ id, name: NAMES[id] ?? id, poses: p as Record<ItemId, string> })),
-];
+const original: Character = { id: "eigene", name: "Original", poses: { notizen: ichNotizen, kontakte: ichKontakte, berichtsheft: ichBericht, projekte: ichProjekte, dateien: ichDateien, system: ichSystem } };
+const fromFolder = [...found.entries()]
+  .filter(([id]) => id !== "wasser")   // Rest von 0.6.0 (Wassergeist als Hauptfigur): ignorieren, falls der Ordner noch liegt
+  .filter(([, p]) => POSE_IDS.every((k) => p[k]))
+  .map(([id, p]) => ({ id, name: NAMES[id] ?? id, poses: p as Record<ItemId, string> }));
+export const CHARACTERS: Character[] = [original, ...fromFolder];
 export const charById = (id: string | null | undefined) => CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];

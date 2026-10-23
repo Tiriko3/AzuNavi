@@ -1,5 +1,23 @@
 # Änderungen
 
+## 0.7.0 – Alles in 4K, Wasser, Nacht-Hintergrund, Mizu, Tutorial
+- **Die gezeichneten Wasserflecken und die fliegenden Teilchen im Menü sind komplett entfernt.** Stattdessen läuft rechts im Menü bewegtes Wasser mit aufsteigenden Blasen (nur der Wasserteil des Gemini-Videos, ohne Figur; nahtlose Schleife, etwa 160 KB). Bei „Animationen aus“ steht ein Standbild.
+- **Mizu ersetzt Nami** (Name in `src/mascot.ts`). Der Wassergeist ist nur der Begleiter (Tutorial, Hilfe, Notizen-Animation, Startbildschirm, Handy). **Die Hauptfigur bleibt frei wählbar** (Original, Kai, Leo, Mira, Nova, Ruby, im Tutorial und unter System → Figur). Wer mit 0.6.0 versehentlich den Wassergeist als Hauptfigur hatte, bekommt seine vorherige Auswahl zurück.
+- **Alles in 4K:** Die sieben Hintergründe (sechs Seiten, Nacht) sind jetzt 3840×2160, alle Figuren (Mizu, Kai, Leo, Mira, Nova, Ruby, Caramella, Eda) 2160 Pixel hoch. Hochskaliert mit Real-ESRGAN (Anime-Modell, `tools/sr.py`) statt einfach vergrößert: scharfe Linien statt weicher Ränder. Das „Original“ war schon groß genug.
+- **Nacht-Hintergrund:** Von 21 bis 6 Uhr (echte Uhrzeit) liegt statt des Wassers das Mond-Bild hinter Menü und Seiten; das Menürad liegt in der dunklen Mondscheibe. System → Nacht-Hintergrund: Automatisch, Immer oder Nie. Der Wechsel passiert von allein (jede Minute geprüft).
+- **Tutorial:** Der Figur-Schritt erklärt den Unterschied zwischen Hauptfigur und Begleiter. Der Start-Text nennt Datenordner und Passwortschutz. Der Abschluss zeigt, was neu ist (Text prüfen, Passwortschutz, Nacht-Hintergrund). Der System-Schritt der Tour kennt Passwortschutz, Datenordner, Freigaben und die Sicherung zwischen PC und Handy.
+- Entfernt: die Seiten-Blasen und das Lichtnetz-Video aus 0.6.0 (das Wasser-Video ersetzt sie).
+- Programmgröße: etwa 12 MB mehr durch die 4K-Figuren.
+- Neu: `tools/make-design-assets.py` und `tools/sr.py` erzeugen alle Design-Dateien reproduzierbar. Browser-Tests für Wasser, Nacht (mit festgelegter Uhrzeit) und Tutorial.
+
+## 0.6.0 – Neues Design: Wassergeist, Hintergründe, Flüssigkeit
+- **Neue Hauptfigur: der Wassergeist.** Ein Kind aus Wasser mit Tropfen-Kopf und dunkelblauem Hoodie, im Stil der Persona-Menüs. Er ersetzt Nami: im Hauptmenü (je Menüpunkt eine eigene Pose: schreibt, winkt, liest, zeigt, trägt den Ordner, gibt einen Tipp), im Tutorial, in der Hilfe, am Handy und im Startbildschirm. Mit 0.6.0 wird die neue Figur **einmalig** gewählt. Wer seine alte Figur zurück will: System → Figur. Die anderen Figuren (Original, Kai, Leo, Mira, Nova, Ruby) bleiben wählbar.
+- **Name an einer Stelle:** Der Begleiter heißt vorläufig **Awa**. Der Name steht nur in `src/mascot.ts` (`MASCOT_NAME`) und gilt dann überall.
+- **Hintergründe:** Das Hauptmenü und jede Seite haben ein eigenes Bild in eigener Farbe (Notizen hellblau, Kontakte violett mit Personen-Netz, Berichtsheft marineblau mit Papieren und Kalender, Projekte Pinnwand mit roten Pins, Dateien petrol mit Ordnern, System Platine mit Zahnrädern).
+- **Flüssigkeit:** Statt der gezeichneten Wasserflecken liegt im Menü ein bewegtes Lichtnetz (Wasseroberfläche von unten), auf den Seiten steigen Blasen auf. Beides sind kleine Videos auf Schwarz, die mit „aufhellen“ darübergelegt werden (zusammen etwa 540 KB), mit nahtloser Schleife. Bei „Animationen aus“, „reduzierter Bewegung“ oder unsichtbarem Fenster stehen oder pausieren sie.
+- Die Dateien wurden aus Gemini-Bildern und -Videos erzeugt (`tools/make-design-assets.py`: Freistellen, Zuschneiden, Verkleinern). Sie sind für die private Nutzung gedacht.
+- Neu: Browser-Test des Designs (`tools/desktop-e2e.mts`, Abschnitt N).
+
 ## 0.5.1 – Grammatikprüfung ohne Java (überall)
 - **Eingebaute Prüfung:** „Text prüfen“ kennt jetzt viele typische Fehler, ohne Java und ohne Internet, am PC, in der Web-App und am Handy. Vorher gab es das nur am PC mit LanguageTool; am Handy gab es gar keine Prüfung, jetzt steht sie bei jeder Notiz.
 - **Was sie findet:**

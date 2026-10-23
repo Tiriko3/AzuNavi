@@ -1,5 +1,6 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { charById } from "./chars";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_CHAR, charById } from "./chars";
+import { isNightNow } from "./night";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
 import { isDesktopApp, isMobile, noDesktop } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
@@ -48,7 +49,11 @@ export default function App() {
     return () => window.removeEventListener("azunavi-display", on);
   }, []);
   const [help, setHelp] = useState(false);
-  const [charId, setCharId] = useState("eigene");
+  const [charId, setCharId] = useState(DEFAULT_CHAR);
+  // Nacht (echte Uhrzeit): jede Minute neu prüfen, damit der Wechsel von allein passiert
+  const [clock, setClock] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => setClock((c) => c + 1), 60_000); return () => window.clearInterval(t); }, []);
+  const night = useMemo(() => isNightNow(prefs.night), [prefs.night, clock]); // eslint-disable-line react-hooks/exhaustive-deps
   const POSES = charById(charId).poses;
   const busy = useRef(false);
   const [wheelTurn, setWheelTurn] = useState(3); // Ring-Drehung (zählt weiter, damit er nicht zurückspult)
@@ -76,7 +81,10 @@ export default function App() {
       setMutedState(m);
       const p = await loadPrefs();
       setPrefsState(p); applyPrefs(p);
-      setCharId((await getSet("pref_char")) ?? "eigene");
+      // 0.6.0 hatte kurz den Wassergeist als Hauptfigur gewählt. Er ist jetzt nur Begleiter (Mizu): zurück zur gewählten Hauptfigur
+      let pc = (await getSet("pref_char")) ?? DEFAULT_CHAR;
+      if (pc === "wasser") { pc = DEFAULT_CHAR; await setSetting("pref_char", pc); }
+      setCharId(pc);
       getDisplayMode().then((m) => applyDisplay(m).catch(() => {}));
       if (status.ok && !p.tutorialDone) setTutorial(true);   // erster Start: Tutorial mit Registrierung
       setReady(true);
@@ -166,7 +174,7 @@ export default function App() {
   const closePage = useCallback(() => {
     if (busy.current) return;
     snd.back();
-    getSet("pref_char").then((c) => setCharId(c ?? "eigene"));
+    getSet("pref_char").then((c) => setCharId(c ?? DEFAULT_CHAR));
     wipe(() => setPage(null));
   }, [wipe]);
 
@@ -276,8 +284,8 @@ export default function App() {
 
   return (
     <PrefsContext.Provider value={{ prefs, setPrefs, openTutorial }}>
-    <div id="stage" ref={stageRef} data-scope={scope}>
-      <Water />
+    <div id="stage" ref={stageRef} data-scope={scope} data-night={night ? "1" : undefined}>
+      <Water night={night} />
 
       {/* weiße Fläche links mit schräger Kante */}
       <div id="panel" aria-hidden="true">
@@ -361,7 +369,7 @@ export default function App() {
       {db && !db.ok && !page && <div id="dberr">Datenbank-Fehler: {db.error}</div>}
 
       {page && (
-        <PageView pageId={page} scope={scope} muted={muted} db={db}
+        <PageView pageId={page} night={night} scope={scope} muted={muted} db={db}
           onToggleMute={toggleMute} onBack={closePage} onScopeChange={changeScope} onHelp={() => setHelp((h) => !h)} escRef={escRef} />
       )}
 
@@ -385,7 +393,7 @@ export default function App() {
       {tutorial && (
         <Suspense fallback={null}><Tutorial
           onShowPage={(p) => { if (p === undefined) return; setPage(p as ItemId | null); }}
-          onDone={async () => { setTutorial(false); setPage(null); setPrefs({ tutorialDone: true }); setCharId((await getSet("pref_char")) ?? "eigene"); }} /></Suspense>
+          onDone={async () => { setTutorial(false); setPage(null); setPrefs({ tutorialDone: true }); setCharId((await getSet("pref_char")) ?? DEFAULT_CHAR); }} /></Suspense>
       )}
     </div>
     </PrefsContext.Provider>
