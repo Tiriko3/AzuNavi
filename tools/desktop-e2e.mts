@@ -448,11 +448,13 @@ console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur 
   let emptyPages = 0;
   for (const [i, n] of ["a", "b", "c", "d", "e", "f"].entries()) {
     await p.keyboard.press("ArrowDown"); await p.waitForTimeout(500);
-    await p.keyboard.press("Enter"); await p.waitForSelector("#page.show", { timeout: 5000 }); await p.waitForTimeout(900);
+    await p.keyboard.press("Enter");
+    if (i === 0) { await p.waitForTimeout(380); check(await p.evaluate(() => getComputedStyle(document.querySelector(".splashvid")!).opacity === "1"), "Wasser-Übergang läuft beim Seitenwechsel"); await shot(p, "21-splash"); }
+    await p.waitForSelector("#page.show", { timeout: 5000 }); await p.waitForTimeout(900);
     if (i === 0) check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("webp") || getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("url")), "Seite hat ihr Hintergrundbild");
     if ((await p.locator(".emptyart:visible").count()) > 0) { emptyPages++; check((await p.locator(".emptymizu:visible").count()) === 1, "leere Seite zeigt Mizu"); }
     await shot(p, `16-seite-${i}-${n}`);
-    await p.keyboard.press("Escape"); await p.waitForSelector("#page", { state: "detached", timeout: 5000 }); await p.waitForTimeout(500);
+    await p.keyboard.press("Escape"); await p.waitForSelector("#page", { state: "detached", timeout: 5000 }); await p.waitForTimeout(1300);
   }
   check(emptyPages === 3, "Notizen, Kontakte und Projekte zeigen Bild und Mizu auf der leeren Seite: " + emptyPages);
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));

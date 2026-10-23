@@ -5,6 +5,7 @@ Benötigt: Pillow, numpy, ncnn, ffmpeg und die Modelle (siehe tools/sr.py). Die 
 - figuren: Mizu (nami_*.webp) aus den Gemini-Bögen; alle anderen Figuren (chars/*, katze_*, prof_*) werden auf 2160 px Höhe (4K) hochskaliert.
 - bg: sieben Hintergründe (sechs Seiten + Nacht) auf 3840×2160.
 - video: Wasser-Schleife (nur der Wasserteil, ohne Figur).
+- splash: Wasser-Übergang beim Seitenwechsel (Burst, Bild für Bild auf 2560×1440 hochskaliert) und Lichtnetz für die Nacht.
 - ui: Bilder für leere Seiten (Kiste mit Blasen, Ordner, Zettel mit Pin)."""
 import sys, os, glob, subprocess, time
 import numpy as np
@@ -14,7 +15,7 @@ import sr
 
 args = [a for a in sys.argv[1:]]
 SRC = args[0] if args and os.path.isdir(args[0]) else "."
-parts = [a for a in args if a in ("figuren", "bg", "video", "ui")] or ["figuren", "bg", "video", "ui"]
+parts = [a for a in args if a in ("figuren", "bg", "video", "ui", "splash")] or ["figuren", "bg", "video", "ui", "splash"]
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "assets")
 f = lambda n: os.path.join(SRC, n)
 log = lambda *a: print(*a, flush=True)
@@ -133,3 +134,32 @@ if "ui" in parts:
     card = Image.new("RGBA", (paper.width, paper.height + pin.height // 3), (0, 0, 0, 0))
     card.paste(paper, (0, pin.height // 3), paper); card.alpha_composite(pin, ((paper.width - pin.width) // 2, 0))   # Pin steckt oben im Zettel
     save_webp(to_height(card, 800), os.path.join(UI, "leer-zettel.webp"))
+
+if "splash" in parts:
+    log("Wasser-Übergang und Nacht-Lichtnetz")
+    import shutil, tempfile
+    MEDIA = os.path.join(OUT, "media"); os.makedirs(MEDIA, exist_ok=True)
+    v = f("gemini_generated_video_f456bcfc.mp4")
+    # Lichtnetz für die Nacht: 0–3,3 s, Ende in den Anfang geblendet (nahtlose Schleife, 2,7 s), dunkel, 1920×1080
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", v, "-i", v, "-filter_complex",
+        "[0:v]trim=0.6:3.3,setpts=PTS-STARTPTS,scale=1920:1080:flags=lanczos[a];[1:v]trim=0:0.6,setpts=PTS-STARTPTS,scale=1920:1080:flags=lanczos[b];[a][b]xfade=transition=fade:duration=0.6:offset=2.1[o]",
+        "-map", "[o]", "-an", "-c:v", "libvpx-vp9", "-crf", "38", "-b:v", "0", "-row-mt", "1", "-cpu-used", "3", "-pix_fmt", "yuv420p", os.path.join(MEDIA, "night-caustics.webm")], check=True)
+    log("   night-caustics.webm", os.path.getsize(os.path.join(MEDIA, "night-caustics.webm")) // 1024, "KB")
+    # Burst (Splash-Krone, Wellenringe, Burst, wieder frei): 8,1–9,7 s, Bild für Bild mit KI hochskaliert
+    work = os.path.join(tempfile.gettempdir(), "splash-work")
+    fr, up = os.path.join(work, "fr"), os.path.join(work, "up"); os.makedirs(fr, exist_ok=True); os.makedirs(up, exist_ok=True)
+    if len(os.listdir(fr)) < 38:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "8.1", "-t", "1.6", "-i", v, "-r", "24", os.path.join(fr, "%04d.png")], check=True)
+    files = sorted(os.listdir(fr)); t0 = time.time()
+    for i, n in enumerate(files, 1):
+        out_png = os.path.join(up, n)
+        if os.path.exists(out_png):
+            try: Image.open(out_png).verify(); continue      # schon fertig und heil
+            except Exception: os.remove(out_png)             # beschädigt (Abbruch beim Schreiben): neu machen
+        big = Image.fromarray(sr.upscale4(np.asarray(Image.open(os.path.join(fr, n)).convert("RGB")))).resize((2560, 1440), Image.LANCZOS)
+        big.save(out_png + ".tmp.png"); os.replace(out_png + ".tmp.png", out_png)
+        if i % 4 == 0 or i == len(files): log(f"    Bild {i}/{len(files)} ({time.time() - t0:.0f} s)")
+    out = os.path.join(MEDIA, "water-splash.webm")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "24", "-i", os.path.join(up, "%04d.png"), "-an", "-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-row-mt", "1", "-cpu-used", "3", "-pix_fmt", "yuv420p", out], check=True)
+    shutil.rmtree(work, ignore_errors=True)
+    log("   water-splash.webm", len(files), "Bilder,", os.path.getsize(out) // 1024, "KB")

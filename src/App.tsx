@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { DEFAULT_CHAR, charById } from "./chars";
 import { isNightNow } from "./night";
 import { motionFromPrefs } from "./web/motion";
+import { Splash, type SplashApi } from "./Splash";
 import { applyDisplay, getDisplayMode, quitApp, toggleFullscreen, type DisplayMode } from "./display";
 import { isDesktopApp, isMobile, noDesktop } from "./platform";
 import { HelpPanel } from "./tutorial/HelpPanel";
@@ -150,8 +151,11 @@ export default function App() {
     setSetting("lastTab", ITEMS[next].id);
   }, []);
 
+  const splashRef = useRef<SplashApi>(null);
   const wipe = useCallback((mid: () => void) => {
     busy.current = true;
+    // Wasser-Übergang (Video); ohne Bewegung oder bei einem Fehler: die drei Balken
+    if (splashRef.current?.play(mid)) { setTimeout(() => { busy.current = false; }, 1250); return; }
     wipeRefs.current.forEach((p, i) => {
       p?.animate(
         [
@@ -387,6 +391,7 @@ export default function App() {
         </div>
       )}
 
+      <Splash ref={splashRef} enabled={motionFromPrefs(prefs)} />
       <div id="wipe">
         {[0, 1, 2].map((i) => <i key={i} ref={(el) => { wipeRefs.current[i] = el; }} />)}
       </div>

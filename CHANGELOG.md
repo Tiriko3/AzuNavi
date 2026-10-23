@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.8.0 – Wasser-Übergang beim Seitenwechsel, Lichtnetz bei Nacht
+- **Wasser-Übergang:** Beim Öffnen und Schließen einer Seite läuft jetzt der Wasser-Burst aus deinem neuen Video: eine Splash-Krone, Wellenringe und ein großer Burst, der den Bildschirm füllt und wieder freigibt. Genau wenn er alles bedeckt, wechselt die Seite darunter. Das Video ist Bild für Bild mit Real-ESRGAN auf 2560×1440 hochskaliert (etwa 1,2 Sekunden, etwas schneller abgespielt als im Original). Bei „Animationen aus“ (oder wenn das Abspielen nicht klappt) läuft der alte Übergang mit den drei Balken.
+- **Lichtnetz bei Nacht:** Im Nacht-Hintergrund liegt unter dem Mond das dunkle Lichtnetz aus dem Video (schimmernde Wasseroberfläche mit rosa Funken, nahtlose Schleife).
+- Nicht eingebaut (liegt im Video bereit): die Blasen, die Welle und die Splash-Krone allein.
+- Neu: `tools/make-design-assets.py splash`, Browser-Test, dass der Übergang beim Seitenwechsel läuft.
+
+
 ## 0.7.2 – Das Wasser läuft jetzt immer, und in 4K
 - **Fehler behoben: Das Wasser im Menü stand still.** Auf Rechnern, bei denen Windows die Animationseffekte abgeschaltet hat (zum Beispiel virtuelle Maschinen), meldet das Programm „reduzierte Bewegung“. Das hat 0.7.0 und 0.7.1 beachtet und deshalb nur das Standbild gezeigt, auch beim Startbildschirm und beim Intro. Jetzt zählt nur noch der Schalter **System → Animationen**.
 - **Neu: System → „Windows-Einstellung ‚Animationen reduzieren‘ beachten“** (Standard: aus). Wer die Windows-Einstellung als Vorgabe haben will, schaltet sie ein.

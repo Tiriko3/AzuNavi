@@ -975,3 +975,7 @@ button,.item{-webkit-user-select:none;user-select:none}
 .emptyart{float:right;height:112px;width:auto;margin:-2px 0 8px 14px;pointer-events:none}
 .emptymizu{display:block;height:170px;width:auto;margin:14px auto 0;pointer-events:none;filter:drop-shadow(0 0 14px rgba(61,184,255,.55))}
 .no-mascot .emptymizu{display:none}
+
+/* ---- 0.8.0: Wasser-Übergang und Nacht-Lichtnetz ---- */
+.splashvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;pointer-events:none;z-index:55}
+.nightwater{position:absolute;right:0;bottom:0;width:68%;height:58%;object-fit:cover;mix-blend-mode:screen;opacity:.6;z-index:0;pointer-events:none;-webkit-mask-image:linear-gradient(to top,#000 35%,transparent 100%);mask-image:linear-gradient(to top,#000 35%,transparent 100%)}

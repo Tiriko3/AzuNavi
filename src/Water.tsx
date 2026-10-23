@@ -4,12 +4,19 @@ import { useRef } from "react";
 import waterLoop from "./assets/media/water-loop.webm?url";
 import waterPoster from "./assets/media/water-poster.webp?url";
 import nightBg from "./assets/bg/nacht.webp";
+import nightWater from "./assets/media/night-caustics.webm?url";
 import { useKeepPlaying } from "./web/motion";
 
 export function Water({ night, moving }: { night: boolean; moving: boolean }) {
-  const ref = useRef<HTMLVideoElement>(null);
+  const ref = useRef<HTMLVideoElement>(null), nref = useRef<HTMLVideoElement>(null);
   useKeepPlaying(ref, moving && !night);
-  if (night) return <div id="nightbg" style={{ backgroundImage: `url(${nightBg})` }} aria-hidden="true" />;
+  useKeepPlaying(nref, moving && night);
+  if (night) return (
+    <>
+      <div id="nightbg" style={{ backgroundImage: `url(${nightBg})` }} aria-hidden="true" />
+      {moving && <video ref={nref} className="nightwater" src={nightWater} autoPlay muted loop playsInline preload="auto" aria-hidden="true" />}
+    </>
+  );
   return (
     <div id="waterbg" aria-hidden="true">
       {moving
