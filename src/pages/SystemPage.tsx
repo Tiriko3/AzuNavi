@@ -69,6 +69,8 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
     const name = await getSetting("custom_template_name");
     setTplInfo(t.custom
       ? `Eigene Vorlage${name ? ` „${name}“` : ""} (${t.info.kind === "karten" ? "Tageskarten" : t.info.kind === "platzhalter" ? "mit Platzhaltern" : "freies Layout"})`
+      : t.builtin === "tagesnachweis" ? "Tagesnachweis mit Stunden (Word)"
+      : t.builtin === "hhu" ? "Wochenbericht öffentlicher Dienst (PDF-Formular)"
       : `Standard-Vorlage${t.profile ? ` für ${t.profile.beruf}` : " (IHK-Tageskarten)"}`);
   };
   const refreshQuals = () => listQualifications().then((q) => setQualCount(q.length));

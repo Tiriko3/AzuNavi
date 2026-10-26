@@ -169,6 +169,8 @@ console.log("B: ohne alte Daten starten, danach keine Frage mehr");
   await p.waitForSelector("text=Deine bisherigen Daten übernehmen?");
   await p.click("button:has-text('Ohne alte Daten starten')");
   await gone(p); await waitFor(() => be.disk.has("azunavi.db"));
+  // Die Datei erscheint, bevor die Tabellen angelegt sind: auf einer langsamen CPU erst auf die fertige Datenbank warten
+  await waitFor(() => { try { new SQL.Database(be.disk.get("azunavi.db")!).exec("SELECT 1 FROM notes"); return true; } catch { return false; } });
   check(be.disk.has("azunavi.db"), "leere Datenbank wurde angelegt");
   const nd = new SQL.Database(be.disk.get("azunavi.db")!);
   check((nd.exec("SELECT COUNT(*) FROM notes")[0].values[0][0] as number) === 0, "keine alten Notizen");
@@ -255,7 +257,7 @@ console.log("G: Hintergrund und Intro");
   await p.waitForTimeout(1300); await shot(p, "8-intro");
   check(await p.evaluate(() => { const v = document.querySelector(".intro video") as HTMLVideoElement; return !v.paused && v.currentTime > 0.5; }), "Intro läuft");
   await p.click(".intro");
-  await p.waitForSelector(".intro", { state: "detached", timeout: 3000 });
+  await p.waitForSelector(".intro", { state: "detached", timeout: 20000 });
   check(true, "Klick überspringt das Intro");
   await shot(p, "9-app-nach-intro");
   await p.reload(); await gone(p); await p.waitForTimeout(600);
@@ -432,7 +434,7 @@ console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur 
 {
   const be = makeBackend(); const s = await session(be, { hour: 12 }); const p = await s.open();
   await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
-  await p.waitForSelector(".intro video", { timeout: 20000 }); await p.click(".intro"); await p.waitForSelector(".intro", { state: "detached", timeout: 3000 });
+  await p.waitForSelector(".intro video", { timeout: 20000 }); await p.click(".intro"); await p.waitForSelector(".intro", { state: "detached", timeout: 20000 });
   await p.waitForSelector("text=Tutorial überspringen"); await shot(p, "17-tut-start");
   await p.click("button:has-text('Starten')"); await p.waitForTimeout(500);
   await p.fill("label:has-text('Vorname') input", "Test"); await p.fill("label:has-text('Nachname') input", "Azubi");

@@ -3,28 +3,31 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { baseName, fsapi } from "../fsapi";
-import { analyzeTemplate, adoptTemplate, useBundledTemplate, type TemplateKind } from "./templates";
+import { analyzeTemplate, adoptTemplate, useBundledTemplate, BUILTINS, type BuiltinId, type TemplateKind } from "./templates";
 import { previewOf } from "./previews";
 import type { BerufProfile } from "../profiles/berufe";
 
 export type TplChoice =
-  | { mode: "standard" }
+  | { mode: "standard" }   // = IHK-Tageskarten
+  | { mode: "vorlage"; id: BuiltinId }
   | { mode: "datei"; name: string; bytes: ArrayBuffer; kind: TemplateKind; quals: string[]; free: "leer" | "standard" };
 
 export async function applyTplChoice(c: TplChoice): Promise<void> {
-  if (c.mode === "standard" || (c.kind === "frei" && c.free === "standard")) { await useBundledTemplate(); return; }
+  if (c.mode === "vorlage") { await useBundledTemplate(c.id); return; }
+  if (c.mode === "standard" || (c.kind === "frei" && c.free === "standard")) { await useBundledTemplate("ihk"); return; }
   await adoptTemplate(c.bytes, c.kind === "frei" && c.free === "leer", c.name);
 }
 
 export function TemplateChooser({ prof, value, onChange }: { prof: BerufProfile | null; value: TplChoice; onChange: (c: TplChoice) => void }) {
-  const [big, setBig] = useState(false);
+  const [big, setBig] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [pdf, setPdf] = useState("");
-  const img = previewOf(prof?.id);
+  const imgOf = (id: BuiltinId) => previewOf(id === "ihk" ? prof?.id : id);
+  const chosen: BuiltinId | null = value.mode === "standard" ? "ihk" : value.mode === "vorlage" ? value.id : null;
   // Esc schließt die Großansicht (und nur sie)
   useEffect(() => {
     if (!big) return;
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); setBig(false); } };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); setBig(null); } };
     window.addEventListener("keydown", k, true);
     return () => window.removeEventListener("keydown", k, true);
   }, [big]);
@@ -47,20 +50,23 @@ export function TemplateChooser({ prof, value, onChange }: { prof: BerufProfile 
 
   return (
     <div className="tplc">
-      <div className={"tplcard" + (value.mode === "standard" ? " on" : "")} onClick={() => onChange({ mode: "standard" })} role="button" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange({ mode: "standard" }); } }}>
-        <img className="tplthumb" src={img} alt="Vorschau der Standard-Vorlage" draggable={false} onClick={(e) => { e.stopPropagation(); setBig(true); }} />
-        <div className="tplbody">
-          <b>Standard-Vorlage{prof ? ` für ${prof.beruf}` : ""}</b>
-          <p>{prof ? prof.hinweis : "Sauberes Layout mit Tageskarten."} Ich fülle sie jede Woche für dich aus.</p>
-          <button type="button" className="mini" onClick={(e) => { e.stopPropagation(); setBig(true); }}>Vorlage ansehen</button>
+      {BUILTINS.map((b) => (
+        <div key={b.id} className={"tplcard" + (chosen === b.id ? " on" : "")} role="button" tabIndex={0}
+          onClick={() => onChange(b.id === "ihk" ? { mode: "standard" } : { mode: "vorlage", id: b.id })}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(b.id === "ihk" ? { mode: "standard" } : { mode: "vorlage", id: b.id }); } }}>
+          <img className="tplthumb" src={imgOf(b.id)} alt={`Vorschau: ${b.label}`} draggable={false} onClick={(e) => { e.stopPropagation(); setBig(imgOf(b.id)); }} />
+          <div className="tplbody">
+            <b>{b.id === "ihk" && prof ? `${b.label} für ${prof.beruf}` : b.label}</b>
+            <p>{b.id === "ihk" && prof ? prof.hinweis + " " : ""}{b.hinweis}{b.ext === "pdf" ? " Export als PDF." : " Export als Word."}</p>
+            <button type="button" className="mini" onClick={(e) => { e.stopPropagation(); setBig(imgOf(b.id)); }}>Vorlage ansehen</button>
+          </div>
         </div>
-      </div>
+      ))}
 
       <div className={"tplcard" + (value.mode === "datei" ? " on" : "")}>
         <div className="tplbody">
           <b>Eigene Vorlage hochladen</b>
-          <p>Deine Word-Datei (.docx) von der Kammer oder vom Betrieb. Sie muss nicht wie die der IHK aussehen, ich nehme jedes Layout.</p>
+          <p>Deine Word-Datei (.docx) von der Kammer oder vom Betrieb. Sie muss nicht wie die der IHK aussehen, ich nehme jedes Layout. Ein PDF-Formular als eigene Vorlage geht nicht, dafür gibt es oben die eingebaute PDF-Vorlage.</p>
           <button type="button" className="btn" onClick={pick}><span>{value.mode === "datei" ? "Andere Datei wählen" : "Datei wählen"}</span></button>
           {err && <div className="errbox">{err}</div>}
           {pdf && <p className="tutnote">„{pdf}“ ist eine PDF, die kann ich nicht ausfüllen. Ich bleibe bei der Standard-Vorlage. Die Einträge aus der PDF holst du im nächsten Schritt mit dem Import rein.</p>}
@@ -89,9 +95,9 @@ export function TemplateChooser({ prof, value, onChange }: { prof: BerufProfile 
       </div>
 
       {big && createPortal(
-        <div className="tplbig" onClick={() => setBig(false)} role="dialog" aria-label="Vorlage ansehen">
-          <img src={img} alt="Standard-Vorlage" draggable={false} />
-          <button className="btn" onClick={() => setBig(false)}><span>Schließen (Esc)</span></button>
+        <div className="tplbig" onClick={() => setBig(null)} role="dialog" aria-label="Vorlage ansehen">
+          <img src={big} alt="Vorlage" draggable={false} />
+          <button className="btn" onClick={() => setBig(null)}><span>Schließen (Esc)</span></button>
         </div>, document.body)}
     </div>
   );

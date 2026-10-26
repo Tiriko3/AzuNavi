@@ -6,6 +6,11 @@ import type { DirNode, Entry, FsApi, MoveResult } from "../fsapi";
 import { kvRead, kvWrite } from "./dataStore";
 
 const PREFIX = "web:", PICKED = "web-datei:";
+/** Firefox, Safari & Co. dürfen keine PC-Ordner öffnen. Dort legt die App einen eigenen Ordner im Browser-Speicher (OPFS) an und verhält sich sonst gleich. */
+export const hasFolderPicker = () => typeof window !== "undefined" && "showDirectoryPicker" in window;
+export const hasBrowserFolder = () => typeof navigator !== "undefined" && !!navigator.storage?.getDirectory;
+const OPFS_KEY = "Browser-Ordner", OPFS_DIR = "azunavi-dateien";
+const opfsRoot = async (): Promise<Dir> => (await navigator.storage.getDirectory()).getDirectoryHandle(OPFS_DIR, { create: true });
 export const NEED_PERMISSION = "Der Browser braucht neu deine Erlaubnis für diesen Ordner.";
 const NOT_SHARED = "Dieser Ordner ist in diesem Browser nicht freigegeben. Bitte „Ordner neu wählen“.";
 
@@ -21,9 +26,21 @@ const roots = new Map<string, Dir>();
 let loaded = false;
 async function load() {
   if (loaded) return; loaded = true;
-  for (const r of (await kvRead<{ key: string; handle: Dir }[]>("fsroots").catch(() => undefined)) ?? []) roots.set(r.key, r.handle);
+  for (const r of (await kvRead<{ key: string; handle?: Dir; opfs?: boolean }[]>("fsroots").catch(() => undefined)) ?? []) {
+    if (r.opfs) { if (hasBrowserFolder()) roots.set(r.key, await opfsRoot()); }   // Browser-Ordner wird neu geholt, nichts Gespeichertes nötig
+    else if (r.handle) roots.set(r.key, r.handle);
+  }
 }
-const persist = () => kvWrite("fsroots", [...roots].map(([key, handle]) => ({ key, handle })));
+const persist = () => kvWrite("fsroots", [...roots].map(([key, handle]) => (key === OPFS_KEY ? { key, opfs: true } : { key, handle })));
+/** Der Browser-Ordner (OPFS) ist immer erlaubt und hat keine Berechtigungsabfrage */
+export const isBrowserFolder = (path: string) => path.startsWith(PREFIX + OPFS_KEY);
+async function browserFolderPath(sub = ""): Promise<string> {
+  await load();
+  if (!roots.has(OPFS_KEY)) { roots.set(OPFS_KEY, await opfsRoot()); await persist(); }
+  const d = roots.get(OPFS_KEY)!;
+  if (sub) await d.getDirectoryHandle(sub, { create: true });
+  return PREFIX + OPFS_KEY + (sub ? "/" + sub : "");
+}
 /** Ordner merken und einen virtuellen Pfad dafür liefern (derselbe Ordner bekommt immer denselben Pfad) */
 export async function registerFolder(h: Dir): Promise<string> {
   await load();
@@ -42,7 +59,8 @@ function parts(path: string) {
 const toPath = (key: string, rest: string[]) => PREFIX + [key, ...rest].join("/");
 async function rootOf(key: string): Promise<Dir> {
   await load(); const h = roots.get(key); if (!h) throw new Error(NOT_SHARED);
-  if ((await (h as any).queryPermission?.({ mode: "readwrite" })) !== "granted") throw new Error(NEED_PERMISSION);
+  const q = (h as any).queryPermission;
+  if (typeof q === "function" && (await q.call(h, { mode: "readwrite" })) !== "granted") throw new Error(NEED_PERMISSION);
   return h;
 }
 async function dirAt(path: string, create = false): Promise<Dir> {
@@ -146,15 +164,80 @@ export const webFolderFs: Pick<FsApi, "tree" | "list" | "exists" | "isDir" | "mk
     window.open(url, "_blank", "noopener"); setTimeout(() => URL.revokeObjectURL(url), 120_000);
   },
   async reveal() { throw new Error("„Im Explorer zeigen“ gibt es im Browser nicht."); },
-  async pickFolder() {
+  async pickFolder(title?: string, keep?: boolean) {
+    if (!hasFolderPicker()) {   // Firefox & Co.: eigener Ordner im Browser statt PC-Ordner
+      if (!hasBrowserFolder()) throw new Error("Dieser Browser kann keine Dateien speichern. Bitte nimm Firefox, Chrome oder Edge in einer aktuellen Version.");
+      if (keep === false) return importFolderFromDisk();   // „Ordner hierher“: echten Ordner vom PC einlesen (Kopie)
+      return browserFolderPath(/für Arbeit/.test(title ?? "") ? "Arbeit" : /für Schule/.test(title ?? "") ? "Schule" : "");
+    }
     try { return await registerFolder(await (window as any).showDirectoryPicker({ id: "azunavi-dateien", mode: "readwrite" })); }
     catch (e) { if (nameOf(e) === "AbortError") return null; throw e; }
   },
   async grant(path) {
     await load(); const h = roots.get(parts(path).key); if (!h) return false;
-    return (await (h as any).requestPermission?.({ mode: "readwrite" })) === "granted";
+    const r = (h as any).requestPermission;
+    return typeof r !== "function" ? true : (await r.call(h, { mode: "readwrite" })) === "granted";
   },
 };
+
+/* ---------- Ordner ohne Ordner-Zugriff (Firefox & Co.) ---------- */
+/** Dateien (mit relativem Pfad) in „Eingang/<Ordner>“ des Browser-Ordners kopieren und den Pfad zurückgeben */
+async function importFiles(files: { file: File; rel: string }[], top: string): Promise<string> {
+  const base = await browserFolderPath("Eingang");
+  let name = top, n = 2;
+  const inbox = await dirAt(base);
+  while (await exists(inbox, name)) name = `${top} (${n++})`;
+  const dest = await inbox.getDirectoryHandle(name, { create: true });
+  for (const { file, rel } of files) {
+    const segs = rel.split("/").filter(Boolean); const fname = segs.pop() ?? file.name;
+    let d = dest; for (const sg of segs) d = await d.getDirectoryHandle(sg, { create: true });
+    await copyFile(file, d, fname);
+  }
+  return base + "/" + name;
+}
+function importFolderFromDisk(): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file"; (input as any).webkitdirectory = true;
+    input.onchange = async () => {
+      const list = Array.from(input.files ?? []); if (!list.length) return resolve(null);
+      try {
+        const top = ((list[0] as any).webkitRelativePath as string)?.split("/")[0] || "Ordner";
+        resolve(await importFiles(list.map((f) => ({ file: f, rel: ((f as any).webkitRelativePath as string)?.split("/").slice(1).join("/") || f.name })), top));
+      } catch (e) { reject(e); }
+    };
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
+}
+/** Ordner aus einem Ziehen & Ablegen (webkitGetAsEntry) einlesen */
+async function readEntryTree(entry: any, rel: string, out: { file: File; rel: string }[]) {
+  if (entry.isFile) { const f: File = await new Promise((res, rej) => entry.file(res, rej)); out.push({ file: f, rel: rel + entry.name }); return; }
+  const reader = entry.createReader();
+  for (;;) {
+    const batch: any[] = await new Promise((res, rej) => reader.readEntries(res, rej));
+    if (!batch.length) break;
+    for (const e of batch) await readEntryTree(e, rel + entry.name + "/", out);
+  }
+}
+/** Den ganzen Browser-Ordner als ZIP herunterladen (Mitnehmen / Sicherung) */
+export async function exportBrowserFolderZip(): Promise<string> {
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  const walk = async (d: Dir, z: any) => {
+    for await (const [n, h] of entriesOf(d)) {
+      if (h.kind === "directory") await walk(h as Dir, z.folder(n)); else z.file(n, await (h as FileH).getFile());
+    }
+  };
+  await load(); const root = roots.get(OPFS_KEY); if (!root) throw new Error("Es gibt noch keinen Browser-Ordner.");
+  await walk(root, zip);
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const name = `AzuNavi-Dateien-${new Date().toISOString().slice(0, 10)}.zip`;
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return name;
+}
 
 /** Hineingezogene Dateien und Ordner (Ziehen & Ablegen) in virtuelle Pfade umwandeln.
  *  Wichtig: Alle Zugriffe auf das Ereignis müssen sofort passieren, bevor etwas abgewartet wird. */
@@ -162,6 +245,7 @@ export async function dropToPaths(dt: DataTransfer): Promise<string[]> {
   const jobs = Array.from(dt.items ?? []).filter((i) => i.kind === "file").map((it) => ({
     handle: ((it as any).getAsFileSystemHandle?.() as Promise<FileSystemHandle | null> | undefined) ?? Promise.resolve(null),
     file: it.getAsFile(),
+    entry: (it as any).webkitGetAsEntry?.() ?? null,   // Firefox/Safari: so erkennt man Ordner
   }));
   const plain = Array.from(dt.files);
   const out: string[] = [];
@@ -169,6 +253,10 @@ export async function dropToPaths(dt: DataTransfer): Promise<string[]> {
     const h = await j.handle.catch(() => null);
     if (h?.kind === "directory") { try { await (h as any).requestPermission?.({ mode: "readwrite" }); } catch { /* nur lesen */ } out.push(await registerFolder(h as Dir)); }
     else if (h?.kind === "file") out.push(registerFile(await (h as FileH).getFile()));
+    else if (j.entry?.isDirectory && hasBrowserFolder()) {   // Ordner ohne Ordner-Zugriff: Kopie in den Browser-Ordner
+      const list: { file: File; rel: string }[] = []; await readEntryTree(j.entry, "", list);
+      out.push(await importFiles(list.map((x) => ({ file: x.file, rel: x.rel.split("/").slice(1).join("/") })), j.entry.name));
+    }
     else if (j.file) out.push(registerFile(j.file));
   }
   if (!out.length) for (const f of plain) out.push(registerFile(f));

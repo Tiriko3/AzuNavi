@@ -114,7 +114,8 @@ export async function addBrowser(): Promise<string> {
   const list = await recs(); const have = list.find((r) => r.kind === "browser"); if (have) return have.id;
   const rec: LocRec = { id: newId(), kind: "browser", name: "Dieser Browser" };
   await kvSet("locations", [...list, rec]);
-  try { await navigator.storage?.persist?.(); } catch { /* Browser entscheidet selbst */ }
+  // Nicht abwarten: Firefox fragt hier den Nutzer (Berechtigung) und die Antwort kann ewig ausbleiben. Die App muss trotzdem sofort starten.
+  try { void Promise.resolve(navigator.storage?.persist?.()).catch(() => {}); } catch { /* Browser entscheidet selbst */ }
   return rec.id;
 }
 /** „Wechseln“: Ort schließen, die Liste der Orte kommt wieder (der Ort selbst bleibt gemerkt) */

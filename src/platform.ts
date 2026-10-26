@@ -15,4 +15,6 @@ export const usesDataFolder = isWebApp || isDesktopApp || isMobileApp;
 export const noDesktop = isMobile || isWebApp;
 
 /** Der Browser kann Ordner freigeben (Chrome, Edge, Opera am PC): Voraussetzung für die Dateien-Seite in der Web-App */
-export const canUseFolders = typeof window !== "undefined" && "showDirectoryPicker" in window && !isMobile;
+export const canUseFolders = typeof window !== "undefined" && ("showDirectoryPicker" in window || !!navigator.storage?.getDirectory) && !isMobile;
+/** Echte PC-Ordner freigeben geht nur in Chrome/Edge. Sonst benutzt die Dateien-Seite einen eigenen Ordner im Browser (Firefox, Safari). */
+export const hasRealFolders = typeof window !== "undefined" && "showDirectoryPicker" in window;

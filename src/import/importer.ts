@@ -114,30 +114,161 @@ export async function parseDocx(bytes: ArrayBuffer, quals: string[], source: str
 }
 
 /* ---------- PDF ---------- */
+/** LaTeX-PDFs trennen den Umlaut vom Buchstaben („t¨aglich“, „Uber“ mit „¨“ in der Zeile davor oder danach). Das hier flickt, was sich sicher flicken lässt. */
+export function fixLatexUmlauts(s: string): string {
+  const MAP: Record<string, string> = { a: "ä", o: "ö", u: "ü", A: "Ä", O: "Ö", U: "Ü" };
+  let t = s.replace(/¨\s?([aouAOU])/g, (_, c) => MAP[c]);          // „¨a“ → „ä“
+  t = t.replace(/\b(Uber|Ubung|Ubungen|Ubersicht|Ubernahme)(?=[a-zäöüß]|\b)/g, (m) => "Ü" + m.slice(1)); // Wortanfang: „Uber“ gibt es im Deutschen nicht
+  t = t.replace(/\bAnder(ung|ungen|n|t|te|ten)\b/g, (_, e) => "Änder" + e);
+  t = t.replace(/\bOffentlich(e|en|er|es|keit)?\b/g, (_, e) => "Öffentlich" + (e ?? ""));
+  return t.replace(/¨/g, "").replace(/\s{2,}/g, " ").trim();      // übrig gebliebene lose Zeichen entfernen
+}
+
+const WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
+const PLAIN_PLACES = /^(schule|berufsschule|urlaub|feiertag|krank|ferien|sommerferien|gleitzeit|frei)\b/i;
+/** Text eines Tages in einzelne Tätigkeiten zerlegen („- …“-Zeilen; Zeilen ohne Strich, die klein oder mit „(“ beginnen, hängen am Vorgänger) */
+function splitTasks(text: string): string[] {
+  const out: string[] = [];
+  for (const raw of text.replace(/\r/g, "\n").split("\n")) {
+    const line = raw.replace(/\s+/g, " ").trim(); if (!line) continue;
+    const bullet = /^[•\-–*·▪]\s*/.test(line);
+    const clean = line.replace(/^[•\-–*·▪]\s*/, "").trim();
+    if (!bullet && out.length && /^[a-zäöü(]/.test(clean)) out[out.length - 1] += " " + clean;
+    else out.push(clean);
+  }
+  return out.filter((x) => x.length >= 3);
+}
+const parseDeDate = (s: string): Date | null => { const m = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})/); if (!m) return null; const y = Number(m[3]); return new Date(y < 100 ? 2000 + y : y, Number(m[2]) - 1, Number(m[1])); };
+
+/**
+ * PDF-Formular (HHU: „Wochenbericht“ und „Fachbericht“). Die Einträge stehen in Formularfeldern und NICHT im sichtbaren Text,
+ * deshalb hat der alte Import hier nichts gefunden. Felder: Montagsaufgaben … Freitagsaufgaben, Datum1 … Datum5, Berufsschule, Fließtext …
+ */
+export function isHhuForm(f: Record<string, string>) { return "Montagsaufgaben" in f || "Fließtext" in f || "Freitagsaufgaben" in f; }
+export function parseHhuForm(f: Record<string, string>, source: string, now = new Date()): ImportedEntry[] {
+  const out: ImportedEntry[] = [];
+  if ("Fließtext" in f) {   // Fachbericht: eine Notiz mit dem ganzen Bericht
+    const body = (f["Fließtext"] || "").replace(/\s+\n/g, "\n").trim();
+    if (body) {
+      const mon = (f["Monat"] || "").toLowerCase(); const mi = MONTHS.findIndex((m) => mon.includes(m));
+      const y = Number((mon.match(/\d{4}/) ?? [])[0]) || now.getFullYear();
+      const date = mi >= 0 ? mkDate(y, mi, 1) : isoDate(now);
+      out.push({ date, text: `Fachbericht${f["Ausbildungsthema"] ? " – " + f["Ausbildungsthema"].replace(/^[\s\-–•]+/, "").trim() : ""}: ${body}`, quals: [], scope: "arbeit", source });
+    }
+    return out;
+  }
+  const start = parseDeDate((f["Zeitraum"] || "").split(/[–-]/)[0] ?? "");
+  const dayDate = (i: number): string | null => {
+    const d = parseDeDate(f[`Datum${i + 1}`] || ""); if (d) return isoDate(d);
+    if (start) { const x = new Date(start); x.setDate(x.getDate() + i); return isoDate(x); }
+    return null;
+  };
+  const schoolDays: string[] = [];
+  WEEKDAY_NAMES.forEach((name, i) => {
+    const date = dayDate(i); if (!date) return;
+    const lines = splitTasks(f[`${name}saufgaben`] || "");
+    let school = false;
+    for (const t of lines) {
+      if (PLAIN_PLACES.test(t) && t.length <= 40) { if (/schule/i.test(t)) school = true; continue; }   // „Berufsschule (ganztägig)“, „Urlaub“ = Ort, keine Tätigkeit
+      out.push({ date, text: t, quals: [], scope: "arbeit", source });
+    }
+    if (school) schoolDays.push(date);
+  });
+  // Berufsschule-Feld: mit Tagesüberschriften („*Dienstag:“) oder als eine Liste ohne Tage
+  const bs = (f["Berufsschule"] || "").split("\n").filter((l) => !/^\s*[/\-–]?\s*$/.test(l) && !PLAIN_PLACES.test(l.trim().replace(/^[-–•*\s]+/, "")) ).join("\n").trim();
+  if (bs) {
+    const parts = bs.split(/^\s*\*?\s*(Montag|Dienstag|Mittwoch|Donnerstag|Freitag)\s*:?\s*$/im);
+    if (parts.length > 1) {
+      for (let k = 1; k < parts.length; k += 2) {
+        const date = dayDate(WEEKDAY_NAMES.indexOf(parts[k].charAt(0).toUpperCase() + parts[k].slice(1).toLowerCase()));
+        if (date) for (const t of splitTasks(parts[k + 1] || "")) out.push({ date, text: t, quals: [], scope: "schule", source });
+      }
+    } else {
+      const date = schoolDays[0] ?? dayDate(0);
+      if (date) for (const t of splitTasks(bs)) out.push({ date, text: t, quals: [], scope: "schule", source });
+    }
+  }
+  return out;
+}
+
+/**
+ * LaTeX-Vorlage „Ausbildungsnachweis (täglich)“ mit Stundenspalte: „Ausbildungswoche von 03.08.2026 bis 07.08.2026“,
+ * danach „Montag <Text> … <Stunden>“. Ein Tag steht als Fließtext, deshalb wird er satzweise in Tätigkeiten zerlegt.
+ */
+export function parseTagesnachweis(lines: string[], source: string): ImportedEntry[] {
+  // Trennstriche am Zeilenende („An- schließend“) zusammenziehen, aber „Wiki- und“ in Ruhe lassen
+  const L = lines.map((l) => fixLatexUmlauts(l)).filter(Boolean);
+  const out: ImportedEntry[] = [];
+  let mon: Date | null = null, cur = -1; let texts: string[][] = [];
+  const flush = () => {
+    if (!mon) return;
+    texts.forEach((ls, i) => {
+      const day = new Date(mon!); day.setDate(mon!.getDate() + i); const date = isoDate(day);
+      const joined = ls.join(" ").replace(/([A-Za-zÄÖÜäöüß]{1,6})-\s+(?!und\b|oder\b|bzw\b|sowie\b|bis\b)([a-zäöüß])/g, "$1$2").replace(/([A-Za-zÄÖÜäöüß]{2,}-)\s+(?=[A-ZÄÖÜ])/g, "$1").replace(/\s+/g, " ");
+      for (const t of joined.split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ])/).map((x) => x.trim()).filter((x) => x.length >= 8)) out.push({ date, text: t, quals: [], scope: "arbeit", source });
+    });
+  };
+  for (const raw of L) {
+    const line = raw.trim();
+    const von = line.match(/^von\s+(\d{1,2}\.\d{1,2}\.\d{4})\b/i);
+    if (von) { flush(); mon = parseDeDate(von[1]); texts = [[], [], [], [], []]; cur = -1; continue; }
+    if (!mon) continue;
+    if (/^Durch die nachfolgende Unterschrift/i.test(line)) { flush(); mon = null; cur = -1; continue; }
+    if (/^(Ausbildungswoche|Ausbildungsmonat|Ausbildungsnachweis|Ausbildungsjahr|bis\s+\d|Wochentag\b|sonstige Schulungen|Stunden$|Name des|Ggf\.|Betriebliche T|Datum, Unterschrift)/i.test(line)) continue;
+    const w = WEEKDAY_NAMES.findIndex((n) => line.startsWith(n + " ") || line === n);
+    let t = line;
+    if (w >= 0) { cur = w; t = line.slice(WEEKDAY_NAMES[w].length).trim(); }
+    if (cur < 0 || !t) continue;
+    texts[cur].push(t);
+  }
+  flush();
+  return out;
+}
+
+/** Gemeinsame Logik für Browser und Test: bekommt ein geladenes pdf.js-Dokument */
+export async function parsePdfDoc(pdf: { numPages: number; getPage(n: number): Promise<any> }, quals: string[], source: string): Promise<ImportedEntry[]> {
+  const lines: string[] = [];
+  const hourFree: string[] = [];
+  const fields: Record<string, string> = {};
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    // Formularfelder: stehen nicht im sichtbaren Text
+    try {
+      for (const a of (await page.getAnnotations()) as any[]) {
+        if (a.subtype !== "Widget" || !a.fieldName) continue;
+        const v = Array.isArray(a.fieldValue) ? a.fieldValue.join("\n") : String(a.fieldValue ?? "");
+        if (v.trim() && !(a.fieldName in fields)) fields[a.fieldName] = v;
+      }
+    } catch { /* ohne Felder weiter mit dem Text */ }
+    const content = await page.getTextContent();
+    // Textstücke nach Zeile (y) gruppieren, innerhalb der Zeile nach x sortieren; Spalten (große Lücken) trennen
+    const items = (content.items as any[]).filter((it) => "str" in it && it.str.trim()).map((it) => ({ s: it.str, x: it.transform[4], y: it.transform[5], w: it.width }));
+    const pageW: number = page.view?.[2] ?? 595;
+    const build = (src: typeof items) => {
+      const sorted = [...src].sort((a, b) => b.y - a.y || a.x - b.x);
+      const rows: { y: number; parts: typeof items }[] = [];
+      for (const it of sorted) {
+        const r = rows.find((row) => Math.abs(row.y - it.y) < 3);
+        if (r) r.parts.push(it); else rows.push({ y: it.y, parts: [it] });
+      }
+      rows.sort((a, b) => b.y - a.y);
+      return rows.map((r) => { r.parts.sort((a, b) => a.x - b.x); return r.parts.map((x) => x.s).join(" ").replace(/\s+/g, " ").trim(); });
+    };
+    lines.push(...build(items));
+    // Stundenspalte ganz rechts (nur Zahlen) für das Tagesnachweis-Layout getrennt behalten
+    hourFree.push(...build(items.filter((it) => !(/^\d{1,2}([,.]\d)?$/.test(it.s.trim()) && it.x > pageW * 0.75))));
+  }
+  if (isHhuForm(fields)) return parseHhuForm(fields, source);
+  if (lines.some((l) => /^Ausbildungswoche\b/i.test(l)) && lines.some((l) => /^von\s+\d/i.test(l))) { const t = parseTagesnachweis(hourFree, source); if (t.length) return t; }
+  return parseLines(lines, quals, source);
+}
+
 export async function parsePdf(bytes: ArrayBuffer, quals: string[], source: string): Promise<ImportedEntry[]> {
   const pdfjs = await import("pdfjs-dist");
   const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
-  const lines: string[] = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    // Textstücke nach Zeile (y) gruppieren, innerhalb der Zeile nach x sortieren; Spalten (große Lücken) trennen
-    const items = (content.items as any[]).filter((it) => "str" in it && it.str.trim()).map((it) => ({ s: it.str, x: it.transform[4], y: it.transform[5], w: it.width }));
-    items.sort((a, b) => b.y - a.y || a.x - b.x);
-    const rows: { y: number; parts: typeof items }[] = [];
-    for (const it of items) {
-      const r = rows.find((row) => Math.abs(row.y - it.y) < 3);
-      if (r) r.parts.push(it); else rows.push({ y: it.y, parts: [it] });
-    }
-    rows.sort((a, b) => b.y - a.y);
-    for (const r of rows) {
-      r.parts.sort((a, b) => a.x - b.x);
-      lines.push(r.parts.map((x) => x.s).join(" ").replace(/\s+/g, " ").trim());
-    }
-  }
-  return parseLines(lines, quals, source);
+  return parsePdfDoc(pdf, quals, source);
 }
 
 export async function parseFile(name: string, bytes: ArrayBuffer, quals: string[]): Promise<ImportedEntry[]> {

@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.9.2 – Firefox, PDF-Import, drei Vorlagen
+- **Firefox:** Die Web-App hing nach „Nur in diesem Browser speichern“, weil sie auf die Antwort von `navigator.storage.persist()` wartete. Firefox fragt dabei den Nutzer, die Antwort kann ausbleiben. Der Aufruf wird nicht mehr abgewartet. In einem echten Firefox 158 (Linux, ohne Fenster) getestet: Start, alle Hauptseiten, Export.
+- **Dateien-Seite ohne Ordner-Zugriff (Firefox, Safari):** Statt PC-Ordnern legt die App einen eigenen Ordner „Arbeit“ und „Schule“ im Browser-Speicher (OPFS) an. Dateien und Ordner ziehen oder auswählen (werden kopiert), Eda sortiert wie gewohnt. „Alles als ZIP laden“ nimmt den Ordner mit. Die Daten liegen nur in diesem Browser.
+- **PDF-Import:** Formularfelder werden gelesen (HHU-Wochenbericht und Fachbericht). Bisher kam bei diesen PDFs nichts an, weil die Einträge nicht im sichtbaren Text stehen. Berufsschule wird als Schule erkannt, „Urlaub“, „Sommerferien“ und „/“ werden nicht als Tätigkeit gezählt.
+- **PDF-Import, LaTeX-Tagesnachweis mit Stundenspalte:** Wochen werden erkannt, ein Tag wird satzweise in Notizen zerlegt, Umlaute (`t¨aglich`), Silbentrennung und die Stundenzahlen werden bereinigt. Das ist eine Heuristik.
+- **Drei eingebaute Vorlagen zur Auswahl** (System → Vorlage, am Handy Mehr → Berichtsheft-Vorlage, im Tutorial): IHK-Tageskarten (Standard, auch für Mediengestaltung), Tagesnachweis mit Stunden (Word, Stunden zum Ausfüllen), Wochenbericht öffentlicher Dienst (PDF-Formular, wird direkt ausgefüllt). Neue Platzhalter `{{VON}}`, `{{BIS}}`, `{{MONTAG_STUNDEN}}` …
+- Der Export-Knopf heißt jetzt „Exportieren“ (Word oder PDF je nach Vorlage). Neu: `pdf-lib` (läuft offline, wird nur beim PDF-Export geladen).
+- Tests: `tools/import-test.mts` (27 Prüfungen, nur erfundene Daten) und 7 neue Prüfungen für den Browser-Ordner in `tools/webfiles-test.mts` (jetzt 32).
+- Wiki-Seiten für GitLab liegen im Ordner `wiki/`.
+
 ## 0.9.1 – Das große Wort im Menü ist nicht mehr abgeschnitten
 - **Fehler behoben:** Das große senkrechte Wort links im Hauptmenü (PROJEKTE, BERICHTSHEFT, DATEIEN …) ragte über den linken Bildrand hinaus, etwa ein Viertel der Buchstabenhöhe fehlte. Es steht jetzt etwa 55 Pixel (Stage-Pixel, bei 1600 Breite) weiter rechts, die Buchstaben beginnen mit rund 15 Pixel Rand.
 - Gemessen wurde das für alle sechs Wörter ohne Figur davor: Die linke Kante der Buchstaben liegt 7,5 Pixel rechts von der Position des Elements. Ein Browser-Test sichert das ab.

@@ -64,4 +64,24 @@ await t("Erlaubnis fehlt: klare Meldung, exists lügt nicht, grant hilft", async
 await t("nicht freigegebener Ordner: klare Meldung", () => rej(fs.list("web:Unbekannt/x"), "nicht freigegeben"));
 await t("Pfad ohne web: wird abgelehnt", () => rej(fs.list("C:\\Users\\x"), "nicht aus dem Browser"));
 await t("Freigaben überleben einen Neustart (IndexedDB)", async () => { const { kvRead } = await import("../src/web/dataStore"); const r = await kvRead<{ key: string }[]>("fsroots"); must(!!r && r.some((x) => x.key === "Hauptordner")); });
+/* ---- Firefox & Co.: kein showDirectoryPicker → eigener Ordner im Browser (OPFS) ---- */
+console.log("Browser-Ordner (ohne Ordner-Zugriff)");
+const opfs = dir("opfs-root");
+delete (globalThis as any).showDirectoryPicker;
+Object.defineProperty(globalThis, "navigator", { value: { userAgent: "Mozilla/5.0 Firefox/158", storage: { getDirectory: async () => opfs } }, configurable: true });
+let br = "";
+await t("ohne Picker: pickFolder liefert den Browser-Ordner", async () => { br = (await fs.pickFolder("Hauptordner wählen"))!; must(br === "web:Browser-Ordner", br); });
+await t("Unterordner Arbeit/Schule lassen sich anlegen und listen (ohne Berechtigungsabfrage)", async () => { await fs.mkdir(br + "/Arbeit"); await fs.mkdir(br + "/Schule"); must(has(opfs, "azunavi-dateien/Arbeit")); must((await fs.list(br)).length === 2); must((await fs.tree(br)).children.length === 2); });
+await t("Titel „für Arbeit“/„für Schule“ geben getrennte Unterordner", async () => { must((await fs.pickFolder("Ordner für Arbeit wählen")) === br + "/Arbeit"); must((await fs.pickFolder("Ordner für Schule wählen")) === br + "/Schule"); });
+await t("Datei von außerhalb wird in den Browser-Ordner kopiert", async () => { const p = registerFile(new File(["BERICHT"], "rechnung.txt")); const r = await fs.move(p, br + "/Arbeit", null); must(r.mode === "copied" && txt(opfs, "azunavi-dateien/Arbeit/rechnung.txt") === "BERICHT"); });
+await t("Verschieben innerhalb des Browser-Ordners", async () => { const r = await fs.move(br + "/Arbeit/rechnung.txt", br + "/Schule", null); must(r.mode === "moved" && has(opfs, "azunavi-dateien/Schule/rechnung.txt") && !has(opfs, "azunavi-dateien/Arbeit/rechnung.txt")); });
+await t("grant braucht im Browser-Ordner keine Abfrage", async () => must((await fs.grant!(br)) === true));
+await t("ZIP-Export des Browser-Ordners enthält die Datei", async () => {
+  const urls: Blob[] = []; (globalThis as any).URL.createObjectURL = (b: Blob) => { urls.push(b); return "blob:x"; }; (globalThis as any).URL.revokeObjectURL = () => {};
+  (globalThis as any).document = { createElement: () => ({ click() {}, remove() {} }), body: { appendChild() {} } };
+  const { exportBrowserFolderZip } = await import("../src/web/webFiles");
+  const name = await exportBrowserFolderZip(); must(/^AzuNavi-Dateien-\d{4}-\d{2}-\d{2}\.zip$/.test(name), name);
+  const JSZip = (await import("jszip")).default; const z = await JSZip.loadAsync(await urls[0].arrayBuffer()); must(!!z.file("Schule/rechnung.txt"), Object.keys(z.files).join());
+});
+
 console.log(`\n${ok} bestanden, ${bad} fehlgeschlagen`); process.exit(bad ? 1 : 0);

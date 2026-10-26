@@ -11,8 +11,8 @@ import { undoMove } from "../mover";
 import { Assistant, DialogBox, prettyFolder } from "./Assistant";
 import { suggestProject } from "../util";
 import type { ScopeId } from "../items";
-import { canUseFolders, isWebApp, noDesktop } from "../platform";
-import { dropToPaths } from "../web/webFiles";
+import { canUseFolders, hasRealFolders, isWebApp, noDesktop } from "../platform";
+import { dropToPaths, exportBrowserFolderZip } from "../web/webFiles";
 
 const SCOPE_LABEL: Record<Scope, string> = { arbeit: "Arbeit", schule: "Schule" };
 const IMG = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
@@ -47,8 +47,8 @@ interface Preview { kind: "img" | "pdf" | "text" | "none" | "big" | "loading" | 
 export function FilesPage(props: { scope: ScopeId; escRef: MutableRefObject<(() => boolean) | null> }) {
   if (noDesktop && !(isWebApp && canUseFolders)) return (
     <div className="work"><div className="paperbox mobnote">
-      <b>{isWebApp ? "Dateien geht im Browser nur in Chrome oder Edge am PC." : "Dateien gibt es nur am PC."}</b>
-      <p>{isWebApp ? "Andere Browser und Handys dürfen keine Ordner freigeben. Öffne die Web-App in Chrome oder Edge am PC oder nutze das PC-Programm. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren überall ganz normal." : "Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal."}</p>
+      <b>{isWebApp ? "Dateien gibt es in der Web-App nur am PC, nicht auf dem Handy." : "Dateien gibt es nur am PC."}</b>
+      <p>{isWebApp ? "Handys lassen Web-Apps keine Ordner benutzen. Öffne die Web-App am PC (Firefox, Chrome oder Edge) oder nutze das PC-Programm. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren überall ganz normal." : "Android lässt Apps nicht frei auf deine Ordner zugreifen. Deine Notizen, Kontakte, Projekte und das Berichtsheft funktionieren hier ganz normal."}</p>
     </div></div>
   );
   return <FilesPageDesktop {...props} />;
@@ -319,6 +319,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
           <button className="mini" onClick={() => reloadAll(current)}>Aktualisieren</button>
           <button className="mini" onClick={async () => { setMoves(await listMoves()); setModal("history"); }}>Verlauf</button>
           <button className="mini" onClick={() => setModal("setup")}>Ordner ändern</button>
+          {isWebApp && !hasRealFolders && <button className="mini" onClick={() => act(async () => { flash(`${await exportBrowserFolderZip()} wurde heruntergeladen`); })}>Alles als ZIP laden</button>}
           {missing.length > 0 && <button className="mini hot" onClick={() => setModal("missing")}>{missing.length} nicht gefunden</button>}
         </div>
       </section>
@@ -410,12 +411,15 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
       {modal === "setup" && (
         <div className="fmodal"><div className="paperbox mbox">
           <h3>Ordner einrichten</h3>
-          <p>Die App zeigt deine <b>echten Ordner</b>. Alles, was du in „Arbeit“ und „Schule“ ablegst, im Explorer oder hier, erscheint automatisch. Du musst nichts nachbauen.</p>
+          {isWebApp && !hasRealFolders
+            ? <p>Dieser Browser (zum Beispiel Firefox) darf keine Ordner auf deinem PC öffnen. Deshalb legt die App <b>eigene Ordner „Arbeit“ und „Schule“ im Browser</b> an. Dateien ziehst du hinein oder wählst sie aus, Eda sortiert sie wie gewohnt. <b>Wichtig:</b> Die Ordner liegen nur in diesem Browser. Löschst du die Browserdaten, sind sie weg. Mit „Alles als ZIP laden“ sicherst du sie.</p>
+            : <p>Die App zeigt deine <b>echten Ordner</b>. Alles, was du in „Arbeit“ und „Schule“ ablegst, im Explorer oder hier, erscheint automatisch. Du musst nichts nachbauen.</p>}
           <p className="small">Aktuell: Arbeit = {roots?.arbeit?.replace(/^web:/, "") ?? "nicht gesetzt"} · Schule = {roots?.schule?.replace(/^web:/, "") ?? "nicht gesetzt"}</p>
           <div className="actions static">
-            <button className="btn fpickmain" onClick={chooseMainFolder}><span>Hauptordner wählen</span></button>
-            <button className="mini" onClick={() => chooseSingle("arbeit")}>Arbeit-Ordner einzeln wählen</button>
-            <button className="mini" onClick={() => chooseSingle("schule")}>Schule-Ordner einzeln wählen</button>
+            <button className="btn fpickmain" onClick={chooseMainFolder}><span>{isWebApp && !hasRealFolders ? "Ordner im Browser einrichten" : "Hauptordner wählen"}</span></button>
+            {hasRealFolders || !isWebApp ? <>
+              <button className="mini" onClick={() => chooseSingle("arbeit")}>Arbeit-Ordner einzeln wählen</button>
+              <button className="mini" onClick={() => chooseSingle("schule")}>Schule-Ordner einzeln wählen</button></> : null}
             {roots?.arbeit && roots?.schule && <button className="mini" onClick={() => setModal(null)}>Schließen</button>}
           </div>
           <p className="small">„Hauptordner wählen“: Darin legt die App die Ordner „Arbeit“ und „Schule“ an (gibt es sie schon, werden sie einfach benutzt). Es wird nichts verschoben oder gelöscht.</p>

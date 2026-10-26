@@ -9,7 +9,8 @@ import { deleteWeek, draftFromNotes, getMeta, getWeek, isAbsent, markExported, s
 import { fsapi } from "../fsapi";
 import { buildWeekDocx, readTemplateMeta } from "../report/weekDocx";
 import { buildSkillsDocx, type SkillRow } from "../report/skillsDocx";
-import { buildPlaceholderDocx, loadActiveTemplate } from "../report/templates";
+import { loadActiveTemplate } from "../report/templates";
+import { renderWeek, skillsBase } from "../report/renderWeek";
 import { buildFreeDocx } from "../report/freeTemplate";
 import { useQualsEnabled } from "../report/quals";
 import { SpellCheck } from "../spell/SpellCheck";
@@ -120,17 +121,13 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
       const tpl = await loadActiveTemplate();
       const kammer = (await getSetting("bh_kammer")) ?? "";
       const useQ = quals.length > 0 && await (await import("../report/quals")).qualsEnabled();
-      const bytes = tpl.info.kind === "platzhalter"
-        ? await buildPlaceholderDocx(tpl.bytes, draft, { ...meta, kammer })
-        : tpl.info.kind === "frei"
-          ? await buildFreeDocx(tpl.bytes, draft, { ...meta, kammer }, { quals: useQ, kammer })
-          : await buildWeekDocx(tpl.bytes, draft, meta, quals.map((q) => q.name), useQ);
+      const out = await renderWeek(tpl, draft, meta, kammer, quals.map((q) => q.name), useQ);
       const fs = await fsapi();
-      const path = await fs.saveFile(`Berichtsheft_KW${String(week).padStart(2, "0")}_${year}.docx`, bytes, "Word-Dokument", "docx");
+      const path = await fs.saveFile(`Berichtsheft_KW${String(week).padStart(2, "0")}_${year}.${out.ext}`, out.bytes, out.label, out.ext);
       if (!path) return;
       await saveWeek(draft); await markExported(year, week, path);
       setEdited(true); setExported({ at: new Date().toISOString(), path });
-      setCat({ pose: "zeigt", text: `Fertig! KW ${week} ist als Word-Datei gespeichert. Die Dropdowns kannst du in Word weiter ändern.`, path });
+      setCat({ pose: "zeigt", text: `Fertig! KW ${week} ist als ${out.ext === "pdf" ? "PDF" : "Word-Datei"} gespeichert. ${out.ext === "pdf" ? "Im PDF kannst du weiterschreiben und unterschreiben." : "Die Dropdowns kannst du in Word weiter ändern."}`, path });
     } catch (e) { setErr("Export fehlgeschlagen: " + String(e)); }
   };
 
@@ -148,7 +145,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
     if (!meta.name.trim()) { setTab("angaben"); setCat({ pose: "schreibt", text: "Trag zuerst deinen Namen ein, er steht oben auf der Übersicht." }); return; }
     try {
       const tpl = await loadActiveTemplate();
-      const bytes = await buildSkillsDocx(tpl.bytes, skills, meta, todayStr(), tpl.profile?.accent, tpl.profile?.accentLight);
+      const bytes = await buildSkillsDocx(await skillsBase(tpl, (await getSetting("bh_kammer")) ?? ""), skills, meta, todayStr(), tpl.profile?.accent, tpl.profile?.accentLight);
       const path = await (await fsapi()).saveFile(`Faehigkeiten_Uebersicht_${todayStr()}.docx`, bytes, "Word-Dokument", "docx");
       if (path) setCat({ pose: "zeigt", text: `Die Fähigkeiten-Übersicht ist gespeichert. ${used} von ${total} Qualifikationen sind belegt.`, path });
     } catch (e) { setErr("Export fehlgeschlagen: " + String(e)); }
@@ -161,7 +158,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
     : weekNotes.length === 0 && !edited ? { pose: "schlaeft", text: `In KW ${week} gibt es noch keine Notizen. Ich schlafe, bis du etwas festhältst.` }
     : !edited ? { pose: "sammelt", text: `Ich habe ${weekNotes.length} ${weekNotes.length === 1 ? "Notiz" : "Notizen"} aus KW ${week} eingesammelt. Prüf den Entwurf und exportiere ihn dann.` }
     : exported.at ? { pose: "zeigt", text: `KW ${week} wurde schon exportiert. Änderungen hier kannst du einfach nochmal exportieren.`, path: exported.path ?? undefined }
-    : { pose: "schreibt", text: "Deine Änderungen sind gespeichert. Wenn alles passt: Als Word exportieren." }
+    : { pose: "schreibt", text: "Deine Änderungen sind gespeichert. Wenn alles passt: exportieren." }
   );
   const dates = weekDates(year, week);
   const qualNames = quals.map((q) => q.name);
@@ -184,7 +181,7 @@ export function ReportPage({ escRef }: { scope: ScopeId; escRef: MutableRefObjec
         <div className="ractions">
           {tab === "woche" && <>
             <button className={"mini" + (armReset ? " hot" : "")} onClick={resetFromNotes}>{armReset ? "Änderungen verwerfen?" : "Neu aus Notizen"}</button>
-            <button className="btn" onClick={exportWeek}><span>Als Word exportieren</span></button>
+            <button className="btn" onClick={exportWeek}><span>Exportieren</span></button>
           </>}
           {tab === "faehig" && <button className="btn" onClick={exportSkills}><span>Übersicht als Word</span></button>}
         </div>

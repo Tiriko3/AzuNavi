@@ -6,7 +6,8 @@ import { draftFromNotes, getMeta, getWeek, markExported, saveWeek } from "../db/
 import { fsapi } from "../fsapi";
 import { qualsEnabled } from "../report/quals";
 import { buildFreeDocx } from "../report/freeTemplate";
-import { buildPlaceholderDocx, loadActiveTemplate } from "../report/templates";
+import { loadActiveTemplate } from "../report/templates";
+import { renderWeek } from "../report/renderWeek";
 import { PLACES, isoWeek, mondayOf, shortDate, weekDates, weekdayName, type WeekDraft } from "../report/types";
 import { buildWeekDocx, readTemplateMeta } from "../report/weekDocx";
 import { Icon } from "./ui";
@@ -40,14 +41,12 @@ export function ReportScreen({ toast, goProfile, celebrate }: { toast: (t: strin
       const kammer = (await getSetting("bh_kammer")) ?? "";
       const quals = await listQualifications();
       const useQ = quals.length > 0 && await qualsEnabled();
-      const bytes = tpl.info.kind === "platzhalter" ? await buildPlaceholderDocx(tpl.bytes, draft, { ...meta, kammer })
-        : tpl.info.kind === "frei" ? await buildFreeDocx(tpl.bytes, draft, { ...meta, kammer }, { quals: useQ, kammer })
-        : await buildWeekDocx(tpl.bytes, draft, meta, quals.map((q) => q.name), useQ);
-      const path = await (await fsapi()).saveFile(`Berichtsheft_KW${String(yw.week).padStart(2, "0")}_${yw.year}.docx`, bytes, "Word-Dokument", "docx");
+      const out = await renderWeek(tpl, draft, meta, kammer, quals.map((q) => q.name), useQ);
+      const path = await (await fsapi()).saveFile(`Berichtsheft_KW${String(yw.week).padStart(2, "0")}_${yw.year}.${out.ext}`, out.bytes, out.label, out.ext);
       setBusy("");
       if (!path) return;
       await saveWeek(draft); await markExported(yw.year, yw.week, path); setEdited(true);
-      celebrate(); toast(`Fertig! KW ${yw.week} liegt als Word-Datei bereit.`, "cara", "zeigt");
+      celebrate(); toast(`Fertig! KW ${yw.week} liegt als ${out.ext === "pdf" ? "PDF" : "Word-Datei"} bereit.`, "cara", "zeigt");
     } catch (e) { setBusy(""); setErr("Export fehlgeschlagen: " + String(e)); }
   };
 
@@ -84,7 +83,7 @@ export function ReportScreen({ toast, goProfile, celebrate }: { toast: (t: strin
       })}
       <div className="m-btnrow" style={{ marginTop: 8 }}>
         <button className="m-btn sec" onClick={() => load(true)}>{edited ? "Neu aus Notizen" : "Aus Notizen"}</button>
-        <button className="m-btn" disabled={!!busy} onClick={exportWord}><Icon n="export" />Word</button>
+        <button className="m-btn" disabled={!!busy} onClick={exportWord}><Icon n="export" />Export</button>
       </div>
       <p className="m-note">Der Export nutzt deine Vorlage (Mehr → Berichtsheft-Vorlage). Änderungen hier werden automatisch gespeichert.</p>
     </>

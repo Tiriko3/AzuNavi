@@ -2,6 +2,8 @@
 import JSZip from "jszip";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import bundledUrl from "../assets/berichtsheft-vorlage.docx?url";
+import tagesUrl from "../assets/vorlagen/tagesnachweis.docx?url";
+import hhuUrl from "../assets/vorlagen/hhu-wochenbericht.pdf?url";
 import { appRead, appWrite } from "../storage/appFiles";
 import { isWebApp } from "../platform";
 import { getSetting, inTauri, setSetting } from "../db/db";
@@ -12,7 +14,16 @@ import { buildStandardTemplate } from "./standard";
 import { makeEmptyCopy } from "./freeTemplate";
 
 // karten = Tageskarten wie die IHK-Vorlage, platzhalter = Word mit {{…}}, frei = jedes andere Layout (wird als Rahmen benutzt)
-export type TemplateKind = "karten" | "platzhalter" | "frei";
+export type TemplateKind = "karten" | "platzhalter" | "frei" | "pdf";
+/** Eingebaute Vorlagen zur Auswahl: IHK-Tageskarten (Standard), Tagesnachweis mit Stunden (Word), Wochenbericht öffentlicher Dienst (PDF-Formular) */
+export type BuiltinId = "ihk" | "tagesnachweis" | "hhu";
+export const BUILTINS: { id: BuiltinId; label: string; hinweis: string; ext: "docx" | "pdf" }[] = [
+  { id: "ihk", label: "IHK-Tageskarten", hinweis: "Standard: Word-Datei mit einer Karte pro Tag und Qualifikationen zum Wählen. Für IHK-Berufe, auch für Mediengestaltung.", ext: "docx" },
+  { id: "tagesnachweis", label: "Tagesnachweis mit Stunden", hinweis: "Word-Tabelle Montag bis Freitag mit Spalte „Stunden“ (zum Ausfüllen), Kopf mit Name, Jahr, Abteilung und Woche.", ext: "docx" },
+  { id: "hhu", label: "Wochenbericht öffentlicher Dienst (PDF-Formular)", hinweis: "Das PDF-Formular der HHU: Tage, Berufsschule und Unterweisungen werden direkt in die Felder geschrieben. Du kannst danach im PDF weiterschreiben und unterschreiben.", ext: "pdf" },
+];
+export const getBuiltinId = async (): Promise<BuiltinId> => { const v = (await getSetting("template_id")) ?? "ihk"; return (BUILTINS.some((b) => b.id === v) ? v : "ihk") as BuiltinId; };
+export const setBuiltinId = (id: BuiltinId) => setSetting("template_id", id);
 export interface TemplateInfo { kind: TemplateKind; quals: string[]; placeholders: string[] }
 const CUSTOM = "templates/vorlage.docx";
 let memCustom: ArrayBuffer | null = null; // nur Browser-Test
@@ -43,7 +54,7 @@ export async function saveCustomTemplate(bytes: ArrayBuffer) {
   else memCustom = bytes;
   await setSetting("custom_template", "1");
 }
-export async function useBundledTemplate() { await setSetting("custom_template", "0"); }
+export async function useBundledTemplate(id: BuiltinId = "ihk") { await setSetting("custom_template", "0"); await setBuiltinId(id); }
 
 /** Profil des Nutzers (Beruf + Fachrichtung) – null bei anderem Beruf */
 export async function activeProfile(): Promise<BerufProfile | null> {
@@ -57,7 +68,7 @@ export async function standardTemplateFor(prof: BerufProfile | null, kammerText:
 }
 
 /** Aktive Vorlage: deine hochgeladene, sonst die Standard-Vorlage deines Berufs */
-export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom: boolean; info: TemplateInfo; profile: BerufProfile | null }> {
+export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom: boolean; info: TemplateInfo; profile: BerufProfile | null; builtin: BuiltinId }> {
   let bytes: ArrayBuffer | null = null;
   if ((await getSetting("custom_template")) === "1") {
     try {
@@ -67,8 +78,11 @@ export async function loadActiveTemplate(): Promise<{ bytes: ArrayBuffer; custom
   }
   const custom = !!bytes;
   const profile = await activeProfile();
+  const builtin = custom ? "ihk" : await getBuiltinId();
+  if (!bytes && builtin === "hhu") return { bytes: await (await fetch(hhuUrl)).arrayBuffer(), custom: false, info: { kind: "pdf", quals: [], placeholders: [] }, profile, builtin };
+  if (!bytes && builtin === "tagesnachweis") bytes = await (await fetch(tagesUrl)).arrayBuffer();
   if (!bytes) bytes = await standardTemplateFor(profile, (await getSetting("bh_kammer")) ?? "");
-  return { bytes, custom, info: await analyzeTemplate(bytes), profile };
+  return { bytes, custom, info: await analyzeTemplate(bytes), profile, builtin };
 }
 
 /**
@@ -83,52 +97,4 @@ export async function adoptTemplate(bytes: ArrayBuffer, emptyIfFree = true, name
   return info.kind;
 }
 
-/* ---------- Vorlagen mit Platzhaltern ---------- */
-// Unterstützt: {{NAME}} {{BERUF}} {{BETRIEB}} {{AUSBILDER}} {{KAMMER}} {{KW}} {{JAHR}} {{ZEITRAUM}} {{WOCHE}}
-// und pro Tag {{MONTAG}} … {{SONNTAG}} (Tätigkeiten), {{MONTAG_DATUM}}, {{MONTAG_ORT}}, {{MONTAG_ANWESENHEIT}}
-const DAYNAMES = ["MONTAG", "DIENSTAG", "MITTWOCH", "DONNERSTAG", "FREITAG", "SAMSTAG", "SONNTAG"];
-export const PLACEHOLDER_HELP = ["NAME", "BERUF", "BETRIEB", "AUSBILDER", "KAMMER", "KW", "JAHR", "ZEITRAUM", "WOCHE", ...DAYNAMES, "MONTAG_DATUM", "MONTAG_ORT"];
-
-export async function buildPlaceholderDocx(template: ArrayBuffer, draft: WeekDraft, meta: ReportMeta & { kammer?: string }): Promise<Uint8Array> {
-  const zip = await JSZip.loadAsync(template);
-  const dates = weekDates(draft.year, draft.week);
-  const entryText = (d?: WeekDraft["days"][number]) => {
-    if (!d) return "";
-    if (!d.entries.length) return ABSENT_PLACES.includes(d.place) ? d.place : "";
-    return d.entries.map((e) => "• " + e.text.replace(/\s*\n+\s*/g, "; ") + (e.quals.length ? ` (${e.quals.join("; ")})` : "")).join("\n");
-  };
-  const vals: Record<string, string> = {
-    NAME: meta.name, BERUF: meta.beruf, BETRIEB: meta.betrieb, AUSBILDER: meta.ausbilder, KAMMER: meta.kammer ?? "",
-    KW: String(draft.week), JAHR: String(draft.year), ZEITRAUM: `${shortDate(dates[0])} – ${shortDate(dates[6])}`,
-    WOCHE: draft.days.map((d) => `${weekdayName(d.date)}, ${shortDate(d.date)}:\n${entryText(d) || "–"}`).join("\n"),
-  };
-  DAYNAMES.forEach((n, i) => {
-    const d = draft.days.find((x) => x.date === dates[i]);
-    vals[n] = entryText(d); vals[n + "_DATUM"] = shortDate(dates[i]);
-    vals[n + "_ORT"] = d?.place ?? ""; vals[n + "_ANWESENHEIT"] = d?.presence ?? "";
-  });
-  for (const name of Object.keys(zip.files).filter((n) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))) {
-    const doc = new DOMParser().parseFromString(await zip.file(name)!.async("string"), "text/xml");
-    for (const p of all(doc, "p")) {
-      const text = textOf(p);
-      if (!text.includes("{{")) continue;
-      const replaced = text.replace(/\{\{\s*([A-Za-zÄÖÜäöü_0-9]+)\s*\}\}/g, (_, k) => vals[String(k).toUpperCase()] ?? "");
-      const ts = all(p, "t");
-      const lines = replaced.split("\n");
-      setT(ts[0], lines[0]); ts.slice(1).forEach((t: any) => setT(t, ""));
-      const run = ts[0].parentNode;
-      let after = run;
-      for (const line of lines.slice(1)) {
-        const r = run.cloneNode(true);
-        kids(r).filter((k: any) => k.localName === "t").forEach((t: any, i: number) => { if (i) r.removeChild(t); });
-        const t = kids(r).find((k: any) => k.localName === "t");
-        r.insertBefore(doc.createElementNS(W, "w:br"), t);
-        setT(t, line);
-        run.parentNode.insertBefore(r, after.nextSibling);
-        after = r;
-      }
-    }
-    zip.file(name, new XMLSerializer().serializeToString(doc));
-  }
-  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-}
+export { buildPlaceholderDocx, PLACEHOLDER_HELP } from "./placeholderDocx";
