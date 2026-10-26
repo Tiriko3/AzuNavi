@@ -184,7 +184,8 @@ release:
       if (CI_PAGES_URL) links.push({ name: "Web-App (Browser, ohne Installation)", url: CI_PAGES_URL, link_type: "other" });
       const description = [
         "## AzuNavi " + V, "",
-        "**Android:** APK herunterladen, aufs Handy kopieren, antippen und die Installation aus dieser Quelle erlauben. Eine vorhandene App wird aktualisiert, die Daten bleiben.", "",
+        "**Windows:** unter „Packages“ das Setup (Installer) oder die portable Datei herunterladen und starten. Beim ersten Start wählst du einen Datenordner (z. B. in OneDrive); alte Daten früherer Versionen werden zur Übernahme angeboten, vorher wird eine Sicherung angelegt. (Das Windows-Paket erscheint, sobald es an das Release angehängt wurde.)", "",
+        "**Android:** APK herunterladen, aufs Handy kopieren, antippen und die Installation aus dieser Quelle erlauben. Eine vorhandene App wird aktualisiert. Beim ersten Start fragt sie, ob die alten Daten übernommen werden sollen: Bitte vorher in der alten Version eine Sicherung speichern (Mehr → Sicherung erstellen).", "",
         "**Browser (Windows, Linux, Mac, Handy):** die Web-App öffnen und in Edge oder Chrome auf „App installieren“ klicken.", "",
         notes,
       ].join("\n");

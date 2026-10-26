@@ -22,7 +22,7 @@ import { ensureLt } from "../spell/spell";
 import { applyDisplay, getDisplayMode, setWindowSize, type DisplayMode } from "../display";
 import { isDesktopApp, isMobile, isWebApp, noDesktop, usesDataFolder } from "../platform";
 import { MASCOT_NAME } from "../mascot";
-import type { NightMode } from "../night";
+import { validTime, type NightMode } from "../night";
 import { CHARACTERS } from "../chars";
 import { listGrants, revokeGrant, type GrantsList } from "../desktop/grants";
 
@@ -153,8 +153,11 @@ export function SystemPage({ db, muted, onToggleMute, escRef }: { db: DbStatus |
             <button className={"toggle" + (prefs.respectOs ? " on" : "")} onClick={() => setPrefs({ respectOs: !prefs.respectOs })}><i />{prefs.respectOs ? "an" : "aus"}</button></div>
           <div className="sysrow"><span>Nacht-Hintergrund (Mond)</span>
             <select value={prefs.night} onChange={(e) => setPrefs({ night: e.target.value as NightMode })}>
-              <option value="auto">Automatisch (21 bis 6 Uhr)</option><option value="an">Immer</option><option value="aus">Nie</option>
+              <option value="auto">Nach Uhrzeit</option><option value="an">Immer</option><option value="aus">Nie</option>
             </select></div>
+          {prefs.night === "auto" && <div className="sysrow"><span>Nacht von … bis …<br /><span className="small">Geht über Mitternacht. Gleiche Zeiten = nie.</span></span>
+            <span className="nighttimes"><input className="field" type="time" value={prefs.nightFrom} onChange={(e) => setPrefs({ nightFrom: validTime(e.target.value, prefs.nightFrom) })} aria-label="Nacht von" />
+              <input className="field" type="time" value={prefs.nightTo} onChange={(e) => setPrefs({ nightTo: validTime(e.target.value, prefs.nightTo) })} aria-label="Nacht bis" /></span></div>}
           <div className="sysrow"><span>Maskottchen ({MASCOT_NAME}, Caramella, Eda)</span>
             <button className={"toggle" + (prefs.mascot ? " on" : "")} onClick={() => setPrefs({ mascot: !prefs.mascot })}><i />{prefs.mascot ? "an" : "aus"}</button></div>
           <div className="sysrow"><span>Ton</span>

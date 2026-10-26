@@ -55,7 +55,7 @@ export default function App() {
   // Nacht (echte Uhrzeit): jede Minute neu prüfen, damit der Wechsel von allein passiert
   const [clock, setClock] = useState(0);
   useEffect(() => { const t = window.setInterval(() => setClock((c) => c + 1), 60_000); return () => window.clearInterval(t); }, []);
-  const night = useMemo(() => isNightNow(prefs.night), [prefs.night, clock]); // eslint-disable-line react-hooks/exhaustive-deps
+  const night = useMemo(() => isNightNow(prefs.night, new Date(), prefs.nightFrom, prefs.nightTo), [prefs.night, prefs.nightFrom, prefs.nightTo, clock]); // eslint-disable-line react-hooks/exhaustive-deps
   const POSES = charById(charId).poses;
   const busy = useRef(false);
   const [wheelTurn, setWheelTurn] = useState(3); // Ring-Drehung (zählt weiter, damit er nicht zurückspult)

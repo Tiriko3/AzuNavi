@@ -2,11 +2,11 @@
 // Werden in der Datenbank (settings) gespeichert und gelten sofort für die ganze App.
 import { createContext, useContext } from "react";
 import { getSetting, setSetting } from "./db/db";
-import type { NightMode } from "./night";
+import { NIGHT_FROM, NIGHT_TO, validTime, type NightMode } from "./night";
 import { osReducesMotion } from "./web/motion";
 
-export interface Prefs { font: number; anim: boolean; mascot: boolean; tutorialDone: boolean; night: NightMode; respectOs: boolean }
-export const DEFAULT_PREFS: Prefs = { font: 1, anim: true, mascot: true, tutorialDone: false, night: "auto", respectOs: false };
+export interface Prefs { font: number; anim: boolean; mascot: boolean; tutorialDone: boolean; night: NightMode; nightFrom: string; nightTo: string; respectOs: boolean }
+export const DEFAULT_PREFS: Prefs = { font: 1, anim: true, mascot: true, tutorialDone: false, night: "auto", nightFrom: NIGHT_FROM, nightTo: NIGHT_TO, respectOs: false };
 
 export async function loadPrefs(): Promise<Prefs> {
   const f = Number(await getSetting("pref_font"));
@@ -16,6 +16,8 @@ export async function loadPrefs(): Promise<Prefs> {
     mascot: (await getSetting("pref_mascot")) !== "0",
     tutorialDone: (await getSetting("tutorial_done")) === "1",
     respectOs: (await getSetting("pref_respect_os")) === "1",
+    nightFrom: validTime(await getSetting("pref_night_from"), NIGHT_FROM),
+    nightTo: validTime(await getSetting("pref_night_to"), NIGHT_TO),
     night: ((v) => (v === "an" || v === "aus" ? v : "auto") as NightMode)(await getSetting("pref_night")),
   };
 }
@@ -25,6 +27,8 @@ export async function savePrefs(p: Prefs) {
   await setSetting("pref_mascot", p.mascot ? "1" : "0");
   await setSetting("tutorial_done", p.tutorialDone ? "1" : "0");
   await setSetting("pref_night", p.night);
+  await setSetting("pref_night_from", p.nightFrom);
+  await setSetting("pref_night_to", p.nightTo);
   await setSetting("pref_respect_os", p.respectOs ? "1" : "0");
 }
 /** Einstellungen sofort auf die Seite anwenden (Schrift über eine CSS-Variable, Animationen über eine Klasse) */

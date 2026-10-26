@@ -61,7 +61,7 @@ Das ist normal: AzuNavi ist ein kostenloses Hobby-Projekt und nicht mit einem ko
 
 ## Erster Start: das Tutorial
 
-Beim ersten Start begrüßt dich **Nami**, ein kleiner Wassergeist, und führt dich durch die Einrichtung:
+Beim ersten Start begrüßt dich **Mizu**, ein kleiner Wassergeist, und führt dich durch die Einrichtung (deine Hauptfigur wählst du dabei selbst):
 
 <p align="center">
   <img src="docs/screenshots/02-tutorial-figuren.jpg" width="640" alt="Figurenauswahl im Tutorial">
@@ -148,9 +148,9 @@ Wenn du auch alle Daten entfernen willst: vorher in AzuNavi **System → App zur
 </details>
 
 <details>
-<summary><b>Bessere Grammatikprüfung mit LanguageTool (optional)</b></summary>
+<summary><b>Noch genauere Grammatikprüfung mit LanguageTool (optional, nur am PC)</b></summary>
 
-AzuNavi prüft Rechtschreibung von Haus aus (offline, mit Hunspell). Für eine richtige **Grammatikprüfung** kannst du LanguageTool einbinden – ebenfalls komplett offline:
+AzuNavi prüft Rechtschreibung und die häufigsten Grammatikfehler (Kommas, „das/dass“, „seit/seid“, Abkürzungen …) von Haus aus und überall, ohne Java und ohne Internet („Text prüfen“). Für eine noch genauere **Grammatikprüfung** kannst du zusätzlich LanguageTool einbinden – ebenfalls komplett offline:
 
 1. Java 17 oder neuer installieren, z. B. mit `winget install EclipseAdoptium.Temurin.21.JRE`
 2. Auf [languagetool.org](https://languagetool.org) die Offline-Version **„LanguageTool Desktop“** herunterladen und entpacken
@@ -224,7 +224,7 @@ AzuNavi läuft als Test auch auf Android-Handys (arm64, Querformat). Gebaut wird
 
 - Installation: APK aufs Handy laden, „Installation aus dieser Quelle erlauben“, öffnen.
 - Die Android-Zurück-Geste wirkt wie Esc. Über das Menü-Rad wischen dreht es.
-- Nur am PC: Dateien (echte Ordner), LanguageTool (Java), Anzeige-/Fenstereinstellungen, Desktop-Verknüpfung.
+- Nur am PC: Dateien (echte Ordner), LanguageTool (Java, optional), Anzeige-/Fenstereinstellungen, Desktop-Verknüpfung. „Text prüfen“ (Rechtschreibung und Grammatik) gibt es auch am Handy.
 - Für Updates ohne Datenverlust einen eigenen Signaturschlüssel als GitHub-Secret hinterlegen (siehe `.github/workflows/android.yml`).
 
 ## Sicherung in deiner Cloud (OneDrive & Co.)
@@ -242,6 +242,6 @@ AzuNavi läuft auch im Browser, bereitgestellt über **GitLab Pages** auf dem in
 - **Nur im Browser speichern:** für Handy-Browser, Firefox oder zum Ausprobieren. Übertragen geht über System → „Daten mitnehmen“.
 - **Installieren ohne Admin-Rechte:** In Edge/Chrome in der Adressleiste auf „App installieren“. Einmal installiert, läuft AzuNavi auch offline, z. B. zu Hause außerhalb des Firmennetzes. Neue Versionen kommen, sobald du wieder im Firmennetz bist.
 - **Gleichzeitig auf zwei Geräten:** AzuNavi warnt, wenn der Ordner woanders gerade offen ist. Das zuletzt speichernde Gerät gewinnt.
-- **Noch nicht im Browser:** Dateien-Seite und Grammatikprüfung (LanguageTool braucht Java).
+- **Noch nicht im Browser:** die Dateien-Seite (echte Ordner) und LanguageTool (braucht Java). „Text prüfen“ mit der eingebauten Grammatikprüfung geht auch im Browser.
 
 **Bauen und veröffentlichen:** Die Pipeline (`.gitlab-ci.yml`) baut bei jedem Versions-Tag `v…` die Web-App (GitLab Pages), die Android-APK und auf Wunsch das Windows-Programm. Die Dateien liegen danach unter *Deploy → Package Registry → azunavi*. Einrichtung: `docs/GITLAB-UMZUG.md`. Lokal bauen: `npm run build:web` (Ergebnis in `dist-web/`, läuft unter jeder Adresse).

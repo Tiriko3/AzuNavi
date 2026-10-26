@@ -1,5 +1,26 @@
 # Änderungen
 
+## 0.9.0 – Neuer Leo
+- **Leo ist komplett neu gestaltet** (in Canva erzeugt): ein junger Mann mit sandblonden, zurückgekämmten Haaren, grün-grauen Augen, weißem Hemd mit hochgekrempelten Ärmeln, marineblauer Weste, lockerer cyanblauer Krawatte, Azubi-Karte am Band und Kopfhörern um den Hals. Er ersetzt den alten Leo (silbergraue Haare, Strickjacke), dessen Kopf in den Original-Dateien oben abgeschnitten war.
+- Sechs Posen, eine pro Menüpunkt: schreibt (Notizen), winkt (Kontakte), liest ein Blatt (Berichtsheft), zeigt nach oben rechts (Projekte), trägt eine Kiste mit Ordnern (Dateien), tippt auf dem Tablet (System). Der Kopf ist überall vollständig.
+- Freigestellt und mit Real-ESRGAN auf 2160 Pixel Höhe (4K) hochskaliert (`tools/make-leo.py`). Die Datei-Namen bleiben (`figuren/chars/leo/<menüpunkt>.webp`), die Auswahl in Tutorial und System zeigt automatisch den neuen Leo.
+- Wer Leo schon gewählt hatte, behält ihn, mit neuem Aussehen.
+
+
+## 0.8.2 – Leos Scheitel richtig gerundet
+- **Fehler aus 0.8.1 behoben:** Die in 0.8.1 nachgezeichneten Scheitel (Leo, teils Kai, Mira, Nova, Ruby) sahen in der Vergrößerung wie eine flache graue Scheibe aus, die auf dem Kopf sitzt. Ursache: Die Kuppe war zu hoch und setzte mit senkrechten Seiten an. Jetzt wird die Rundung aus der echten Kontur berechnet (ein Kreis durch die Breite am Schnitt und etwas weiter unten) und setzt die Kopfform glatt fort, ohne Absatz und ohne eigenen Rand. Die Haarstruktur kommt gespiegelt aus den Zeilen darunter. Die Ergänzung ist 4 bis 39 Pixel hoch (bei 2160 Pixel Bildhöhe), je nachdem, wie viel in der Quelldatei fehlte. 12 Bilder (`tools/fix-heads.py`).
+- Sonst unverändert gegenüber 0.8.1.
+
+## 0.8.1 – Feinschliff nach dem Test
+- **Tutorial, Dateien-Schritt:** Wenn der „Ordner einrichten“-Dialog nicht offen war, zeigte der Pfeil nach oben links (auf einen gesperrten Bereich) und nichts war anklickbar. Jetzt ist auch der Knopf „Einrichten“ erlaubt und das Ziel des Pfeils, und der Text sagt, was zu tun ist (in der Mitte „Hauptordner wählen“, sonst zuerst „Einrichten“).
+- **Eda** stellt sich vor als „dein **E**lektronischer **D**atei-**A**ssistent“ (Tutorial und Menü-Beschreibung).
+- **Nacht-Zeiten frei wählbar:** System → Nacht-Hintergrund → „Nach Uhrzeit“ → von … bis … (geht über Mitternacht, gleiche Zeiten = nie). Wer 00:00 bis 23:59 einstellt, hat den Mond fast immer; „Immer“ und „Nie“ bleiben.
+- **Figuren größer:** Alle Hauptfiguren außer dem „Original“ stehen jetzt größer (840 statt 700 Pixel Höhe) und etwas weiter rechts, damit sie im Menü nicht mehr verloren wirken. Die Bilder sind weiter 4K.
+- **Leos Kopf:** Bei Leo (und bei einigen Posen von Kai, Mira, Nova, Ruby) war der Scheitel oben am Bildrand abgeschnitten. Das war schon in den ursprünglichen Dateien so. Die fehlende Rundung wird jetzt aus der Kopfform nachgezeichnet (`tools/fix-heads.py`), 12 Bilder. Caramella und Eda bleiben unverändert.
+- **Aufgeräumt:** README (Mizu, Grammatikprüfung ohne Java), `docs/ENTWICKLUNG.md` komplett neu, `Cargo.lock` auf der richtigen Version, der Release-Text nennt jetzt Windows und die Übernahme der alten Daten am Handy.
+- Neu: `tools/night-test.mts`, Browser-Tests für den Tutorial-Schritt und die Nacht-Zeiten.
+
+
 ## 0.8.0 – Wasser-Übergang beim Seitenwechsel, Lichtnetz bei Nacht
 - **Wasser-Übergang:** Beim Öffnen und Schließen einer Seite läuft jetzt der Wasser-Burst aus deinem neuen Video: eine Splash-Krone, Wellenringe und ein großer Burst, der den Bildschirm füllt und wieder freigibt. Genau wenn er alles bedeckt, wechselt die Seite darunter. Das Video ist Bild für Bild mit Real-ESRGAN auf 2560×1440 hochskaliert (etwa 1,2 Sekunden, etwas schneller abgespielt als im Original). Bei „Animationen aus“ (oder wenn das Abspielen nicht klappt) läuft der alte Übergang mit den drei Balken.
 - **Lichtnetz bei Nacht:** Im Nacht-Hintergrund liegt unter dem Mond das dunkle Lichtnetz aus dem Video (schimmernde Wasseroberfläche mit rosa Funken, nahtlose Schleife).

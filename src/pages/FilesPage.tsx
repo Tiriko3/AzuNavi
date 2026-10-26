@@ -401,7 +401,7 @@ function FilesPageDesktop({ scope, escRef }: { scope: ScopeId; escRef: MutableRe
           <div className="paperbox hintcard">
             <h3>Dateien</h3>
             <p>Richte zuerst deine beiden Hauptordner ein.</p>
-            <button className="btn" onClick={() => setModal("setup")}><span>Einrichten</span></button>
+            <button className="btn fsetupbtn" onClick={() => setModal("setup")}><span>Einrichten</span></button>
           </div>
         )}
       </section>

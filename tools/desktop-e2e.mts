@@ -312,6 +312,10 @@ console.log("I: System → Freigaben ansehen und entziehen");
   await all.click(); await all.click(); await p.waitForTimeout(400);
   check(be.st.gfiles.length === 0 && be.st.undo === 0 && be.st.roots.length === 1, "„Alle entziehen“ entzieht Dateien, der Ordner bleibt");
   check(!(await text(p)).includes("verknüpfte Datei"), "Zeile für Einzeldateien verschwindet");
+  check((await p.locator(".nighttimes input").count()) === 2 && (await p.locator("#stage[data-night]").count()) === 0, "Nacht von/bis: zwei Zeitfelder, tagsüber keine Nacht");
+  await p.locator(".nighttimes input").nth(0).fill("00:00"); await p.locator(".nighttimes input").nth(1).fill("23:59");
+  await p.waitForSelector("#stage[data-night]", { state: "attached", timeout: 5000 });
+  check(true, "eigene Nacht-Zeiten (00:00 bis 23:59) schalten den Mond ein");
   check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }
@@ -452,7 +456,8 @@ console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur 
     if (i === 0) { await p.waitForTimeout(380); check(await p.evaluate(() => getComputedStyle(document.querySelector(".splashvid")!).opacity === "1"), "Wasser-Übergang läuft beim Seitenwechsel"); await shot(p, "21-splash"); }
     await p.waitForSelector("#page.show", { timeout: 5000 }); await p.waitForTimeout(900);
     if (i === 0) check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("webp") || getComputedStyle(document.querySelector(".secbg")!).backgroundImage.includes("url")), "Seite hat ihr Hintergrundbild");
-    if ((await p.locator(".emptyart:visible").count()) > 0) { emptyPages++; check((await p.locator(".emptymizu:visible").count()) === 1, "leere Seite zeigt Mizu"); }
+    let seenArt = false; for (let k = 0; k < 14 && !seenArt; k++) { seenArt = (await p.locator(".emptyart:visible").count()) > 0; if (!seenArt) await p.waitForTimeout(250); }   // die Seite lädt erst aus der Datenbank
+    if (seenArt) { emptyPages++; check((await p.locator(".emptymizu:visible").count()) === 1, "leere Seite zeigt Mizu"); }
     await shot(p, `16-seite-${i}-${n}`);
     await p.keyboard.press("Escape"); await p.waitForSelector("#page", { state: "detached", timeout: 5000 }); await p.waitForTimeout(1300);
   }
@@ -472,6 +477,28 @@ for (const [hour, expectNight] of [[23, true], [3, true], [12, false], [20, fals
     check(await p.evaluate(() => getComputedStyle(document.querySelector(".secbg")!).backgroundImage.length > 20), "Seite bei Nacht mit Hintergrund");
     await shot(p, "20-nacht-seite");
   }
+  await s.ctx.close();
+}
+
+
+console.log("P: Tutorial: Dateien-Schritt mit Eda lässt sich bedienen");
+{
+  const be = makeBackend(); const s = await session(be, { hour: 12, animOff: true }); const p = await s.open();
+  await p.click("text=Datenordner wählen"); await p.click("text=Ohne Passwort weiterarbeiten"); await p.click("button:has-text('Ohne alte Daten starten')");
+  await p.waitForSelector("text=Tutorial überspringen", { timeout: 25000 });
+  await p.click("button:has-text('Starten')"); await p.waitForTimeout(500);
+  await p.fill("label:has-text('Vorname') input", "Test"); await p.fill("label:has-text('Nachname') input", "Azubi");
+  await p.selectOption("select.field >> nth=0", { index: 1 });
+  let reached = false;
+  for (let i = 0; i < 24 && !reached; i++) {
+    reached = (await text(p)).toLowerCase().includes("elektronischer datei-assistent");
+    if (!reached) { await p.locator(".tutfoot .btn:not(.ghost)").first().click({ timeout: 4000 }).catch(() => {}); await p.waitForTimeout(700); }
+  }
+  check(reached, "Eda stellt sich als „Elektronischer Datei-Assistent“ vor");
+  await p.waitForTimeout(1200);
+  let clicked = true; try { await p.locator(".fpickmain").click({ timeout: 4000 }); } catch { clicked = false; }
+  check(clicked, "„Hauptordner wählen“ in der Mitte ist anklickbar (nicht gesperrt)");
+  check(s.errors.length === 0, "keine Fehler im Fenster: " + s.errors.join(" | ").slice(0, 200));
   await s.ctx.close();
 }
 
