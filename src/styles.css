@@ -28,7 +28,7 @@ body{margin:0;height:100%;background:#04106b;overflow:hidden;display:flex;align-
 @keyframes heroIn{0%{opacity:0;transform:translateX(-70px) skewX(-8deg)}55%{opacity:1}100%{opacity:1;transform:none}}
 #depth{position:absolute;inset:0;background:radial-gradient(60% 50% at 70% 8%,rgba(160,245,255,.55),transparent 70%)}
 
-#bigword{text-transform:uppercase;position:absolute;left:-62px;top:1000px;font:italic 900 330px/0.85 var(--display);color:#e6efff;text-shadow:14px 10px 0 #1457ff;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;letter-spacing:-6px;pointer-events:none}
+#bigword{text-transform:uppercase;position:absolute;left:8px;top:1000px;font:italic 900 330px/0.85 var(--display);color:#e6efff;text-shadow:14px 10px 0 #1457ff;transform:rotate(-90deg);transform-origin:0 0;white-space:nowrap;letter-spacing:-6px;pointer-events:none}
 #bigword.swap{animation:bw .32s cubic-bezier(.2,.9,.3,1)}
 @keyframes bw{from{opacity:0;transform:rotate(-90deg) translateX(-160px)}to{opacity:1;transform:rotate(-90deg) translateX(0)}}
 

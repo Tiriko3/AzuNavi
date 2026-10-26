@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.9.1 – Das große Wort im Menü ist nicht mehr abgeschnitten
+- **Fehler behoben:** Das große senkrechte Wort links im Hauptmenü (PROJEKTE, BERICHTSHEFT, DATEIEN …) ragte über den linken Bildrand hinaus, etwa ein Viertel der Buchstabenhöhe fehlte. Es steht jetzt etwa 55 Pixel (Stage-Pixel, bei 1600 Breite) weiter rechts, die Buchstaben beginnen mit rund 15 Pixel Rand.
+- Gemessen wurde das für alle sechs Wörter ohne Figur davor: Die linke Kante der Buchstaben liegt 7,5 Pixel rechts von der Position des Elements. Ein Browser-Test sichert das ab.
+
+
 ## 0.9.0 – Neuer Leo
 - **Leo ist komplett neu gestaltet** (in Canva erzeugt): ein junger Mann mit sandblonden, zurückgekämmten Haaren, grün-grauen Augen, weißem Hemd mit hochgekrempelten Ärmeln, marineblauer Weste, lockerer cyanblauer Krawatte, Azubi-Karte am Band und Kopfhörern um den Hals. Er ersetzt den alten Leo (silbergraue Haare, Strickjacke), dessen Kopf in den Original-Dateien oben abgeschnitten war.
 - Sechs Posen, eine pro Menüpunkt: schreibt (Notizen), winkt (Kontakte), liest ein Blatt (Berichtsheft), zeigt nach oben rechts (Projekte), trägt eine Kiste mit Ordnern (Dateien), tippt auf dem Tablet (System). Der Kopf ist überall vollständig.

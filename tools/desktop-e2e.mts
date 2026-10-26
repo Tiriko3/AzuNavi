@@ -295,7 +295,8 @@ console.log("I: System → Freigaben ansehen und entziehen");
   await p.click("text=Tutorial überspringen"); await p.waitForTimeout(500);
   for (let i = 0; i < 7 && !(await text(p)).includes("Ton, Datenbank und Einstellungen"); i++) { await p.keyboard.press("ArrowDown"); await p.waitForTimeout(450); }
   await p.keyboard.press("Enter");
-  await p.waitForSelector("text=Freigegebene Ordner", { timeout: 15000 });
+  try { await p.waitForSelector("text=Freigegebene Ordner", { timeout: 15000 }); }
+  catch (err) { console.log("DEBUG Szenario I: Seite offen:", await p.locator("#page.show").count(), "| Splash-Deckkraft:", await p.evaluate(() => getComputedStyle(document.querySelector(".splashvid") ?? document.body).opacity), "| Text:", (await text(p)).replace(/\n+/g, " | ").slice(0, 300)); await p.screenshot({ path: "/tmp/shots/43-i-fehler.png" }); throw err; }
   let t = await text(p);
   check(t.includes("2 Ordner, 1 Datei(en)"), "Zusammenfassung: 2 Ordner, 1 Datei");
   check(t.includes("C:\\Users\\Test\\Arbeit") && t.includes("C:\\Users\\Test\\Schule"), "beide Ordner mit Pfad aufgelistet");
@@ -445,6 +446,7 @@ console.log("N: Design 0.7.0: Wasser statt Formen, 4K-Hintergründe, Hauptfigur 
   check(await p.evaluate(() => { const v = document.querySelector("#waterbg video") as HTMLVideoElement | null; return !!v && !v.paused && v.currentTime > 0; }), "Wasser läuft");
   { const t1 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime); await p.waitForTimeout(1300); const t2 = await p.evaluate(() => (document.querySelector("#waterbg video") as HTMLVideoElement).currentTime); check(t1 !== t2, `Wasser bewegt sich (${t1.toFixed(2)} → ${t2.toFixed(2)} s)`); }
   check((await p.locator("#caustics, .petal, #petals, .blob, .liquid").count()) === 0, "die alten Formen und Teilchen sind weg");
+  check(await p.evaluate(() => parseFloat(getComputedStyle(document.getElementById("bigword")!).left) + 7.5 >= 8), "das große Wort links ragt nicht über den Bildrand (Tinte beginnt 7,5 px rechts von left)");
   check((await p.locator("#nightbg").count()) === 0, "tagsüber kein Nacht-Bild");
   const hero = await p.evaluate(() => { const i = document.querySelector("#avatarimg") as HTMLImageElement; return i.naturalHeight; });
   check(hero >= 2000, "Hauptfigur in hoher Auflösung: " + hero + " px");
